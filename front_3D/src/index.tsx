@@ -1,44 +1,52 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import './styles/landing.css';
 
 const LandingPage: React.FC = () => {
     const navigate = useNavigate();
     const token = localStorage.getItem('token');
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     const handleLogout = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         navigate('/');
-        window.location.reload(); // Force refresh to update index state
+        window.location.reload();
     };
 
     return (
-        <div className="landing-page">
+        <div className={`landing-page ${isMenuOpen ? 'menu-open' : ''}`}>
             <nav className="navbar">
                 <div className="logo" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>ANATOMY<span>3D</span></div>
-                <div className="nav-links">
-                    <a href="#features">Fonctionnalités</a>
-                    <a href="#about">À propos</a>
-                </div>
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    {!token ? (
-                        <>
-                            <Link to="/login" style={{ textDecoration: 'none', color: 'var(--text-main)', fontWeight: '700', padding: '10px 20px' }}>Connexion</Link>
-                            <Link to="/register" className="btn-nav">S'inscrire</Link>
-                        </>
-                    ) : (
-                        <>
-                            <Link to="/dash" style={{ textDecoration: 'none', color: 'var(--text-main)', fontWeight: '700', padding: '10px 20px' }}>Dashboard</Link>
-                            <button onClick={handleLogout} className="btn-nav" style={{ border: 'none', cursor: 'pointer' }}>Déconnexion</button>
-                        </>
-                    )}
+                
+                <button className="mobile-toggle" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+                    {isMenuOpen ? '×' : '☰'}
+                </button>
+
+                <div className={`nav-container ${isMenuOpen ? 'open' : ''}`}>
+                    <div className="nav-links">
+                        <a href="#features" onClick={() => setIsMenuOpen(false)}>Fonctionnalités</a>
+                        <a href="#about" onClick={() => setIsMenuOpen(false)}>À propos</a>
+                    </div>
+                    <div className="nav-auth">
+                        {!token ? (
+                            <>
+                                <Link to="/login" className="link-login">Connexion</Link>
+                                <Link to="/register" className="btn-nav">S'inscrire</Link>
+                            </>
+                        ) : (
+                            <>
+                                <Link to="/dash" className="link-login">Dashboard</Link>
+                                <button onClick={handleLogout} className="btn-nav btn-logout">Déconnexion</button>
+                            </>
+                        )}
+                    </div>
                 </div>
             </nav>
 
             <header className="hero">
                 <div className="hero-content">
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: 'rgba(12, 121, 242, 0.08)', color: 'var(--primary)', borderRadius: '100px', fontSize: '11px', fontWeight: '800', marginBottom: '20px', border: '1px solid rgba(12, 121, 242, 0.15)' }}>
+                    <div className="hero-badge">
                         <span>L'anatomie à portée de main au Bénin 🇧🇯</span>
                     </div>
                     <h1>
@@ -68,7 +76,7 @@ const LandingPage: React.FC = () => {
             <section className="features" id="features">
                 <div className="section-header">
                     <h2>Une Expérience d'Apprentissage Incomparable</h2>
-                    <p style={{ color: 'var(--text-muted)', maxWidth: '700px', margin: '0 auto' }}>
+                    <p className="section-subtitle">
                         Découvrez une nouvelle façon d'explorer le corps humain grâce à nos outils de visualisation optimisés.
                     </p>
                 </div>
@@ -98,60 +106,53 @@ const LandingPage: React.FC = () => {
                 </div>
             </section>
 
-            <section id="about" style={{ padding: '100px 10%', display: 'flex', gap: '80px', alignItems: 'center', background: 'var(--bg-white)' }}>
-                <div style={{ flex: 0.7, display: 'flex', justifyContent: 'center' }}>
+            <section className="about-section" id="about">
+                <div className="about-image">
                     <img 
                         src="https://i.pinimg.com/736x/82/33/2c/82332cb942af1f447c67e24b650a1a82.jpg" 
                         alt="Mobile Preview" 
-                        style={{ width: '100%', maxWidth: '450px', borderRadius: '30px', boxShadow: '0 40px 80px rgba(0,0,0,0.15)' }} 
                     />
                 </div>
-                <div style={{ flex: 1 }}>
-                    <h2 style={{ fontSize: '42px', fontWeight: '800', marginBottom: '24px' }}>Au service de l'Excellence Médicale au Bénin.</h2>
-                    <p style={{ fontSize: '18px', color: 'var(--text-muted)', marginBottom: '32px' }}>
+                <div className="about-content">
+                    <h2>Au service de l'Excellence Médicale au Bénin.</h2>
+                    <p>
                         Développé spécifiquement pour répondre aux défis des étudiants de la <strong>FSS</strong> et de la <strong>FM</strong>, ce projet vise à démocratiser l'accès à des outils pédagogiques de pointe.
                     </p>
-                    <p style={{ fontSize: '18px', color: 'var(--text-muted)', marginBottom: '32px' }}>
+                    <p>
                         Notre technologie de compression Draco permet de naviguer parmi des milliers de polygones sur n'importe quel smartphone, garantissant une fluidité de 30 FPS.
                     </p>
-                    <ul style={{ listStyle: 'none' }}>
-                        <li style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px', fontWeight: '600' }}>
-                           <span style={{ color: 'var(--primary)' }}>✓</span> Optimisé pour les terminaux mobiles
-                        </li>
-                        <li style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px', fontWeight: '600' }}>
-                           <span style={{ color: 'var(--primary)' }}>✓</span> Données médicales validées
-                        </li>
-                        <li style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px', fontWeight: '600' }}>
-                           <span style={{ color: 'var(--primary)' }}>✓</span> Initiative éducative locale
-                        </li>
+                    <ul className="check-list">
+                        <li><span>✓</span> Optimisé pour les terminaux mobiles</li>
+                        <li><span>✓</span> Données médicales validées</li>
+                        <li><span>✓</span> Initiative éducative locale</li>
                     </ul>
                 </div>
             </section>
 
-            <footer style={{ padding: '80px 10% 40px', background: '#09111A', color: 'white' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr', gap: '80px', marginBottom: '60px' }}>
-                    <div>
-                        <div className="logo" style={{ color: 'white', marginBottom: '24px' }}>ANATOMY<span style={{ color: 'var(--primary)' }}>3D</span></div>
-                        <p style={{ color: 'var(--grey-60)', lineHeight: '1.8' }}>
+            <footer className="landing-footer">
+                <div className="footer-grid">
+                    <div className="footer-info">
+                        <div className="logo white">ANATOMY<span>3D</span></div>
+                        <p>
                             Simplifier l'apprentissage de l'anatomie grâce à la technologie 3D haute définition. Une initiative dédiée à l'excellence médicale.
                         </p>
                     </div>
-                    <div>
-                        <h4 style={{ marginBottom: '24px', fontSize: '18px' }}>Ressources</h4>
-                        <ul style={{ listStyle: 'none', color: 'var(--n-grey-40)', display: 'grid', gap: '12px' }}>
+                    <div className="footer-links">
+                        <h4>Ressources</h4>
+                        <ul>
                             <li>Documentation</li>
                             <li>Tutoriels 3D</li>
                         </ul>
                     </div>
-                    <div>
-                        <h4 style={{ marginBottom: '24px', fontSize: '18px' }}>Contact</h4>
-                        <ul style={{ listStyle: 'none', color: 'var(--n-grey-40)', display: 'grid', gap: '12px' }}>
+                    <div className="footer-links">
+                        <h4>Contact</h4>
+                        <ul>
                             <li>Support technique</li>
                             <li>FSS / Université d'Abomey-Calavi</li>
                         </ul>
                     </div>
                 </div>
-                <div style={{ paddingTop: '40px', borderTop: '1px solid rgba(255,255,255,0.05)', textAlign: 'center', color: 'var(--n-grey-60)', fontSize: '14px' }}>
+                <div className="footer-bottom">
                     © 2026 Anatomy 3D Explorer. L'anatomie à portée de main au Bénin.
                 </div>
             </footer>

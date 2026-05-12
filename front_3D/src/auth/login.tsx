@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useLanguage } from '../contexts/LanguageContext';
 import '../styles/auth.css';
 import { authService } from '../services/api';
 
 const Login: React.FC = () => {
     const navigate = useNavigate();
+    const { language, setLanguage } = useLanguage();
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [email, setEmail] = useState('');
@@ -38,7 +40,7 @@ const Login: React.FC = () => {
             navigate('/dash');
             window.location.reload(); // Pour forcer la mise à jour des Guards et du Layout App
         } catch (err: any) {
-            setError(err.message || 'Identifiants incorrects');
+            setError(err.message || (language === 'fr' ? 'Identifiants incorrects' : 'Invalid credentials'));
         } finally {
             setIsLoading(false);
         }
@@ -50,20 +52,26 @@ const Login: React.FC = () => {
                 backgroundImage: `linear-gradient(rgba(12, 121, 242, 0.4), rgba(9, 17, 26, 0.8)), url('https://i.pinimg.com/736x/4b/27/47/4b2747b08ef05c33ff24a6e155bdc3ec.jpg')`
             }}>
                 <div className="auth-side-content">
-                    <h2>L'excellence dans l'apprentissage de l'anatomie.</h2>
-                    <p>Accédez à des outils de visualisation 3D de haute précision pour approfondir vos connaissances médicales.</p>
+                    <h2>{language === 'fr' ? "L'excellence dans l'apprentissage de l'anatomie." : "Excellence in anatomy learning."}</h2>
+                    <p>{language === 'fr' ? "Accédez à des outils de visualisation 3D de haute précision pour approfondir vos connaissances médicales." : "Access high-precision 3D visualization tools to deepen your medical knowledge."}</p>
                 </div>
             </div>
 
             <div className="auth-form-section">
-                <Link to="/" className="back-to-home">← Retour à l'accueil</Link>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingTop: '10px' }}>
+                    <Link to="/" className="back-to-home">← {language === 'fr' ? "Retour à l'accueil" : "Back to Home"}</Link>
+                    <div className="lang-switcher-auth">
+                        <button onClick={() => setLanguage('fr')} className={language === 'fr' ? 'active' : ''}>FR</button>
+                        <button onClick={() => setLanguage('en')} className={language === 'en' ? 'active' : ''}>EN</button>
+                    </div>
+                </div>
                 
                 <div className="auth-container">
                     <div className="auth-logo">ANATOMY<span>3D</span></div>
                     
                     <header className="auth-header">
-                        <h1>Bon retour parmis nous</h1>
-                        <p>Veuillez entrer vos identifiants pour vous connecter.</p>
+                        <h1>{language === 'fr' ? "Connexion" : "Login"}</h1>
+                        <p>{language === 'fr' ? "Accédez à votre espace Anatomy 3D Explorer." : "Access your Anatomy 3D Explorer space."}</p>
                     </header>
 
                     {error && <div style={{ background: '#ffeeee', color: '#e30000', padding: '12px', borderRadius: '8px', marginBottom: '20px', fontSize: '14px', fontWeight: '600', textAlign: 'center', border: '1px solid #ffcccc' }}>{error}</div>}
@@ -71,10 +79,10 @@ const Login: React.FC = () => {
                     <form className="auth-form" onSubmit={handleSubmit}>
                         <div style={{ display: 'flex', gap: '20px' }}>
                             <div className="form-group" style={{ flex: 1 }}>
-                                <label>EMAIL</label>
+                                <label>{language === 'fr' ? "EMAIL" : "EMAIL"}</label>
                                 <input 
                                     type="email" 
-                                    placeholder="koffisoglo@gmail.com" 
+                                    placeholder={language === 'fr' ? "votre-email@gmail.com" : "your-email@gmail.com"} 
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     required 
@@ -82,7 +90,7 @@ const Login: React.FC = () => {
                             </div>
 
                             <div className="form-group" style={{ flex: 1 }}>
-                                <label>MOT DE PASSE</label>
+                                <label>{language === 'fr' ? "MOT DE PASSE" : "PASSWORD"}</label>
                                 <div className="password-input-wrapper">
                                     <input 
                                         type={showPassword ? "text" : "password"} 
@@ -90,7 +98,7 @@ const Login: React.FC = () => {
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         required 
-                                    />
+                               / >
                                     <span 
                                         className="password-toggle" 
                                         onClick={() => setShowPassword(!showPassword)}
@@ -106,16 +114,16 @@ const Login: React.FC = () => {
                         </div>
 
                         <button type="submit" className="btn-auth" disabled={isLoading}>
-                            {isLoading ? 'CONNEXION...' : 'SE CONNECTER'}
+                            {isLoading ? (language === 'fr' ? "CONNEXION..." : "LOGGING IN...") : (language === 'fr' ? "SE CONNECTER" : "LOGIN")}
                         </button>
 
                         <div className="auth-helper-links">
-                            <Link to="/forgot-password">Mot de passe oublié ?</Link>
+                            <Link to="/forgot-password">{language === 'fr' ? "Mot de passe oublié ?" : "Forgot password?"}</Link>
                         </div>
                     </form>
 
                     <div className="auth-footer">
-                        Vous n'avez pas encore de compte ? <Link to="/register">S'inscrire gratuitement</Link>
+                        {language === 'fr' ? "Pas encore de compte ?" : "Don't have an account?"} <Link to="/register">{language === 'fr' ? "S'inscrire gratuitement" : "Sign up for free"}</Link>
                     </div>
                 </div>
             </div>

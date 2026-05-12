@@ -7,12 +7,14 @@ import ForgotPassword from './auth/ForgotPassword';
 import ResetPassword from './auth/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
-import { ThemeProvider } from './components/ThemeContext';
+import { ThemeProvider } from './contexts/ThemeContext';
+import { LanguageProvider } from './contexts/LanguageContext';
 import { ProtectedRoute, GuestRoute } from './components/AuthGuards';
 
 function App() {
   return (
-    <ThemeProvider>
+    <LanguageProvider>
+      <ThemeProvider>
       <Router>
         <Routes>
           {/* Public Routes */}
@@ -31,6 +33,7 @@ function App() {
         </Routes>
       </Router>
     </ThemeProvider>
+    </LanguageProvider>
   );
 }
 

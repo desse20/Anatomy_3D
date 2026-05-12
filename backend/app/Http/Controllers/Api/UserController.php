@@ -57,20 +57,60 @@ class UserController extends Controller
             'password' => \Hash::make($request->password),
         ]);
 
-        // Regénère un token frais (le token ne dépend plus du mdp, mais on le retourne quand même)
-        $hmac = hash_hmac('sha256', $user->id . $user->email, config('app.key'));
-        $newToken = base64_encode($user->id) . '.' . $hmac;
+        $newToken = $user->generateSimpleToken();
 
         return response()->json([
-            'message' => 'Mot de passe mis à jour avec succès',
+            'message' => __('auth.password_updated'),
             'token'   => $newToken,
         ]);
     }
 
-    public function destroy(User $user)
+    public function destroy(Request $request, User $user)
     {
+        $request->validate([
+            'password' => ['required', 'string'],
+        ]);
+
+        if (!\Hash::check($request->password, $user->password)) {
+            return response()->json([
+                'message' => __('auth.failed'),
+                'errors' => ['password' => [__('auth.password') . ' ' . __('validation.invalid')]]
+            ], 422);
+        }
+
         $user->delete();
 
-        return response()->json(['message' => 'User deleted successfully']);
+        return response()->json(['message' => __('auth.user_deleted')]);
+    }
+
+    public function updateProfile(UpdateUserRequest $request)
+    {
+        $user = $request->user();
+        $user->update($request->validated());
+
+        // Regénère un token frais car si l'email a changé, l'ancien HMAC est invalide
+        $newToken = $user->generateSimpleToken();
+
+        return (new UserResource($user))->additional(['token' => $newToken]);
+    }
+
+    public function deleteAccount(Request $request)
+    {
+        $request->validate([
+            'password' => ['required', 'string'],
+        ]);
+
+        $user = $request->user();
+
+        if (!\Hash::check($request->password, $user->password)) {
+            return response()->json([
+                'message' => __('auth.failed'),
+                'errors' => ['password' => [__('auth.password') . ' ' . __('validation.invalid')]]
+            ], 422);
+        }
+
+        $user->delete();
+
+        return response()->json(['message' => __('auth.user_deleted')]);
     }
 }

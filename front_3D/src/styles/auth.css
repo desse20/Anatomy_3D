@@ -121,7 +121,7 @@
     letter-spacing: 0.5px;
 }
 
-.form-group input, .form-group select {
+.form-group input:not([type="radio"]), .form-group select {
     width: 100%;
     background: var(--bg-light);
     border: 1px solid var(--border);
@@ -134,7 +134,7 @@
     appearance: none;
 }
 
-.password-input-wrapper input[type="password"] {
+.password-input-wrapper input:not([type="radio"])[type="password"] {
     font-family: Verdana, sans-serif;
     letter-spacing: normal;
 }
@@ -189,44 +189,24 @@
     margin-top: 5px;
 }
 
-.profile-option {
-    flex: 1;
-    position: relative;
-}
-
 .profile-option input {
     position: absolute;
     opacity: 0;
     cursor: pointer;
-    height: 0;
-    width: 0;
-}
-
-.profile-label {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 14px 20px;
-    background: var(--bg-light);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s;
 }
 
 .radio-circle {
     width: 20px;
     height: 20px;
+    min-width: 20px;
+    min-height: 20px;
     border: 2px solid var(--border);
     border-radius: 50%;
-    position: relative;
-    transition: all 0.3s;
-}
-
-.profile-option input:checked ~ .profile-label {
-    border-color: var(--primary);
+    margin-right: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
     background: white;
 }
 
@@ -236,14 +216,51 @@
 
 .profile-option input:checked ~ .profile-label .radio-circle::after {
     content: '';
-    position: absolute;
     width: 10px;
     height: 10px;
     background: var(--primary);
     border-radius: 50%;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+}
+
+.profile-label {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 12px;
+    padding: 12px 20px;
+    background: var(--bg-light);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--text-main);
+    user-select: none;
+    transition: all 0.3s ease;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.profile-option {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    position: relative;
+    min-width: 140px;
+}
+
+.profile-option input:checked ~ .profile-label {
+    border-color: var(--primary);
+    background: white;
+    box-shadow: 0 4px 12px rgba(12, 121, 242, 0.1);
+}
+
+.profile-option input:checked ~ .profile-label .radio-circle {
+    border-color: var(--primary);
+}
+
+.profile-option:hover .profile-label {
+    border-color: var(--primary-dark);
 }
 
 .form-group input:focus, .form-group select:focus {
@@ -288,6 +305,34 @@
 
 .auth-helper-links a:hover {
     color: var(--primary);
+}
+
+.lang-switcher-auth {
+    display: flex;
+    gap: 8px;
+}
+
+.lang-switcher-auth button {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.lang-switcher-auth button:hover {
+    background: rgba(12, 121, 242, 0.1);
+    color: var(--primary);
+}
+
+.lang-switcher-auth button.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
 }
 
 .auth-footer {

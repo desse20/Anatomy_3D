@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { useLanguage } from '../../contexts/LanguageContext';
 import '../../styles/layout.css';
 
 interface AppProps {
@@ -11,8 +12,21 @@ interface AppProps {
 const App: React.FC<AppProps> = ({ children, breadcrumb, title }) => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { language, setLanguage } = useLanguage();
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [isCollapsed, setIsCollapsed] = useState(() => {
+        return localStorage.getItem('sidebar_collapsed') === 'true';
+    });
     
+    useEffect(() => {
+        localStorage.setItem('sidebar_collapsed', String(isCollapsed));
+    }, [isCollapsed]);
+
+    useEffect(() => {
+        setIsMobileMenuOpen(false);
+    }, [location.pathname]);
+
     let user = { firstname: '', lastname: '', email: '', role: '' };
     try {
         const userJson = localStorage.getItem('user');
@@ -34,64 +48,111 @@ const App: React.FC<AppProps> = ({ children, breadcrumb, title }) => {
     const isActive = (path: string) => location.pathname === path;
 
     return (
-        <div className="dash-layout">
+        <div className={`dash-layout ${isCollapsed ? 'sidebar-collapsed' : ''} ${isMobileMenuOpen ? 'mobile-menu-open' : ''}`}>
+            
+            {/* Minimal Mobile Menu Trigger (No Header) */}
+            <button className="mobile-only-btn" onClick={() => setIsMobileMenuOpen(true)}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            </button>
+
+            {isMobileMenuOpen && <div className="mobile-overlay" onClick={() => setIsMobileMenuOpen(false)}></div>}
+
             <aside className="dash-sidebar">
-                <div className="dash-logo-container">
-                    <Link to="/" className="dash-logo">ANATOMY<span>3D</span></Link>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: isCollapsed ? 'center' : 'space-between', marginBottom: '30px' }}>
+                    {!isCollapsed && (
+                        <div className="dash-logo-container" style={{ padding: 0 }}>
+                            <Link to="/" className="dash-logo">ANATOMY<span>3D</span></Link>
+                        </div>
+                    )}
+                    <button 
+                        className="sidebar-toggle-btn" 
+                        onClick={() => setIsCollapsed(!isCollapsed)}
+                        style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--dash-text-muted)', padding: '5px' }}
+                    >
+                        {isCollapsed ? (
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/></svg>
+                        ) : (
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m16 15-3-3 3-3"/></svg>
+                        )}
+                    </button>
+                    <button className="mobile-close-btn" onClick={() => setIsMobileMenuOpen(false)}>×</button>
                 </div>
                 
                 <nav className="dash-nav-group">
-                    <div className="dash-nav-heading">Plateforme</div>
-                    <Link to="/dash" className={`nav-item ${isActive('/dash') ? 'active' : ''}`}>
+                    <div className="dash-nav-heading">{isCollapsed ? '•' : (language === 'fr' ? 'Plateforme' : 'Platform')}</div>
+                    <Link to="/dash" className={`nav-item ${isActive('/dash') ? 'active' : ''}`} title="Dashboard">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-                        Tableau de bord
+                        {!isCollapsed && <span>{language === 'fr' ? 'Tableau de bord' : 'Dashboard'}</span>}
                     </Link>
                 </nav>
 
                 <nav className="dash-nav-group">
-                    <div className="dash-nav-heading">Apprentissage</div>
-                    <Link to="/atlas" className={`nav-item ${isActive('/atlas') ? 'active' : ''}`}>
+                    <div className="dash-nav-heading">{isCollapsed ? '•' : (language === 'fr' ? 'Apprentissage' : 'Learning')}</div>
+                    <Link to="/atlas" className={`nav-item ${isActive('/atlas') ? 'active' : ''}`} title="Atlas 3D">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                        Atlas 3D
+                        {!isCollapsed && <span>{language === 'fr' ? 'Atlas 3D' : '3D Atlas'}</span>}
                     </Link>
-                    <Link to="/profile" className={`nav-item ${isActive('/profile') ? 'active' : ''}`}>
+                    <Link to="/profile" className={`nav-item ${isActive('/profile') ? 'active' : ''}`} title="Profil">
                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                        Mon Profil
+                        {!isCollapsed && <span>{language === 'fr' ? 'Mon Profil' : 'My Profile'}</span>}
                     </Link>
                 </nav>
 
-                <div className="dash-user-section">
+                <div className="lang-sidebar-container" style={{ marginTop: 'auto', padding: isCollapsed ? '0 0 16px' : '0 12px 16px' }}>
+                    <div className="dash-nav-heading">{isCollapsed ? '•' : (language === 'fr' ? 'Paramètres' : 'Settings')}</div>
+                    <div className="lang-switcher-sidebar" style={{ justifyContent: isCollapsed ? 'center' : 'flex-start' }}>
+                        <button 
+                            className={`lang-btn ${language === 'fr' ? 'active' : ''}`} 
+                            onClick={() => setLanguage('fr')}
+                        >
+                            FR
+                        </button>
+                        <button 
+                            className={`lang-btn ${language === 'en' ? 'active' : ''}`} 
+                            onClick={() => setLanguage('en')}
+                        >
+                            EN
+                        </button>
+                    </div>
+                </div>
+
+                <div className="dash-user-section" style={{ borderTop: '1px solid var(--dash-border)', paddingTop: '16px' }}>
                     {isUserMenuOpen && (
                         <div className="user-dropdown-menu">
                             <Link to="/profile" className="dropdown-item">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                                Paramètres du profil
+                                {!isCollapsed && (language === 'fr' ? 'Paramètres du profil' : 'Profile Settings')}
                             </Link>
-                            <div className="dropdown-divider"></div>
                             <button onClick={handleLogout} className="dropdown-item logout">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-                                Se déconnecter
+                                {!isCollapsed && (language === 'fr' ? 'Se déconnecter' : 'Logout')}
                             </button>
                         </div>
                     )}
                     
-                    <div className="user-profile-bar" onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}>
+                    <div className="user-profile-bar" onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} style={{ justifyContent: isCollapsed ? 'center' : 'flex-start', minWidth: 0 }}>
                         <div className="user-initials-box">
                             {initials}
                         </div>
-                        <div className="user-info-text">
-                            <span className="user-name">{user.firstname} {user.lastname}</span>
-                            <span className="user-email">{user.email}</span>
-                        </div>
-                        <svg className={`chevron-icon ${isUserMenuOpen ? 'open' : ''}`} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m7 15 5 5 5-5"></path><path d="m7 9 5-5 5 5"></path></svg>
+                        {!isCollapsed && (
+                            <div className="user-info-text" style={{ marginLeft: '10px', minWidth: 0, flex: 1 }}>
+                                <span className="user-name" style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.firstname} {user.lastname}</span>
+                                <span className="user-email" style={{ display: 'block', fontSize: '11px', color: 'var(--dash-text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.email}</span>
+                            </div>
+                        )}
+                        {!isCollapsed && (
+                            <svg className={`chevron-icon ${isUserMenuOpen ? 'open' : ''}`} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 'auto', flexShrink: 0 }}><path d="m7 15 5 5 5-5"></path><path d="m7 9 5-5 5 5"></path></svg>
+                        )}
                     </div>
                 </div>
             </aside>
 
             <main className="dash-main">
-                {breadcrumb && <div className="dash-breadcrumb">{breadcrumb}</div>}
-                {title && <h1>{title}</h1>}
-                {children}
+                <div className="dash-content-container">
+                    {breadcrumb && <div className="dash-breadcrumb">{breadcrumb}</div>}
+                    {title && <h1>{title}</h1>}
+                    {children}
+                </div>
             </main>
         </div>
     );

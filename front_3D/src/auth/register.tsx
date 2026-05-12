@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useLanguage } from '../contexts/LanguageContext';
 import '../styles/auth.css';
 import { authService } from '../services/api';
 
 const Register: React.FC = () => {
     const navigate = useNavigate();
+    const { language, setLanguage } = useLanguage();
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -47,16 +49,16 @@ const Register: React.FC = () => {
         setStrength(score);
 
         if (score < 40) {
-            setStrengthLabel('Très Faible');
+            setStrengthLabel(language === 'fr' ? 'Très Faible' : 'Very Weak');
             setStrengthColor('#ff4d4d');
         } else if (score < 80) {
-            setStrengthLabel('Moyen');
+            setStrengthLabel(language === 'fr' ? 'Moyen' : 'Medium');
             setStrengthColor('#ffa500');
         } else if (score < 100) {
-            setStrengthLabel('Presque bon...');
+            setStrengthLabel(language === 'fr' ? 'Presque bon...' : 'Almost good...');
             setStrengthColor('#3498db');
         } else {
-            setStrengthLabel('Parfait & Sécurisé');
+            setStrengthLabel(language === 'fr' ? 'Parfait & Sécurisé' : 'Perfect & Secure');
             setStrengthColor('#2ecc71');
         }
     };
@@ -71,15 +73,15 @@ const Register: React.FC = () => {
         const hasSym = /[^A-Za-z0-9]/.test(password);
 
         if (password.length < 6) {
-            setError('Le mot de passe doit contenir au moins 6 caractères');
+            setError(language === 'fr' ? 'Le mot de passe doit contenir au moins 6 caractères' : 'Password must be at least 6 characters');
             return;
         }
         if (!hasMaj || !hasMin || !hasNum || !hasSym) {
-            setError('Le mot de passe doit contenir : Majuscule, Minuscule, Chiffre et Symbole');
+            setError(language === 'fr' ? 'Le mot de passe doit contenir : Majuscule, Minuscule, Chiffre et Symbole' : 'Password must contain: Uppercase, Lowercase, Number and Symbol');
             return;
         }
         if (password.trim() !== confirmPassword.trim()) {
-            setError('Les mots de passe ne correspondent pas');
+            setError(language === 'fr' ? 'Les mots de passe ne correspondent pas' : 'Passwords do not match');
             return;
         }
 
@@ -105,7 +107,7 @@ const Register: React.FC = () => {
             }
             navigate('/dash');
         } catch (err: any) {
-            setError(err.message || "Erreur lors de l'inscription");
+            setError(err.message || (language === 'fr' ? "Erreur lors de l'inscription" : "Error during registration"));
         } finally {
             setIsLoading(false);
         }
@@ -117,28 +119,34 @@ const Register: React.FC = () => {
                 backgroundImage: `linear-gradient(rgba(12, 121, 242, 0.4), rgba(9, 17, 26, 0.8)), url('https://i.pinimg.com/736x/a8/1f/23/a81f230d32134e858c3765390411c9df.jpg')`
             }}>
                 <div className="auth-side-content">
-                    <h2>Rejoignez la nouvelle ère médicale.</h2>
-                    <p>Créez votre compte pour explorer des modèles anatomiques détaillés et optimisés pour votre réussite.</p>
+                    <h2>{language === 'fr' ? "L'excellence dans l'apprentissage de l'anatomie." : "Excellence in anatomy learning."}</h2>
+                    <p>{language === 'fr' ? "Accédez à des outils de visualisation 3D de haute précision pour approfondir vos connaissances médicales." : "Access high-precision 3D visualization tools to deepen your medical knowledge."}</p>
                 </div>
             </div>
 
             <div className="auth-form-section">
-                <Link to="/" className="back-to-home">← Retour à l'accueil</Link>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', paddingTop: '10px' }}>
+                    <Link to="/" className="back-to-home">← {language === 'fr' ? "Retour à l'accueil" : "Back to Home"}</Link>
+                    <div className="lang-switcher-auth">
+                        <button onClick={() => setLanguage('fr')} className={language === 'fr' ? 'active' : ''}>FR</button>
+                        <button onClick={() => setLanguage('en')} className={language === 'en' ? 'active' : ''}>EN</button>
+                    </div>
+                </div>
                 
-                <div className="auth-container">
-                    <div className="auth-logo">ANATOMY<span>3D</span></div>
+                <div className="auth-container" style={{ gap: '15px' }}>
+                    <div className="auth-logo" style={{ marginBottom: '5px' }}>ANATOMY<span>3D</span></div>
                     
-                    <header className="auth-header">
-                        <h1>Créer votre compte</h1>
-                        <p>Rejoignez des milliers d'étudiants en médecine dès aujourd'hui.</p>
+                    <header className="auth-header" style={{ marginBottom: '15px' }}>
+                        <h1>{language === 'fr' ? "Créer votre compte" : "Create your account"}</h1>
+                        <p>{language === 'fr' ? "Rejoignez des milliers d'étudiants en médecine dès aujourd'hui." : "Join thousands of medical students today."}</p>
                     </header>
 
                     {error && <div style={{ background: '#ffeeee', color: '#e30000', padding: '12px', borderRadius: '8px', marginBottom: '20px', fontSize: '14px', fontWeight: '600', textAlign: 'center', border: '1px solid #ffcccc' }}>{error}</div>}
 
-                    <form className="auth-form" onSubmit={handleSubmit}>
-                        <div style={{ display: 'flex', gap: '20px' }}>
-                            <div className="form-group" style={{ flex: 1 }}>
-                                <label>PRÉNOM</label>
+                    <form className="auth-form" onSubmit={handleSubmit} style={{ gap: '12px' }}>
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                                <label>{language === 'fr' ? "PRÉNOM" : "FIRST NAME"}</label>
                                 <input 
                                     type="text" 
                                     placeholder="Koffi" 
@@ -147,8 +155,8 @@ const Register: React.FC = () => {
                                     required 
                                 />
                             </div>
-                            <div className="form-group" style={{ flex: 1 }}>
-                                <label>NOM</label>
+                            <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                                <label>{language === 'fr' ? "NOM" : "LAST NAME"}</label>
                                 <input 
                                     type="text" 
                                     placeholder="Soglo" 
@@ -159,20 +167,20 @@ const Register: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="form-group">
-                            <label>EMAIL</label>
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                            <label>{language === 'fr' ? "EMAIL" : "EMAIL"}</label>
                             <input 
                                 type="email" 
-                                placeholder="koffisoglo@gmail.com" 
+                                placeholder={language === 'fr' ? "votre-email@gmail.com" : "your-email@gmail.com"} 
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required 
                             />
                         </div>
 
-                        <div style={{ display: 'flex', gap: '20px' }}>
-                            <div className="form-group" style={{ flex: 1 }}>
-                                <label>MOT DE PASSE</label>
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                                <label>{language === 'fr' ? "MOT DE PASSE" : "PASSWORD"}</label>
                                 <div className="password-input-wrapper">
                                     <input 
                                         type={showPassword ? "text" : "password"} 
@@ -182,10 +190,7 @@ const Register: React.FC = () => {
                                         required 
                                         minLength={6}
                                     />
-                                    <span 
-                                        className="password-toggle" 
-                                        onClick={() => setShowPassword(!showPassword)}
-                                    >
+                                    <span className="password-toggle" onClick={() => setShowPassword(!showPassword)}>
                                         {showPassword ? (
                                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
                                         ) : (
@@ -194,22 +199,19 @@ const Register: React.FC = () => {
                                     </span>
                                 </div>
                                 {password && (
-                                    <div className="password-strength-wrapper">
-                                        <div className="strength-bar-container">
+                                    <div className="password-strength-wrapper" style={{ marginTop: '5px' }}>
+                                        <div className="strength-bar-container" style={{ height: '4px' }}>
                                             <div 
                                                 className="strength-bar" 
                                                 style={{ width: `${strength}%`, background: strengthColor }}
                                             ></div>
                                         </div>
-                                        <span className="strength-text" style={{ color: strengthColor }}>{strengthLabel}</span>
+                                        <span className="strength-text" style={{ color: strengthColor, fontSize: '10px' }}>{strengthLabel}</span>
                                     </div>
                                 )}
-                                <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px', lineHeight: '1.4' }}>
-                                    * Le mot de passe doit contenir au moins 6 caractères, une majuscule, une minuscule, un chiffre et un symbole.
-                                </p>
                             </div>
-                            <div className="form-group" style={{ flex: 1 }}>
-                                <label>CONFIRMER LE MOT DE PASSE</label>
+                            <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                                <label>{language === 'fr' ? "CONFIRMER LE MOT DE PASSE" : "CONFIRM PASSWORD"}</label>
                                 <div className="password-input-wrapper">
                                     <input 
                                         type={showConfirmPassword ? "text" : "password"} 
@@ -218,10 +220,7 @@ const Register: React.FC = () => {
                                         onChange={(e) => setConfirmPassword(e.target.value)}
                                         required 
                                     />
-                                    <span 
-                                        className="password-toggle" 
-                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                    >
+                                    <span className="password-toggle" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
                                         {showConfirmPassword ? (
                                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
                                         ) : (
@@ -231,10 +230,14 @@ const Register: React.FC = () => {
                                 </div>
                             </div>
                         </div>
+                        
+                        <p style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '0', marginBottom: '5px', lineHeight: '1.2' }}>
+                            {language === 'fr' ? "* Le mot de passe doit contenir au moins 6 caractères, une majuscule, une minuscule, un chiffre et un symbole." : "* The password must contain at least 6 characters, one uppercase letter, one lowercase letter, one number and one symbol."}
+                        </p>
 
-                        <div className="form-group">
-                            <label>QUEL PROFIL VOUS CORRESPOND ?</label>
-                            <div className="profile-options">
+                        <div className="form-group" style={{ marginBottom: '10px' }}>
+                            <label>{language === 'fr' ? "QUEL PROFIL VOUS CORRESPOND ?" : "WHICH PROFILE MATCHES YOU?"}</label>
+                            <div className="profile-options" style={{ gap: '15px' }}>
                                 <div className="profile-option">
                                     <input 
                                         type="radio" 
@@ -246,7 +249,7 @@ const Register: React.FC = () => {
                                     />
                                     <label htmlFor="student" className="profile-label">
                                         <span className="radio-circle"></span>
-                                        Étudiant
+                                        {language === 'fr' ? "Étudiant" : "Student"}
                                     </label>
                                 </div>
                                 <div className="profile-option">
@@ -260,19 +263,19 @@ const Register: React.FC = () => {
                                     />
                                     <label htmlFor="professor" className="profile-label">
                                         <span className="radio-circle"></span>
-                                        Professeur
+                                        {language === 'fr' ? "Professeur" : "Teacher"}
                                     </label>
                                 </div>
                             </div>
                         </div>
 
-                        <button type="submit" className="btn-auth" disabled={isLoading}>
-                            {isLoading ? 'INSCRIPTION...' : 'CRÉER MON COMPTE'}
+                        <button type="submit" className="btn-auth" disabled={isLoading} style={{ marginTop: '5px' }}>
+                            {isLoading ? (language === 'fr' ? "INSCRIPTION..." : "SIGNING UP...") : (language === 'fr' ? "CRÉER MON COMPTE" : "CREATE MY ACCOUNT")}
                         </button>
                     </form>
 
-                    <div className="auth-footer">
-                        Vous avez déjà un compte ? <Link to="/login">Se connecter</Link>
+                    <div className="auth-footer" style={{ marginTop: '10px' }}>
+                        {language === 'fr' ? "Vous avez déjà un compte ?" : "Already have an account?"} <Link to="/login">{language === 'fr' ? "Se connecter" : "Login"}</Link>
                     </div>
                 </div>
             </div>

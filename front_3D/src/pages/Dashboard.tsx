@@ -1,4 +1,5 @@
 import App from '../components/layouts/App';
+import { useLanguage } from '../contexts/LanguageContext';
 import '../styles/dashboard.css';
 
 const PlaceholderPattern: React.FC = () => (
@@ -13,8 +14,23 @@ const PlaceholderPattern: React.FC = () => (
 );
 
 const Dashboard: React.FC = () => {
+    const { language } = useLanguage();
+    
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+
     return (
-        <App breadcrumb="Dashboard" title="Tableau de bord">
+        <App 
+            breadcrumb={language === 'fr' ? 'Tableau de bord' : 'Dashboard'} 
+            title={language === 'fr' ? 'Tableau de bord' : 'Dashboard'}
+        >
+            <div className="dash-internal-header" style={{ position: 'absolute', top: '32px', right: '40px' }}>
+                <div style={{ padding: '6px 14px', background: 'rgba(12, 121, 242, 0.08)', color: 'var(--dash-primary)', borderRadius: '100px', fontSize: '12px', fontWeight: '800', border: '1px solid rgba(12, 121, 242, 0.15)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    {user.role === 'teacher' 
+                        ? (language === 'fr' ? 'Professeur' : 'Teacher')
+                        : (language === 'fr' ? 'Étudiant' : 'Student')
+                    }
+                </div>
+            </div>
             <div className="dash-grid">
                 <div className="dash-card aspect-video p-0 overflow-hidden">
                     <PlaceholderPattern />

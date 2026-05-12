@@ -11,6 +11,11 @@ class SimpleTokenAuth
 {
     public function handle(Request $request, Closure $next): Response
     {
+        // Laisser passer les requêtes de pré-vérification CORS (OPTIONS)
+        if ($request->isMethod('OPTIONS')) {
+            return $next($request);
+        }
+
         $token = $request->bearerToken();
 
         if (!$token) {
@@ -31,9 +36,10 @@ class SimpleTokenAuth
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
-        // Vérifie la signature
-        $expected = hash_hmac('sha256', $user->id . $user->email, config('app.key'));
-        if (!hash_equals($expected, $hmac)) {
+        // Vérifie la signature en régénérant le token attendu
+        $expectedToken = $user->generateSimpleToken();
+        
+        if (!hash_equals($expectedToken, $token)) {
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 

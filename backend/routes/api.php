@@ -30,6 +30,11 @@ Route::prefix('users')->middleware('simple_auth')->group(function () {
     Route::get('/', [UserController::class, 'index']);
     Route::post('/', [UserController::class, 'store']);
     Route::post('/change-password', [UserController::class, 'changePassword']);
+    
+    // Nouvelles routes de profil (plus robustes)
+    Route::put('/profile', [UserController::class, 'updateProfile']);
+    Route::delete('/profile', [UserController::class, 'deleteAccount']);
+
     Route::get('{user}', [UserController::class, 'show']);
     Route::put('{user}', [UserController::class, 'update']);
     Route::delete('{user}', [UserController::class, 'destroy']);

@@ -14,18 +14,12 @@ use Illuminate\Support\Facades\Password;
 
 class AuthController extends Controller
 {
-    private function generateToken(User $user): string
-    {
-        $hmac = hash_hmac('sha256', $user->id . $user->email, config('app.key'));
-        return base64_encode($user->id) . '.' . $hmac;
-    }
-
     public function login(LoginRequest $request)
     {
         $request->authenticate();
         
         $user = $request->user();
-        $token = $this->generateToken($user);
+        $token = $user->generateSimpleToken();
         
         return (new AuthResource($user))->additional(['token' => $token]);
     }
@@ -40,7 +34,7 @@ class AuthController extends Controller
             'role' => $request->role ?? 'student',
         ]);
 
-        $token = $this->generateToken($user);
+        $token = $user->generateSimpleToken();
         
         return (new AuthResource($user))
             ->additional(['token' => $token])
@@ -57,7 +51,7 @@ class AuthController extends Controller
         );
 
         return $status === Password::RESET_LINK_SENT
-            ? response()->json(['message' => 'Lien de réinitialisation envoyé !'])
+            ? response()->json(['message' => __('auth.forgot_sent')])
             : response()->json(['message' => __($status)], 400);
     }
 
@@ -78,7 +72,7 @@ class AuthController extends Controller
         );
 
         return $status === Password::PASSWORD_RESET
-            ? response()->json(['message' => 'Le mot de passe a été réinitialisé avec succès.'])
+            ? response()->json(['message' => __('auth.reset_success')])
             : response()->json(['message' => __($status)], 400);
     }
 
@@ -86,7 +80,7 @@ class AuthController extends Controller
     {
         $request->fulfill();
         
-        return response()->json(['message' => 'Successfully logged out']);
+        return response()->json(['message' => __('auth.logout')]);
     }
 
     public function me(Request $request)

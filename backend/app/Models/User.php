@@ -65,6 +65,12 @@ class User extends Authenticatable
         return $this->hasMany(UserMastery::class);
     }
 
+    public function generateSimpleToken(): string
+    {
+        $hmac = hash_hmac('sha256', $this->id . $this->email, config('app.key'));
+        return base64_encode($this->id) . '.' . $hmac;
+    }
+
     /**
      * Personnalise le lien de réinitialisation de mot de passe.
      */

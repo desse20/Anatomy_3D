@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLanguage } from '../contexts/LanguageContext';
 import '../styles/auth.css';
 import { apiCall } from '../services/api';
 
 const ResetPassword: React.FC = () => {
     const navigate = useNavigate();
+    const { language } = useLanguage();
     const [searchParams] = useSearchParams();
     const token = searchParams.get('token');
     const email = searchParams.get('email');
@@ -47,16 +49,16 @@ const ResetPassword: React.FC = () => {
         setStrength(score);
 
         if (score < 40) {
-            setStrengthLabel('Très Faible');
+            setStrengthLabel(language === 'fr' ? 'Très Faible' : 'Very Weak');
             setStrengthColor('#ff4d4d');
         } else if (score < 80) {
-            setStrengthLabel('Moyen');
+            setStrengthLabel(language === 'fr' ? 'Moyen' : 'Medium');
             setStrengthColor('#ffa500');
         } else if (score < 100) {
-            setStrengthLabel('Presque bon...');
+            setStrengthLabel(language === 'fr' ? 'Presque bon...' : 'Almost good...');
             setStrengthColor('#3498db');
         } else {
-            setStrengthLabel('Parfait & Sécurisé');
+            setStrengthLabel(language === 'fr' ? 'Parfait & Sécurisé' : 'Perfect & Secure');
             setStrengthColor('#2ecc71');
         }
     };
@@ -71,16 +73,16 @@ const ResetPassword: React.FC = () => {
         const hasSym = /[^A-Za-z0-9]/.test(password);
 
         if (password.length < 6) {
-            setMessage({ type: 'error', text: 'Le mot de passe doit contenir au moins 6 caractères' });
+            setMessage({ type: 'error', text: language === 'fr' ? 'Le mot de passe doit contenir au moins 6 caractères' : 'Password must be at least 6 characters' });
             return;
         }
         if (!hasMaj || !hasMin || !hasNum || !hasSym) {
-            setMessage({ type: 'error', text: 'Le mot de passe doit contenir : Majuscule, Minuscule, Chiffre et Symbole' });
+            setMessage({ type: 'error', text: language === 'fr' ? 'Le mot de passe doit contenir : Majuscule, Minuscule, Chiffre et Symbole' : 'Password must contain: Uppercase, Lowercase, Number and Symbol' });
             return;
         }
 
         if (password !== passwordConfirmation) {
-            setMessage({ type: 'error', text: 'Les mots de passe ne correspondent pas.' });
+            setMessage({ type: 'error', text: language === 'fr' ? 'Les mots de passe ne correspondent pas.' : 'Passwords do not match.' });
             return;
         }
 
@@ -97,10 +99,13 @@ const ResetPassword: React.FC = () => {
                     password_confirmation: passwordConfirmation 
                 }),
             });
-            setMessage({ type: 'success', text: 'Mot de passe réinitialisé avec succès !' });
+            setMessage({ 
+                type: 'success', 
+                text: language === 'fr' ? 'Mot de passe réinitialisé avec succès !' : 'Password reset successfully!' 
+            });
             setTimeout(() => navigate('/login'), 3000);
         } catch (err: any) {
-            setMessage({ type: 'error', text: err.message || 'Une erreur est survenue' });
+            setMessage({ type: 'error', text: err.message || (language === 'fr' ? 'Une erreur est survenue' : 'An error occurred') });
         } finally {
             setIsLoading(false);
         }
@@ -112,8 +117,8 @@ const ResetPassword: React.FC = () => {
                 backgroundImage: `linear-gradient(rgba(12, 121, 242, 0.4), rgba(9, 17, 26, 0.8)), url('https://i.pinimg.com/736x/4b/27/47/4b2747b08ef05c33ff24a6e155bdc3ec.jpg')`
             }}>
                 <div className="auth-side-content">
-                    <h2>Sécurisez votre compte.</h2>
-                    <p>Choisissez un nouveau mot de passe fort pour protéger vos données de progression.</p>
+                    <h2>{language === 'fr' ? "Sécurisez votre compte." : "Secure your account."}</h2>
+                    <p>{language === 'fr' ? "Choisissez un nouveau mot de passe fort pour protéger vos données de progression." : "Choose a new strong password to protect your progress data."}</p>
                 </div>
             </div>
 
@@ -122,8 +127,8 @@ const ResetPassword: React.FC = () => {
                     <div className="auth-logo">ANATOMY<span>3D</span></div>
                     
                     <header className="auth-header">
-                        <h1>Réinitialisation</h1>
-                        <p>Veuillez définir votre nouveau mot de passe.</p>
+                        <h1>{language === 'fr' ? "Réinitialisation" : "Reset Password"}</h1>
+                        <p>{language === 'fr' ? "Veuillez définir votre nouveau mot de passe." : "Please set your new password."}</p>
                     </header>
 
                     {message && (
@@ -144,7 +149,7 @@ const ResetPassword: React.FC = () => {
 
                     <form className="auth-form" onSubmit={handleSubmit}>
                         <div className="form-group">
-                            <label>NOUVEAU MOT DE PASSE</label>
+                            <label>{language === 'fr' ? "NOUVEAU MOT DE PASSE" : "NEW PASSWORD"}</label>
                             <div className="password-input-wrapper">
                                 <input 
                                     type={showPassword ? "text" : "password"} 
@@ -173,12 +178,14 @@ const ResetPassword: React.FC = () => {
                                 </div>
                             )}
                             <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px', lineHeight: '1.4' }}>
-                                * Le mot de passe doit contenir au moins 6 caractères, une majuscule, une minuscule, un chiffre et un symbole.
+                                {language === 'fr' 
+                                    ? "* Le mot de passe doit contenir au moins 6 caractères, une majuscule, une minuscule, un chiffre et un symbole." 
+                                    : "* Password must contain at least 6 characters, one uppercase, one lowercase, one number and one symbol."}
                             </p>
                         </div>
 
                         <div className="form-group">
-                            <label>CONFIRMER LE MOT DE PASSE</label>
+                            <label>{language === 'fr' ? "CONFIRMER LE MOT DE PASSE" : "CONFIRM PASSWORD"}</label>
                             <div className="password-input-wrapper">
                                 <input 
                                     type={showConfirmPassword ? "text" : "password"} 
@@ -198,7 +205,7 @@ const ResetPassword: React.FC = () => {
                         </div>
 
                         <button type="submit" className="btn-auth" disabled={isLoading}>
-                            {isLoading ? 'RÉINITIALISATION...' : 'RÉINITIALISER LE MOT DE PASSE'}
+                            {isLoading ? (language === 'fr' ? 'RÉINITIALISATION...' : 'RESETTING...') : (language === 'fr' ? 'RÉINITIALISER LE MOT DE PASSE' : 'RESET PASSWORD')}
                         </button>
                     </form>
                 </div>
