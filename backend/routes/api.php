@@ -19,14 +19,17 @@ use App\Http\Controllers\Api\UserController;
 Route::prefix('auth')->group(function () {
     Route::post('login', [AuthController::class, 'login']);
     Route::post('register', [AuthController::class, 'register']);
+    Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
+    Route::post('reset-password', [AuthController::class, 'resetPassword'])->name('password.reset');
     Route::post('logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
     Route::get('me', [AuthController::class, 'me'])->middleware('auth:sanctum');
     Route::post('refresh', [AuthController::class, 'refresh'])->middleware('auth:sanctum');
 });
 
-Route::prefix('users')->middleware('auth:sanctum')->group(function () {
+Route::prefix('users')->middleware('simple_auth')->group(function () {
     Route::get('/', [UserController::class, 'index']);
     Route::post('/', [UserController::class, 'store']);
+    Route::post('/change-password', [UserController::class, 'changePassword']);
     Route::get('{user}', [UserController::class, 'show']);
     Route::put('{user}', [UserController::class, 'update']);
     Route::delete('{user}', [UserController::class, 'destroy']);

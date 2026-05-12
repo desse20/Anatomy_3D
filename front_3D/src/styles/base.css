@@ -1,0 +1,26 @@
+/* src/styles/base.css */
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+    --dash-sidebar-width: 280px;
+    --dash-primary: #0C79F2;
+    --dash-bg: #ffffff;
+    --dash-sidebar-bg: #f9fafb;
+    --dash-border: #e4e4e7;
+    --dash-text-main: #18181b;
+    --dash-text-muted: #71717a;
+    --dash-accent-hover: #f4f4f5;
+}
+
+.dark {
+    --dash-bg: #090911;
+    --dash-sidebar-bg: #0d0d17;
+    --dash-border: #1f1f2e;
+    --dash-text-main: #f9fafb;
+    --dash-text-muted: #9ca3af;
+    --dash-accent-hover: #1a1a2e;
+}
+
+* {
+    box-sizing: border-box;
+}

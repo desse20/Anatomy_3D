@@ -10,20 +10,24 @@ use App\Http\Resources\AuthResource;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 
 class AuthController extends Controller
 {
+    private function generateToken(User $user): string
+    {
+        $hmac = hash_hmac('sha256', $user->id . $user->email, config('app.key'));
+        return base64_encode($user->id) . '.' . $hmac;
+    }
+
     public function login(LoginRequest $request)
     {
         $request->authenticate();
         
         $user = $request->user();
-        $token = $user->createToken('auth_token')->plainTextToken;
+        $token = $this->generateToken($user);
         
-        $userResource = new AuthResource($user);
-        $userResource->additional(['token' => $token]);
-        
-        return $userResource;
+        return (new AuthResource($user))->additional(['token' => $token]);
     }
 
     public function register(RegisterRequest $request)
@@ -36,12 +40,46 @@ class AuthController extends Controller
             'role' => $request->role ?? 'student',
         ]);
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        $token = $this->generateToken($user);
         
-        $userResource = new AuthResource($user);
-        $userResource->additional(['token' => $token]);
-        
-        return $userResource->response()->setStatusCode(201);
+        return (new AuthResource($user))
+            ->additional(['token' => $token])
+            ->response()
+            ->setStatusCode(201);
+    }
+
+    public function forgotPassword(Request $request)
+    {
+        $request->validate(['email' => 'required|email']);
+
+        $status = Password::broker()->sendResetLink(
+            $request->only('email')
+        );
+
+        return $status === Password::RESET_LINK_SENT
+            ? response()->json(['message' => 'Lien de réinitialisation envoyé !'])
+            : response()->json(['message' => __($status)], 400);
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'token' => 'required',
+            'email' => 'required|email',
+            'password' => 'required|min:8|confirmed',
+        ]);
+
+        $status = Password::broker()->reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function ($user, $password) {
+                $user->password = Hash::make($password);
+                $user->save();
+            }
+        );
+
+        return $status === Password::PASSWORD_RESET
+            ? response()->json(['message' => 'Le mot de passe a été réinitialisé avec succès.'])
+            : response()->json(['message' => __($status)], 400);
     }
 
     public function logout(LogoutRequest $request)

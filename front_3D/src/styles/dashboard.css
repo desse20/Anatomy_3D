@@ -1,0 +1,35 @@
+/* src/styles/dashboard.css */
+@import './base.css';
+
+/* Dashboard Grid */
+.dash-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+}
+
+.dash-card {
+    border: 1px solid var(--dash-border);
+    border-radius: 12px;
+    padding: 20px;
+    background: var(--dash-bg);
+    transition: background 0.3s, border-color 0.3s;
+}
+
+.dash-card.full-width {
+    grid-column: span 3;
+    min-height: 400px;
+}
+
+.card-placeholder-svg { 
+    color: rgba(9, 9, 11, 0.1); 
+    display: block; 
+}
+
+.dark .card-placeholder-svg {
+    color: rgba(255, 255, 255, 0.05);
+}
+
+.aspect-video {
+    aspect-ratio: 16 / 9;
+}

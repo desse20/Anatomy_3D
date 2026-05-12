@@ -44,6 +44,29 @@ class UserController extends Controller
         return new UserResource($user);
     }
 
+    public function changePassword(Request $request)
+    {
+        $request->validate([
+            'current_password' => ['required', 'current_password'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $user = $request->user();
+
+        $user->update([
+            'password' => \Hash::make($request->password),
+        ]);
+
+        // Regénère un token frais (le token ne dépend plus du mdp, mais on le retourne quand même)
+        $hmac = hash_hmac('sha256', $user->id . $user->email, config('app.key'));
+        $newToken = base64_encode($user->id) . '.' . $hmac;
+
+        return response()->json([
+            'message' => 'Mot de passe mis à jour avec succès',
+            'token'   => $newToken,
+        ]);
+    }
+
     public function destroy(User $user)
     {
         $user->delete();

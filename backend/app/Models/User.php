@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids; // Important pour l'UUID
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\ResetPasswordMail;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -61,5 +63,14 @@ class User extends Authenticatable
     public function masteries(): HasMany
     {
         return $this->hasMany(UserMastery::class);
+    }
+
+    /**
+     * Personnalise le lien de réinitialisation de mot de passe.
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $url = 'http://localhost:5173/password-reset?token=' . $token . '&email=' . $this->email;
+        Mail::to($this->email)->send(new ResetPasswordMail($this->firstname, $url));
     }
 }

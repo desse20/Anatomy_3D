@@ -1,17 +1,114 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import '../styles/auth.css';
+import { authService } from '../services/api';
 
 const Register: React.FC = () => {
     const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [profile, setProfile] = useState('student');
+    const [firstname, setFirstname] = useState('');
+    const [lastname, setLastname] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [error, setError] = useState<string | null>(null);
+    const [strength, setStrength] = useState(0);
+    const [strengthLabel, setStrengthLabel] = useState('');
+    const [strengthColor, setStrengthColor] = useState('');
 
-    const handleSubmit = (e: React.FormEvent) => {
+    useEffect(() => {
+        calculateStrength(password);
+    }, [password]);
+
+    const calculateStrength = (pwd: string) => {
+        if (!pwd) {
+            setStrength(0);
+            setStrengthLabel('');
+            setStrengthColor('');
+            return;
+        }
+
+        let score = 0;
+        const hasMaj = /[A-Z]/.test(pwd);
+        const hasMin = /[a-z]/.test(pwd);
+        const hasNum = /[0-9]/.test(pwd);
+        const hasSym = /[^A-Za-z0-9]/.test(pwd);
+        const hasLength = pwd.length >= 6;
+
+        if (hasLength) score += 20;
+        if (hasMaj) score += 20;
+        if (hasMin) score += 20;
+        if (hasNum) score += 20;
+        if (hasSym) score += 20;
+
+        setStrength(score);
+
+        if (score < 40) {
+            setStrengthLabel('Très Faible');
+            setStrengthColor('#ff4d4d');
+        } else if (score < 80) {
+            setStrengthLabel('Moyen');
+            setStrengthColor('#ffa500');
+        } else if (score < 100) {
+            setStrengthLabel('Presque bon...');
+            setStrengthColor('#3498db');
+        } else {
+            setStrengthLabel('Parfait & Sécurisé');
+            setStrengthColor('#2ecc71');
+        }
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        
+        // Password validation
+        const hasMaj = /[A-Z]/.test(password);
+        const hasMin = /[a-z]/.test(password);
+        const hasNum = /[0-9]/.test(password);
+        const hasSym = /[^A-Za-z0-9]/.test(password);
+
+        if (password.length < 6) {
+            setError('Le mot de passe doit contenir au moins 6 caractères');
+            return;
+        }
+        if (!hasMaj || !hasMin || !hasNum || !hasSym) {
+            setError('Le mot de passe doit contenir : Majuscule, Minuscule, Chiffre et Symbole');
+            return;
+        }
+        if (password.trim() !== confirmPassword.trim()) {
+            setError('Les mots de passe ne correspondent pas');
+            return;
+        }
+
         setIsLoading(true);
-        setTimeout(() => navigate('/login'), 1000);
+        setError(null);
+
+        try {
+            const response = await authService.register({
+                firstname,
+                lastname,
+                email,
+                password,
+                password_confirmation: confirmPassword,
+                role: profile === 'professor' ? 'teacher' : 'student'
+            });
+            
+            // Réponse format: { data: { id, firstname, ... }, token: "..." }
+            if (response?.token) {
+                localStorage.setItem('token', response.token);
+            }
+            if (response?.data) {
+                localStorage.setItem('user', JSON.stringify(response.data));
+            }
+            navigate('/dash');
+        } catch (err: any) {
+            setError(err.message || "Erreur lors de l'inscription");
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -36,36 +133,96 @@ const Register: React.FC = () => {
                         <p>Rejoignez des milliers d'étudiants en médecine dès aujourd'hui.</p>
                     </header>
 
+                    {error && <div style={{ background: '#ffeeee', color: '#e30000', padding: '12px', borderRadius: '8px', marginBottom: '20px', fontSize: '14px', fontWeight: '600', textAlign: 'center', border: '1px solid #ffcccc' }}>{error}</div>}
+
                     <form className="auth-form" onSubmit={handleSubmit}>
                         <div style={{ display: 'flex', gap: '20px' }}>
                             <div className="form-group" style={{ flex: 1 }}>
                                 <label>PRÉNOM</label>
-                                <input type="text" placeholder="Koffi" required />
+                                <input 
+                                    type="text" 
+                                    placeholder="Koffi" 
+                                    value={firstname}
+                                    onChange={(e) => setFirstname(e.target.value)}
+                                    required 
+                                />
                             </div>
                             <div className="form-group" style={{ flex: 1 }}>
                                 <label>NOM</label>
-                                <input type="text" placeholder="Soglo" required />
+                                <input 
+                                    type="text" 
+                                    placeholder="Soglo" 
+                                    value={lastname}
+                                    onChange={(e) => setLastname(e.target.value)}
+                                    required 
+                                />
                             </div>
                         </div>
 
+                        <div className="form-group">
+                            <label>EMAIL</label>
+                            <input 
+                                type="email" 
+                                placeholder="koffisoglo@gmail.com" 
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                required 
+                            />
+                        </div>
+
                         <div style={{ display: 'flex', gap: '20px' }}>
-                            <div className="form-group" style={{ flex: 1 }}>
-                                <label>EMAIL</label>
-                                <input type="email" placeholder="koffisoglo@gmail.com" required />
-                            </div>
                             <div className="form-group" style={{ flex: 1 }}>
                                 <label>MOT DE PASSE</label>
                                 <div className="password-input-wrapper">
                                     <input 
                                         type={showPassword ? "text" : "password"} 
                                         placeholder="••••••••" 
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
                                         required 
+                                        minLength={6}
                                     />
                                     <span 
                                         className="password-toggle" 
                                         onClick={() => setShowPassword(!showPassword)}
                                     >
                                         {showPassword ? (
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                                        ) : (
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                        )}
+                                    </span>
+                                </div>
+                                {password && (
+                                    <div className="password-strength-wrapper">
+                                        <div className="strength-bar-container">
+                                            <div 
+                                                className="strength-bar" 
+                                                style={{ width: `${strength}%`, background: strengthColor }}
+                                            ></div>
+                                        </div>
+                                        <span className="strength-text" style={{ color: strengthColor }}>{strengthLabel}</span>
+                                    </div>
+                                )}
+                                <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px', lineHeight: '1.4' }}>
+                                    * Le mot de passe doit contenir au moins 6 caractères, une majuscule, une minuscule, un chiffre et un symbole.
+                                </p>
+                            </div>
+                            <div className="form-group" style={{ flex: 1 }}>
+                                <label>CONFIRMER LE MOT DE PASSE</label>
+                                <div className="password-input-wrapper">
+                                    <input 
+                                        type={showConfirmPassword ? "text" : "password"} 
+                                        placeholder="••••••••" 
+                                        value={confirmPassword}
+                                        onChange={(e) => setConfirmPassword(e.target.value)}
+                                        required 
+                                    />
+                                    <span 
+                                        className="password-toggle" 
+                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                    >
+                                        {showConfirmPassword ? (
                                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
                                         ) : (
                                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>

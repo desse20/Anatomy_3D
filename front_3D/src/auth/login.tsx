@@ -1,16 +1,47 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import '../styles/auth.css';
+import { authService } from '../services/api';
 
 const Login: React.FC = () => {
     const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState<string | null>(null);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
-        setTimeout(() => navigate('/atlas'), 1000);
+        setError(null);
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        
+        try {
+            const response = await authService.login({ email, password });
+            
+            // Le token est soit à la racine, soit dans response.token
+            const token = response.token || response.data?.token;
+            if (token) {
+                localStorage.setItem('token', token);
+            }
+
+            // L'utilisateur est soit dans response.data, soit c'est le reste de la réponse
+            const userData = response.data || response;
+            if (userData) {
+                // On enlève le token des datas user par propreté
+                const { token: _, ...pureUserData } = userData;
+                localStorage.setItem('user', JSON.stringify(pureUserData));
+            }
+
+            navigate('/dash');
+            window.location.reload(); // Pour forcer la mise à jour des Guards et du Layout App
+        } catch (err: any) {
+            setError(err.message || 'Identifiants incorrects');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -35,11 +66,19 @@ const Login: React.FC = () => {
                         <p>Veuillez entrer vos identifiants pour vous connecter.</p>
                     </header>
 
+                    {error && <div style={{ background: '#ffeeee', color: '#e30000', padding: '12px', borderRadius: '8px', marginBottom: '20px', fontSize: '14px', fontWeight: '600', textAlign: 'center', border: '1px solid #ffcccc' }}>{error}</div>}
+
                     <form className="auth-form" onSubmit={handleSubmit}>
                         <div style={{ display: 'flex', gap: '20px' }}>
                             <div className="form-group" style={{ flex: 1 }}>
                                 <label>EMAIL</label>
-                                <input type="email" placeholder="koffisoglo@gmail.com" required />
+                                <input 
+                                    type="email" 
+                                    placeholder="koffisoglo@gmail.com" 
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    required 
+                                />
                             </div>
 
                             <div className="form-group" style={{ flex: 1 }}>
@@ -48,6 +87,8 @@ const Login: React.FC = () => {
                                     <input 
                                         type={showPassword ? "text" : "password"} 
                                         placeholder="••••••••" 
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
                                         required 
                                     />
                                     <span 
@@ -67,6 +108,10 @@ const Login: React.FC = () => {
                         <button type="submit" className="btn-auth" disabled={isLoading}>
                             {isLoading ? 'CONNEXION...' : 'SE CONNECTER'}
                         </button>
+
+                        <div className="auth-helper-links">
+                            <Link to="/forgot-password">Mot de passe oublié ?</Link>
+                        </div>
                     </form>
 
                     <div className="auth-footer">

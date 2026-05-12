@@ -1,0 +1,218 @@
+/* src/styles/settings.css */
+@import './base.css';
+
+/* Settings Layout */
+.settings-container {
+    display: flex;
+    gap: 60px;
+    align-items: flex-start;
+}
+
+.settings-sidebar {
+    width: 220px;
+    flex-shrink: 0;
+}
+
+.settings-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.settings-nav-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--dash-text-main);
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.settings-nav-item:hover {
+    background: var(--dash-accent-hover);
+}
+
+.settings-nav-item.active {
+    background: var(--dash-accent-hover);
+}
+
+.settings-content {
+    flex: 1;
+    max-width: 600px;
+}
+
+.settings-header {
+    margin-bottom: 32px;
+}
+
+.settings-header h2 {
+    font-size: 18px;
+    font-weight: 800;
+    margin-bottom: 4px;
+}
+
+.settings-header p {
+    font-size: 14px;
+    color: var(--dash-text-muted);
+}
+
+.settings-form-container {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    margin-bottom: 48px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.settings-input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--dash-border);
+    background: var(--dash-sidebar-bg);
+    color: var(--dash-text-main);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 14px;
+    transition: border-color 0.2s;
+}
+
+.settings-input:focus {
+    outline: none;
+    border-color: var(--dash-primary);
+}
+
+.btn-save {
+    padding: 10px 24px;
+    background: var(--dash-text-main);
+    color: var(--dash-bg);
+    border: none;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.danger-zone {
+    border-top: 1px solid var(--dash-border);
+    padding-top: 32px;
+}
+
+.danger-header {
+    margin-bottom: 20px;
+}
+
+.danger-header h3 {
+    font-size: 16px;
+    font-weight: 800;
+    color: #ef4444;
+    margin-bottom: 4px;
+}
+
+.danger-header p {
+    font-size: 13px;
+    color: var(--dash-text-muted);
+}
+
+.btn-danger {
+    padding: 10px 20px;
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.appearance-selector {
+    display: flex;
+    background: var(--dash-accent-hover);
+    padding: 4px;
+    border-radius: 10px;
+    gap: 4px;
+    max-width: 400px;
+    margin-top: 20px;
+}
+
+.appearance-option {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--dash-text-muted);
+}
+
+.appearance-option:hover {
+    color: var(--dash-text-main);
+}
+
+.appearance-option.active {
+    background: var(--dash-bg);
+    color: var(--dash-text-main);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.settings-message {
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 24px;
+}
+
+.settings-message.success {
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+.settings-message.error {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+
+.password-input-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.password-toggle {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    color: var(--dash-text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s;
+}
+
+.password-toggle:hover {
+    color: var(--dash-text-main);
+}

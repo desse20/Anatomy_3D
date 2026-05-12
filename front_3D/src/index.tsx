@@ -1,19 +1,38 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import './styles/landing.css';
 
 const LandingPage: React.FC = () => {
+    const navigate = useNavigate();
+    const token = localStorage.getItem('token');
+
+    const handleLogout = () => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        navigate('/');
+        window.location.reload(); // Force refresh to update index state
+    };
+
     return (
         <div className="landing-page">
             <nav className="navbar">
-                <div className="logo">ANATOMY<span>3D</span></div>
+                <div className="logo" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>ANATOMY<span>3D</span></div>
                 <div className="nav-links">
                     <a href="#features">Fonctionnalités</a>
                     <a href="#about">À propos</a>
                 </div>
-                <div style={{ display: 'flex', gap: '12px' }}>
-                    <Link to="/login" style={{ textDecoration: 'none', color: 'var(--text-main)', fontWeight: '700', padding: '10px 20px' }}>Connexion</Link>
-                    <Link to="/register" className="btn-nav">S'inscrire</Link>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    {!token ? (
+                        <>
+                            <Link to="/login" style={{ textDecoration: 'none', color: 'var(--text-main)', fontWeight: '700', padding: '10px 20px' }}>Connexion</Link>
+                            <Link to="/register" className="btn-nav">S'inscrire</Link>
+                        </>
+                    ) : (
+                        <>
+                            <Link to="/dash" style={{ textDecoration: 'none', color: 'var(--text-main)', fontWeight: '700', padding: '10px 20px' }}>Dashboard</Link>
+                            <button onClick={handleLogout} className="btn-nav" style={{ border: 'none', cursor: 'pointer' }}>Déconnexion</button>
+                        </>
+                    )}
                 </div>
             </nav>
 
@@ -30,7 +49,11 @@ const LandingPage: React.FC = () => {
                         Une précision médicale sans compromis, accessible partout.
                     </p>
                     <div className="hero-btns">
-                        <Link to="/register" className="btn-main">Commencer l'Étude</Link>
+                        {!token ? (
+                            <Link to="/register" className="btn-main">Commencer l'Étude</Link>
+                        ) : (
+                            <Link to="/dash" className="btn-main">Accéder au Tableau de Bord</Link>
+                        )}
                         <a href="#features" className="btn-outline">En savoir plus</a>
                     </div>
                 </div>
@@ -102,55 +125,6 @@ const LandingPage: React.FC = () => {
                            <span style={{ color: 'var(--primary)' }}>✓</span> Initiative éducative locale
                         </li>
                     </ul>
-                </div>
-            </section>
-
-            <section id="roles" style={{ padding: '100px 10%', background: 'var(--bg-light)' }}>
-                <div className="section-header">
-                    <h2>Une Plateforme, Deux Missions</h2>
-                    <p>Répondre aux besoins spécifiques de la communauté académique médicale.</p>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px' }}>
-                    <div style={{ background: 'white', padding: '40px', borderRadius: '20px', boxShadow: 'var(--shadow)' }}>
-                        <div style={{ width: '50px', height: '50px', background: 'var(--accent-light)', color: 'var(--primary)', borderRadius: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '24px' }}>
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"/></svg>
-                        </div>
-                        <h3 style={{ fontSize: '24px', marginBottom: '15px' }}>Pour les Étudiants</h3>
-                        <p style={{ color: 'var(--text-muted)', marginBottom: '20px' }}>
-                            Visualisez des structures complexes en 3D, maîtrisez la nomenclature anatomique et préparez vos examens avec des outils d'auto-évaluation interactifs.
-                        </p>
-                        <ul style={{ listStyle: 'none', color: 'var(--text-main)', fontWeight: '600' }}>
-                            <li style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <span style={{ color: 'var(--primary)' }}>•</span> Exploration libre des systèmes
-                            </li>
-                            <li style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <span style={{ color: 'var(--primary)' }}>•</span> Quiz d'entraînement dynamique
-                            </li>
-                            <li style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <span style={{ color: 'var(--primary)' }}>•</span> Accès mobile 24h/24
-                            </li>
-                        </ul>
-                    </div>
-                    <div style={{ background: 'white', padding: '40px', borderRadius: '20px', boxShadow: 'var(--shadow)' }}>
-                        <div style={{ width: '50px', height: '50px', background: 'var(--accent-light)', color: 'var(--primary)', borderRadius: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '24px' }}>
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5V4.5A2.5 2.5 0 0 1 6.5 2z"/></svg>
-                        </div>
-                        <h3 style={{ fontSize: '24px', marginBottom: '15px' }}>Pour les Professeurs</h3>
-                        <p style={{ color: 'var(--text-muted)', marginBottom: '20px' }}>
-                            Utilisez un support pédagogique moderne pour vos cours magistraux. Référentiel anatomique validé pour illustrer vos démonstrations cliniques.
-                        </p>
-                        <ul style={{ listStyle: 'none', color: 'var(--text-main)', fontWeight: '600' }}>
-                            <li style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <span style={{ color: 'var(--primary)' }}>•</span> Support de cours interactif
-                            </li>
-                            <li style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <span style={{ color: 'var(--primary)' }}>•</span> Illustration de pathologies
-                            </li>
-                            <li style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <span style={{ color: 'var(--primary)' }}>•</span> Outil de référence académique
-                            </li>
-                        </ul>
-                    </div>
                 </div>
             </section>
 

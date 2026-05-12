@@ -75,7 +75,8 @@
 
 .auth-container {
     width: 100%;
-    max-width: 520px;
+    max-width: 580px;
+    animation: slideInUp 0.8s ease;
 }
 
 .auth-logo {
@@ -133,6 +134,11 @@
     appearance: none;
 }
 
+.password-input-wrapper input[type="password"] {
+    font-family: Verdana, sans-serif;
+    letter-spacing: normal;
+}
+
 .password-input-wrapper {
     position: relative;
     width: 100%;
@@ -144,9 +150,33 @@
     top: 50%;
     transform: translateY(-50%);
     cursor: pointer;
-    color: var(--text-light);
-    font-size: 18px;
-    user-select: none;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    transition: color 0.3s;
+}
+
+.password-strength-wrapper {
+    margin-top: 8px;
+}
+
+.strength-bar-container {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 5px;
+}
+
+.strength-bar {
+    height: 100%;
+    transition: all 0.4s ease;
+}
+
+.strength-text {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
 }
 
 .form-group select {
@@ -240,6 +270,24 @@
     background: var(--primary-dark);
     transform: translateY(-2px);
     box-shadow: 0 10px 20px rgba(12, 121, 242, 0.2);
+}
+
+.auth-helper-links {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: -10px;
+}
+
+.auth-helper-links a {
+    color: var(--text-muted);
+    font-size: 13px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.3s;
+}
+
+.auth-helper-links a:hover {
+    color: var(--primary);
 }
 
 .auth-footer {

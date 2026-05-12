@@ -1,24 +1,36 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import LandingPage from './index'; // La nouvelle page vitrine
+import LandingPage from './index';
 import AnatomyViewer from './components/AnatomyViewer';
 import Login from './auth/login';
 import Register from './auth/register';
+import ForgotPassword from './auth/ForgotPassword';
+import ResetPassword from './auth/ResetPassword';
+import Dashboard from './pages/Dashboard';
+import Profile from './pages/Profile';
+import { ThemeProvider } from './components/ThemeContext';
+import { ProtectedRoute, GuestRoute } from './components/AuthGuards';
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        {/* Page Vitrine principale */}
-        <Route path="/" element={<LandingPage />} />
-        
-        {/* Authentication */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        
-        {/* L'application 3D (protégée ou non selon ton choix) */}
-        <Route path="/atlas" element={<AnatomyViewer />} />
-      </Routes>
-    </Router>
+    <ThemeProvider>
+      <Router>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<LandingPage />} />
+          
+          {/* Guest only Routes */}
+          <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
+          <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
+          <Route path="/forgot-password" element={<GuestRoute><ForgotPassword /></GuestRoute>} />
+          <Route path="/password-reset" element={<GuestRoute><ResetPassword /></GuestRoute>} />
+          
+          {/* Protected Routes */}
+          <Route path="/dash" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/atlas" element={<ProtectedRoute><AnatomyViewer /></ProtectedRoute>} />
+        </Routes>
+      </Router>
+    </ThemeProvider>
   );
 }
 
