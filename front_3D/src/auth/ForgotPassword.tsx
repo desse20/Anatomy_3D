@@ -59,15 +59,22 @@ const ForgotPassword: React.FC = () => {
                         <div style={{ 
                             background: message.type === 'success' ? 'rgba(46, 204, 113, 0.1)' : 'rgba(231, 76, 60, 0.1)', 
                             color: message.type === 'success' ? '#2ecc71' : '#e74c3c', 
-                            padding: '12px', 
+                            padding: '12px 16px', 
                             borderRadius: '8px', 
                             marginBottom: '20px', 
                             fontSize: '14px', 
-                            fontWeight: '600', 
-                            textAlign: 'center',
+                            fontWeight: '600',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '10px',
                             border: `1px solid ${message.type === 'success' ? 'rgba(46, 204, 113, 0.2)' : 'rgba(231, 76, 60, 0.2)'}`
                         }}>
-                            {message.text}
+                            <span>{message.text}</span>
+                            <button 
+                                onClick={() => setMessage(null)}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: '16px', lineHeight: 1, padding: '0 2px', flexShrink: 0 }}
+                            >&#x2715;</button>
                         </div>
                     )}
 

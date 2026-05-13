@@ -86,7 +86,13 @@ class UserController extends Controller
     public function updateProfile(UpdateUserRequest $request)
     {
         $user = $request->user();
-        $user->update($request->validated());
+        $data = $request->validated();
+
+        if (isset($data['firstname'])) {
+            $data['firstname'] = strtoupper($data['firstname']);
+        }
+
+        $user->update($data);
 
         // Regénère un token frais car si l'email a changé, l'ancien HMAC est invalide
         $newToken = $user->generateSimpleToken();

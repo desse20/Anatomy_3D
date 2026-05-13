@@ -262,7 +262,7 @@ body {
     align-items: center;
 }
 
-.about-image { flex: 0.8; }
+.about-image { flex: 0.5; max-width: 380px; }
 .about-image img {
     width: 100%;
     border-radius: 30px;

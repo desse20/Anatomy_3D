@@ -47,13 +47,13 @@ const LandingPage: React.FC = () => {
             <header className="hero">
                 <div className="hero-content">
                     <div className="hero-badge">
-                        <span>L'anatomie à portée de main au Bénin 🇧🇯</span>
+                        <span>La nouvelle façon d'apprendre l'anatomie ✦</span>
                     </div>
                     <h1>
                         Maitriser le Corps Humain en <span>3D Interactive.</span>
                     </h1>
                     <p>
-                        Si vous êtes en apprentissage en anatomie, découvrez une plateforme révolutionnaire conçue pour les facultés de médecine (FSS/FM). 
+                        Découvrez une plateforme révolutionnaire conçue pour les étudiants en médecine et en sciences de la santé.
                         Une précision médicale sans compromis, accessible partout.
                     </p>
                     <div className="hero-btns">
@@ -114,9 +114,9 @@ const LandingPage: React.FC = () => {
                     />
                 </div>
                 <div className="about-content">
-                    <h2>Au service de l'Excellence Médicale au Bénin.</h2>
+                    <h2>Au service de l'Excellence Médicale.</h2>
                     <p>
-                        Développé spécifiquement pour répondre aux défis des étudiants de la <strong>FSS</strong> et de la <strong>FM</strong>, ce projet vise à démocratiser l'accès à des outils pédagogiques de pointe.
+                        Développé pour répondre aux défis des étudiants en sciences de la santé, ce projet vise à démocratiser l'accès à des outils pédagogiques de pointe.
                     </p>
                     <p>
                         Notre technologie de compression Draco permet de naviguer parmi des milliers de polygones sur n'importe quel smartphone, garantissant une fluidité de 30 FPS.
@@ -124,7 +124,7 @@ const LandingPage: React.FC = () => {
                     <ul className="check-list">
                         <li><span>✓</span> Optimisé pour les terminaux mobiles</li>
                         <li><span>✓</span> Données médicales validées</li>
-                        <li><span>✓</span> Initiative éducative locale</li>
+                        <li><span>✓</span> Accessible partout dans le monde</li>
                     </ul>
                 </div>
             </section>
@@ -148,12 +148,12 @@ const LandingPage: React.FC = () => {
                         <h4>Contact</h4>
                         <ul>
                             <li>Support technique</li>
-                            <li>FSS / Université d'Abomey-Calavi</li>
+                            <li>Facultés de médecine</li>
                         </ul>
                     </div>
                 </div>
                 <div className="footer-bottom">
-                    © 2026 Anatomy 3D Explorer. L'anatomie à portée de main au Bénin.
+                    © 2026 Anatomy 3D Explorer. L'anatomie humaine à portée de main.
                 </div>
             </footer>
         </div>

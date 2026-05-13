@@ -184,7 +184,8 @@ const Profile: React.FC = () => {
 
                         {message && currentTab === 'profile' && (
                             <div className={`settings-message ${message.type}`}>
-                                {message.text}
+                                <span>{message.text}</span>
+                                <button className="message-close" onClick={() => setMessage(null)}>&#x2715;</button>
                             </div>
                         )}
 
@@ -252,7 +253,8 @@ const Profile: React.FC = () => {
                         
                         {message && (
                             <div className={`settings-message ${message.type}`}>
-                                {message.text}
+                                <span>{message.text}</span>
+                                <button className="message-close" onClick={() => setMessage(null)}>&#x2715;</button>
                             </div>
                         )}
 
@@ -375,19 +377,19 @@ const Profile: React.FC = () => {
                     <nav className="settings-nav">
                         <button 
                             className={`settings-nav-item ${currentTab === 'profile' ? 'active' : ''}`}
-                            onClick={() => setCurrentTab('profile')}
+                            onClick={() => { setCurrentTab('profile'); setMessage(null); }}
                         >
                             {language === 'fr' ? "Profil" : "Profile"}
                         </button>
                         <button 
                             className={`settings-nav-item ${currentTab === 'password' ? 'active' : ''}`}
-                            onClick={() => setCurrentTab('password')}
+                            onClick={() => { setCurrentTab('password'); setMessage(null); }}
                         >
                             {language === 'fr' ? "Mot de passe" : "Password"}
                         </button>
                         <button 
                             className={`settings-nav-item ${currentTab === 'appearance' ? 'active' : ''}`}
-                            onClick={() => setCurrentTab('appearance')}
+                            onClick={() => { setCurrentTab('appearance'); setMessage(null); }}
                         >
                             {language === 'fr' ? "Apparence" : "Appearance"}
                         </button>
