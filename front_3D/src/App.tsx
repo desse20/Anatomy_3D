@@ -7,6 +7,7 @@ import ForgotPassword from './auth/ForgotPassword';
 import ResetPassword from './auth/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
+import Quiz from './pages/Quiz';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { ProtectedRoute, GuestRoute } from './components/AuthGuards';
@@ -30,6 +31,7 @@ function App() {
           <Route path="/dash" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/atlas" element={<ProtectedRoute><AnatomyViewer /></ProtectedRoute>} />
+          <Route path="/quiz" element={<ProtectedRoute><Quiz /></ProtectedRoute>} />
         </Routes>
       </Router>
     </ThemeProvider>

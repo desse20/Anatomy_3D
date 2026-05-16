@@ -4,6 +4,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\AiController;
+
+Route::prefix('ai')->group(function () {
+    Route::post('generate', [AiController::class, 'generate']);
+    Route::get('models', [AiController::class, 'models']);
+});
 
 /*
 |--------------------------------------------------------------------------

@@ -96,6 +96,10 @@ const App: React.FC<AppProps> = ({ children, breadcrumb, title }) => {
                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
                         {!isCollapsed && <span>{language === 'fr' ? 'Mon Profil' : 'My Profile'}</span>}
                     </Link>
+                    <Link to="/quiz" className={`nav-item ${isActive('/quiz') ? 'active' : ''}`} title="Quiz IA">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v5"></path><path d="M9 11H7a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5a2 2 0 0 0 2-2h-2"></path><path d="M12 11v4"></path><path d="M10 13h4"></path></svg>
+                        {!isCollapsed && <span>{language === 'fr' ? 'Quiz IA' : 'AI Quiz'}</span>}
+                    </Link>
                 </nav>
 
                 <div className="lang-sidebar-container" style={{ marginTop: 'auto', padding: isCollapsed ? '0 0 16px' : '0 12px 16px' }}>
