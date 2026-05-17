@@ -1,10 +1,11 @@
 /**
- * Test.tsx — Version Finale avec Inscription Complète & Email à jour
+ * index.tsx — Version Finale avec Inscription Complète & Email à jour
  * Features: Password visibility toggle, updated email, active scroll links.
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { authService } from './services/api';
+import { useLanguage } from './contexts/LanguageContext';
 import './styles/landing.css';
 
 /* ── SVGs ── */
@@ -36,56 +37,57 @@ const EyeClosed = () => (
 );
 
 /* ── SERVICES DATA ── */
-const SERVICES = [
+const getServices = (lang: string) => [
   {
     id: "viewer-3d",
-    title: "Atlas 3D Interactif",
-    desc: "Prenez le contrôle total de l'anatomie : rotation, dissection et transparence en temps réel pour une compréhension spatiale sans précédent.",
+    title: lang === 'fr' ? "Atlas 3D Interactif" : "Interactive 3D Atlas",
+    desc: lang === 'fr' ? "Prenez le contrôle total de l'anatomie : rotation, dissection et transparence en temps réel pour une compréhension spatiale sans précédent." : "Take full control of anatomy: real-time rotation, dissection, and transparency for unprecedented spatial understanding.",
     img: "https://storage.googleapis.com/dev_resources_voka_io_303011/common/advanced-MoD-animation.webp",
     href: "/atlas",
   },
   {
     id: "prof-tools",
-    title: "Outils de Transmission",
-    desc: "Professeurs, générez des liens directs vers des structures précises. Fini les schémas au tableau, partagez la 3D en un clic avec vos étudiants.",
+    title: lang === 'fr' ? "Outils de Transmission" : "Transmission Tools",
+    desc: lang === 'fr' ? "Professeurs, générez des liens directs vers des structures précises. Fini les schémas au tableau, partagez la 3D en un clic avec vos étudiants." : "Teachers, generate direct links to specific structures. No more blackboard drawings, share 3D in one click with your students.",
     img: "https://storage.googleapis.com/dev_resources_voka_io_303011/video%20posters/advanced-moa.webp",
     href: "#",
   },
   {
     id: "quiz-secondary",
-    title: "Auto-évaluation Intelligente",
-    desc: "Après la manipulation, testez vos connaissances avec des QCM et Vrai/Faux générés par IA basés sur votre session d'étude.",
+    title: lang === 'fr' ? "Auto-évaluation Intelligente" : "Smart Self-evaluation",
+    desc: lang === 'fr' ? "Après la manipulation, testez vos connaissances avec des QCM et Vrai/Faux générés par IA basés sur votre session d'étude." : "After manipulation, test your knowledge with AI-generated MCQs and True/False based on your study session.",
     img: "https://storage.googleapis.com/dev_resources_voka_io_303011/common/advanced-medical-device-animation.webp",
     href: "/quiz",
   },
   {
     id: "mobile-tech",
-    title: "Liberté Totale",
-    desc: "Étudiez au laboratoire ou à la maison. L'atlas 3D est fluide sur tous supports pour un apprentissage sans contrainte technique.",
+    title: lang === 'fr' ? "Liberté Totale" : "Total Freedom",
+    desc: lang === 'fr' ? "Étudiez au laboratoire ou à la maison. L'atlas 3D est fluide sur tous supports pour un apprentissage sans contrainte technique." : "Study in the lab or at home. The 3D atlas runs smoothly on all devices for learning without technical constraints.",
     img: "https://storage.googleapis.com/dev_resources_voka_io_303011/common/advanced-biotech.webp",
     href: "#",
   },
   {
     id: "offline-mode",
-    title: "Focus & Immersion",
-    desc: "Plongez dans les détails sans distractions. Un environnement conçu pour la concentration et la mémorisation visuelle.",
+    title: lang === 'fr' ? "Focus & Immersion" : "Focus & Immersion",
+    desc: lang === 'fr' ? "Plongez dans les détails sans distractions. Un environnement conçu pour la concentration et la mémorisation visuelle." : "Dive into the details without distractions. An environment designed for concentration and visual retention.",
     img: "https://storage.googleapis.com/dev_resources_voka_io_303011/video%20posters/advanced-surgery.webp",
     href: "#",
   },
 ];
 
 /* ── RIGHT ITEMS ── */
-const MODELING_ITEMS = [
-  { title: "Visualisation Directe", desc: "Contrôle total des structures anatomiques sans intermédiaire.", href: "/atlas" },
-  { title: "Génération de Liens", desc: "Professeurs : ciblez une partie et partagez-la instantanément.", href: "/atlas" },
-  { title: "Raycasting Précis", desc: "Identifiez chaque organe et structure par simple survol.", href: "/atlas" },
-  { title: "Quiz IA Adaptatifs", desc: "S'évaluer après avoir manipulé le modèle 3D.", href: "/quiz" },
+const getModelingItems = (lang: string) => [
+  { title: lang === 'fr' ? "Visualisation Directe" : "Direct Visualization", desc: lang === 'fr' ? "Contrôle total des structures anatomiques sans intermédiaire." : "Full control of anatomical structures without intermediaries.", href: "/atlas" },
+  { title: lang === 'fr' ? "Génération de Liens" : "Link Generation", desc: lang === 'fr' ? "Professeurs : ciblez une partie et partagez-la instantanément." : "Professors: target a part and share it instantly.", href: "/atlas" },
+  { title: lang === 'fr' ? "Raycasting Précis" : "Precise Raycasting", desc: lang === 'fr' ? "Identifiez chaque organe et structure par simple survol." : "Identify every organ and structure by simply hovering.", href: "/atlas" },
+  { title: lang === 'fr' ? "Quiz IA Adaptatifs" : "Adaptive AI Quizzes", desc: lang === 'fr' ? "S'évaluer après avoir manipulé le modèle 3D." : "Evaluate yourself after manipulating the 3D model.", href: "/quiz" },
 ];
 
 /* ── MAIN COMPONENT ── */
 const TestPage: React.FC = () => {
   const navigate = useNavigate();
   const token    = localStorage.getItem('token');
+  const { language, setLanguage } = useLanguage();
 
   const [skinny,               setSkinny]              = useState(false);
   const [activeSection,        setActiveSection]       = useState('hiro');
@@ -137,7 +139,7 @@ const TestPage: React.FC = () => {
     e.preventDefault();
     setError(null);
     if (formData.password !== formData.confirmPassword) {
-      setError("Les mots de passe ne correspondent pas.");
+      setError(language === 'fr' ? "Les mots de passe ne correspondent pas." : "Passwords do not match.");
       return;
     }
     try {
@@ -154,7 +156,7 @@ const TestPage: React.FC = () => {
       setSent(true);
       setTimeout(() => navigate('/dash'), 1500);
     } catch (err: any) {
-      setError(err.message || "Erreur lors de l'inscription.");
+      setError(err.message || (language === 'fr' ? "Erreur lors de l'inscription." : "Error during registration."));
     }
   };
 
@@ -162,25 +164,25 @@ const TestPage: React.FC = () => {
     <div id="page" className="site">
       <header id="masthead" ref={headerRef} className={`site-header${skinny || mobileOpen ? ' skinny' : ''}`}>
         <div className="left-side">
-          <span className="header-logo" onClick={() => navigate('/test')}>
+          <span className="header-logo" onClick={() => navigate('/')}>
             ANATOMY<span>3D</span>
           </span>
           <div className="header-links-wrapper">
-            <a href="#features" className={`header-link${activeSection === 'features' ? ' active' : ''}`}>Visualiseur 3D</a>
-            <a href="#quiz"     className={`header-link${activeSection === 'quiz' ? ' active' : ''}`}>Apprentissage</a>
-            <a href="#about"    className={`header-link${activeSection === 'about' ? ' active' : ''}`}>À propos</a>
+            <a href="#features" className={`header-link${activeSection === 'features' ? ' active' : ''}`}>{language === 'fr' ? 'Visualiseur 3D' : '3D Viewer'}</a>
+            <a href="#quiz"     className={`header-link${activeSection === 'quiz' ? ' active' : ''}`}>{language === 'fr' ? 'Apprentissage' : 'Learning'}</a>
+            <a href="#about"    className={`header-link${activeSection === 'about' ? ' active' : ''}`}>{language === 'fr' ? 'À propos' : 'About Us'}</a>
           </div>
         </div>
         <div className="right-side">
           {!token ? (
             <>
-              <Link to="/login"    className="header-link">Connexion</Link>
-              <a href="#register" className="demo-button custom-button blue">S'inscrire &nbsp;<ArrowLg /></a>
+              <Link to="/login"    className="header-link">{language === 'fr' ? 'Connexion' : 'Login'}</Link>
+              <a href="#register" className="demo-button custom-button blue">{language === 'fr' ? "S'inscrire" : "Sign Up"} &nbsp;<ArrowLg /></a>
             </>
           ) : (
             <>
               <Link to="/dash" className="header-link">Dashboard</Link>
-              <button onClick={handleLogout} className="demo-button custom-button blue arrows-button-blue">Déconnexion</button>
+              <button onClick={handleLogout} className="demo-button custom-button blue arrows-button-blue">{language === 'fr' ? 'Déconnexion' : 'Logout'}</button>
             </>
           )}
           <button id="mobile-menu-button" onClick={() => setMobileOpen(!mobileOpen)}>
@@ -193,13 +195,20 @@ const TestPage: React.FC = () => {
       </header>
 
       <nav className={`mobile-header-menu${mobileOpen ? ' open' : ''}`}>
-        <a href="#features" className={`header-link${activeSection === 'features' ? ' active' : ''}`} onClick={() => setMobileOpen(false)}>Visualiseur 3D</a>
-        <a href="#quiz"     className={`header-link${activeSection === 'quiz' ? ' active' : ''}`} onClick={() => setMobileOpen(false)}>Apprentissage</a>
-        <a href="#about"    className={`header-link${activeSection === 'about' ? ' active' : ''}`} onClick={() => setMobileOpen(false)}>À propos</a>
+        <a href="#features" className={`header-link${activeSection === 'features' ? ' active' : ''}`} onClick={() => setMobileOpen(false)}>{language === 'fr' ? 'Visualiseur 3D' : '3D Viewer'}</a>
+        <a href="#quiz"     className={`header-link${activeSection === 'quiz' ? ' active' : ''}`} onClick={() => setMobileOpen(false)}>{language === 'fr' ? 'Apprentissage' : 'Learning'}</a>
+        <a href="#about"    className={`header-link${activeSection === 'about' ? ' active' : ''}`} onClick={() => setMobileOpen(false)}>{language === 'fr' ? 'À propos' : 'About Us'}</a>
+        
         <div className="bottom-mobile">
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px', gap: '15px' }} className="lang-switcher-mobile">
+            <button onClick={() => setLanguage('fr')} style={{ background: 'none', border: 'none', color: language === 'fr' ? 'var(--blue)' : 'rgba(11,21,33,0.5)', fontSize: '16px', fontWeight: language === 'fr' ? 'bold' : 'normal', cursor: 'pointer', padding: '10px' }}>FR</button>
+            <span style={{ color: 'rgba(11,21,33,0.2)', fontSize: '16px', padding: '10px 0' }}>|</span>
+            <button onClick={() => setLanguage('en')} style={{ background: 'none', border: 'none', color: language === 'en' ? 'var(--blue)' : 'rgba(11,21,33,0.5)', fontSize: '16px', fontWeight: language === 'en' ? 'bold' : 'normal', cursor: 'pointer', padding: '10px' }}>EN</button>
+          </div>
+
           {!token ? (
             <a href="#register" className="custom-button blue large" onClick={() => setMobileOpen(false)}>
-              S'inscrire <ArrowLg />
+              {language === 'fr' ? "S'inscrire" : "Sign Up"} <ArrowLg />
             </a>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
@@ -211,7 +220,7 @@ const TestPage: React.FC = () => {
                 className="custom-button white large"
                 style={{ justifyContent: 'center' }}
               >
-                Déconnexion
+                {language === 'fr' ? 'Déconnexion' : 'Logout'}
               </button>
             </div>
           )}
@@ -223,23 +232,23 @@ const TestPage: React.FC = () => {
           <img src="https://storage.googleapis.com/dev_resources_voka_io_303011/common/Frame%201597887620%20(1).webp" alt="Anatomy 3D" />
         </div>
         <div className="hiro-section-content">
-          <h1 className="main-h1">Maîtrisez l'Anatomie Humaine par Immersion 3D Totale</h1>
-          <p className="subtitle-semibold">Explorez, manipulez et interagissez avec le corps humain en temps réel. Destiné aux étudiants pour une visualisation précise et aux professeurs pour moderniser leurs cours sans dessins manuels.</p>
-          {!token ? <a href="#register" className="custom-button blue large">Démarrer gratuitement <ArrowLg /></a> : <Link to="/dash" className="custom-button blue large">Accéder à mon espace <ArrowLg /></Link>}
+          <h1 className="main-h1">{language === 'fr' ? "Maîtrisez l'Anatomie Humaine par Immersion 3D Totale" : "Master Human Anatomy via Total 3D Immersion"}</h1>
+          <p className="subtitle-semibold">{language === 'fr' ? "Explorez, manipulez et interagissez avec le corps humain en temps réel. Destiné aux étudiants pour une visualisation précise et aux professeurs pour moderniser leurs cours sans dessins manuels." : "Explore, manipulate and interact with the human body in real time. Designed for students for precise visualization and for professors to modernize their classes without manual drawings."}</p>
+          {!token ? <a href="#register" className="custom-button blue large">{language === 'fr' ? "Démarrer gratuitement" : "Start for free"} <ArrowLg /></a> : <Link to="/dash" className="custom-button blue large">{language === 'fr' ? "Accéder à mon espace" : "Access my workspace"} <ArrowLg /></Link>}
         </div>
       </section>
 
       <section className="about-us-columns-cards-section" id="about">
         <div className="about-us-columns-cards-header">
-          <div className="about-us-columns-cards-tab"><div className="about-us-columns-cards-dot"></div><p className="subtitle-semibold">Notre Mission</p></div>
-          <p className="main-h3">Remplacer le schéma traditionnel par l'interaction 3D immersive pour une meilleure compréhension spatiale</p>
+          <div className="about-us-columns-cards-tab"><div className="about-us-columns-cards-dot"></div><p className="subtitle-semibold">{language === 'fr' ? "Notre Mission" : "Our Mission"}</p></div>
+          <p className="main-h3">{language === 'fr' ? "Remplacer le schéma traditionnel par l'interaction 3D immersive pour une meilleure compréhension spatiale" : "Replacing traditional diagrams with immersive 3D interaction for better spatial understanding"}</p>
         </div>
         <div className="about-us-columns-grid">
           {[
-            { label: 'Modèle 3D complet',   value: '1', nowrap: true },
-            { label: 'Quiz générés',     value: '5 000+', nowrap: true },
-            { label: 'Outils Professeurs',  value: 'Lien direct', nowrap: true },
-            { label: 'Langues supportées',    value: 'Français & Anglais', nowrap: false },
+            { label: language === 'fr' ? 'Modèle 3D complet' : 'Complete 3D Model',   value: '1', nowrap: true },
+            { label: language === 'fr' ? 'Quiz générés' : 'Generated Quizzes',     value: '5 000+', nowrap: true },
+            { label: language === 'fr' ? 'Outils Professeurs' : 'Teacher Tools',  value: language === 'fr' ? 'Lien direct' : 'Direct link', nowrap: true },
+            { label: language === 'fr' ? 'Langues supportées' : 'Supported Languages',    value: language === 'fr' ? 'Français & Anglais' : 'French & English', nowrap: false },
           ].map((s, i) => (
             <div key={i} className="about-us-columns-grid-item">
               <p className="subtitle-semibold">{s.label}</p>
@@ -251,43 +260,43 @@ const TestPage: React.FC = () => {
 
       <section className="advanced-visualization-section" id="features">
         <div className="advanced-visualization-header">
-          <div className="advanced-visualization-tab"><div className="advanced-visualization-dot"></div><p className="subtitle-semibold">L'expérience</p></div>
-          <h2 className="main-h2">Visualisation, Contrôle & Enseignement</h2>
+          <div className="advanced-visualization-tab"><div className="advanced-visualization-dot"></div><p className="subtitle-semibold">{language === 'fr' ? "L'expérience" : "The Experience"}</p></div>
+          <h2 className="main-h2">{language === 'fr' ? "Visualisation, Contrôle & Enseignement" : "Visualization, Control & Teaching"}</h2>
         </div>
         <div className="advanced-visualization-grid">
-          {SERVICES.map((s, i) => (
+          {getServices(language).map((s, i) => (
             <Link key={i} className="grid-item" to={s.href}>
               <div className="grid-item-bg-layout"><img className="grid-item-bg-image" src={s.img} alt={s.title} /><div className="link-arrow-icon"><ArrowSm /></div></div>
               <div className="grid-item-content"><p className="main-h4">{s.title}</p><p className="main-text-medium">{s.desc}</p></div>
             </Link>
           ))}
-          <div className="grid-item portfolio-grid-item"><Link to="/quiz" className="custom-button white large">S'évaluer maintenant <ArrowLg /></Link></div>
+          <div className="grid-item portfolio-grid-item"><Link to="/quiz" className="custom-button white large">{language === 'fr' ? "S'évaluer maintenant" : "Evaluate yourself now"} <ArrowLg /></Link></div>
         </div>
       </section>
 
       <section className="centered-footer-cta-section" id="quiz">
         <div className="cta-content">
-          <p className="cta-subtitle">De l'observation à la maîtrise</p>
+          <p className="cta-subtitle">{language === 'fr' ? "De l'observation à la maîtrise" : "From observation to mastery"}</p>
           <div className="line-with-dot"><div className="line"></div><div className="dot"></div><div className="line"></div></div>
-          <p className="main-h3">Après la visualization 3D, testez vos connaissances avec nos <span style={{ color: '#9DC7FF' }}>Quiz Interactifs</span> sur mesure.</p>
+          <p className="main-h3">{language === 'fr' ? "Après la visualisation 3D, testez vos connaissances avec nos" : "After 3D visualization, test your knowledge with our custom"} <span style={{ color: '#9DC7FF' }}>{language === 'fr' ? "Quiz Interactifs" : "Interactive Quizzes"}</span> {language === 'fr' ? "sur mesure." : "."}</p>
         </div>
-        <Link to="/quiz" className="custom-button white large">Accéder aux Quiz <ArrowLg /></Link>
+        <Link to="/quiz" className="custom-button white large">{language === 'fr' ? "Accéder aux Quiz" : "Access Quizzes"} <ArrowLg /></Link>
       </section>
 
       <section className="modeling-and-simulation-section">
         <div className="modeling-and-simulation-header">
-          <div className="modeling-simulation-tab"><div className="modeling-simulation-dot"></div><p className="subtitle-semibold">L'outil Professeurs</p></div>
-          <h2 className="main-h2">Fini les dessins au tableau & les atlas papier coûteux</h2>
+          <div className="modeling-simulation-tab"><div className="modeling-simulation-dot"></div><p className="subtitle-semibold">{language === 'fr' ? "L'outil Professeurs" : "The Teachers Tool"}</p></div>
+          <h2 className="main-h2">{language === 'fr' ? "Fini les dessins au tableau & les atlas papier coûteux" : "No more blackboard drawings & expensive paper atlases"}</h2>
         </div>
         <div className="modeling-and-simulation-grid">
           <Link className="left-item" to="/atlas">
             <div className="left-video-overlay"><img src="https://storage.googleapis.com/dev_resources_voka_io_303011/common/voka-product-image.webp" alt="Enseignement" /></div>
-            <p className="main-h4">Partage de structures ciblées</p>
-            <p className="main-text-medium">Générez un lien unique vers un organe et partagez-le instantanément. Évitez les atlas papier onéreux pour de simples visuels et passez à l'immersion 3D totale.</p>
+            <p className="main-h4">{language === 'fr' ? "Partage de structures ciblées" : "Targeted Structure Sharing"}</p>
+            <p className="main-text-medium">{language === 'fr' ? "Générez un lien unique vers un organe et partagez-le instantanément. Évitez les atlas papier onéreux pour de simples visuels et passez à l'immersion 3D totale." : "Generate a unique link to an organ and share it instantly. Skip the expensive paper atlases for basic visuals and switch to total 3D immersion."}</p>
             <div className="arrow-icon"><ArrowSm /></div>
           </Link>
           <div className="right-items-col">
-            {MODELING_ITEMS.map((item, i) => (
+            {getModelingItems(language).map((item, i) => (
               <Link key={i} className="right-item" to={item.href}>
                 <div className="right-item-text"><p className="main-h4">{item.title}</p><p className="main-text-medium">{item.desc}</p></div>
                 <div className="arrow-icon"><ArrowBlue /></div>
@@ -301,24 +310,24 @@ const TestPage: React.FC = () => {
         <img className="left-highlight-gradient" src="https://storage.googleapis.com/dev_resources_voka_io_303011/common/left-highlight-gradient.webp" alt="" />
         <img className="right-highlight-gradient" src="https://storage.googleapis.com/dev_resources_voka_io_303011/common/right-highlight-gradient.webp" alt="" />
         <div className="product-suite-header">
-          <div className="product-suite-tab"><div className="product-suite-dot"></div><p className="subtitle-semibold">La Suite Anatomy 3D</p></div>
-          <h2 className="main-h2">Conçu pour les Étudiants et les Professeurs</h2>
+          <div className="product-suite-tab"><div className="product-suite-dot"></div><p className="subtitle-semibold">{language === 'fr' ? "La Suite Anatomy 3D" : "The Anatomy 3D Suite"}</p></div>
+          <h2 className="main-h2">{language === 'fr' ? "Conçu pour les Étudiants et les Professeurs" : "Designed for Students and Professors"}</h2>
         </div>
         <div className="product-suite-items">
           <div className="product-suite-item">
             <div className="product-suite-item-image"><img src="https://storage.googleapis.com/dev_resources_voka_io_303011/common/voka-product-image.webp" alt="Visualiseur" /></div>
             <div className="product-suite-item-content">
-              <p className="main-h3">Atlas Complet en Anatomie Humaine</p>
-              <p className="main-text-medium">Explorez chaque détail, identifiez les structures et manipulez le modèle 3D avec une liberté totale pour une mémorisation visuelle durable.</p>
-              <Link to="/atlas" className="custom-button white large explore-button">Visualiser <ArrowLg /></Link>
+              <p className="main-h3">{language === 'fr' ? "Atlas Complet en Anatomie Humaine" : "Complete Human Anatomy Atlas"}</p>
+              <p className="main-text-medium">{language === 'fr' ? "Explorez chaque détail, identifiez les structures et manipulez le modèle 3D avec une liberté totale pour une mémorisation visuelle durable." : "Explore every detail, identify structures, and manipulate the 3D model with total freedom for long-lasting visual memory."}</p>
+              <Link to="/atlas" className="custom-button white large explore-button">{language === 'fr' ? "Visualiser" : "Visualize"} <ArrowLg /></Link>
             </div>
           </div>
           <div className="product-suite-item">
             <div className="product-suite-item-image"><img src="https://storage.googleapis.com/dev_resources_voka_io_303011/common/wiki-product-image.webp" alt="Outils" /></div>
             <div className="product-suite-item-content">
-              <p className="main-h3">Évaluation & Transmission</p>
-              <p className="main-text-medium">Plus qu'un atlas : un outil de partage pour les enseignants et une batterie de tests interactifs pour les étudiants voulant valider leurs acquis.</p>
-              <Link to="/quiz" className="custom-button white large explore-button">Tester <ArrowLg /></Link>
+              <p className="main-h3">{language === 'fr' ? "Évaluation & Transmission" : "Evaluation & Transmission"}</p>
+              <p className="main-text-medium">{language === 'fr' ? "Plus qu'un atlas : un outil de partage pour les enseignants et une batterie de tests interactifs pour les étudiants voulant valider leurs acquis." : "More than an atlas: a sharing tool for teachers and a set of interactive tests for students wanting to validate their knowledge."}</p>
+              <Link to="/quiz" className="custom-button white large explore-button">{language === 'fr' ? "Tester" : "Test"} <ArrowLg /></Link>
             </div>
           </div>
         </div>
@@ -330,24 +339,24 @@ const TestPage: React.FC = () => {
             {!token ? (
               <>
                 <div className="form-description">
-                  <h2>Commencez dès maintenant</h2>
-                  <p className="main-text-medium">Créez votre compte pour sauvegarder votre progression et accéder aux outils enseignants.</p>
+                  <h2>{language === 'fr' ? "Commencez dès maintenant" : "Start right now"}</h2>
+                  <p className="main-text-medium">{language === 'fr' ? "Créez votre compte pour sauvegarder votre progression et accéder aux outils enseignants." : "Create your account to save your progress and access teaching tools."}</p>
                 </div>
                 {error && <div style={{ padding: '12px', background: 'rgba(255,0,0,.15)', border: '1px solid rgba(255,0,0,.3)', borderRadius: 12, color: '#ffb3b3', fontSize: 13, marginBottom: 20 }}>✕ {error}</div>}
-                {sent && <div style={{ padding: '14px 20px', background: 'rgba(5,108,242,.2)', border: '1px solid rgba(5,108,242,.4)', borderRadius: 12, color: '#9DC7FF', fontSize: 14, marginBottom: 20 }}>✓ Inscription réussie !</div>}
+                {sent && <div style={{ padding: '14px 20px', background: 'rgba(5,108,242,.2)', border: '1px solid rgba(5,108,242,.4)', borderRadius: 12, color: '#9DC7FF', fontSize: 14, marginBottom: 20 }}>✓ {language === 'fr' ? "Inscription réussie !" : "Registration successful!"}</div>}
                 <form className="form-container" onSubmit={handleSubmit}>
                   <div className="top-fields">
-                    <p><label htmlFor="ct-fname">Prénom</label><input id="ct-fname" name="firstname" type="text" placeholder="Ex: Koffi" value={formData.firstname} onChange={handleField} required /></p>
-                    <p><label htmlFor="ct-lname">Nom</label><input id="ct-lname" name="lastname" type="text" placeholder="Ex: SOGLO" value={formData.lastname} onChange={handleField} required /></p>
+                    <p><label htmlFor="ct-fname">{language === 'fr' ? "Prénom" : "First name"}</label><input id="ct-fname" name="firstname" type="text" placeholder="Ex: Koffi" value={formData.firstname} onChange={handleField} required /></p>
+                    <p><label htmlFor="ct-lname">{language === 'fr' ? "Nom" : "Last name"}</label><input id="ct-lname" name="lastname" type="text" placeholder="Ex: SOGLO" value={formData.lastname} onChange={handleField} required /></p>
                     <p style={{ gridColumn: '1 / -1' }}><label htmlFor="ct-email">Email</label><input id="ct-email" name="email" type="email" placeholder="votre@email.com" value={formData.email} onChange={handleField} required /></p>
                     <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                      <p><label htmlFor="ct-pass">Mot de passe</label>
+                      <p><label htmlFor="ct-pass">{language === 'fr' ? "Mot de passe" : "Password"}</label>
                         <div className="password-input-wrapper">
                           <input id="ct-pass" name="password" type={showPassword ? "text" : "password"} placeholder="••••••••" value={formData.password} onChange={handleField} required />
                           <span className="password-toggle" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeClosed /> : <EyeOpen />}</span>
                         </div>
                       </p>
-                      <p><label htmlFor="ct-conf">Confirmation</label>
+                      <p><label htmlFor="ct-conf">{language === 'fr' ? "Confirmation" : "Confirmation"}</label>
                         <div className="password-input-wrapper">
                           <input id="ct-conf" name="confirmPassword" type={showConfirmPassword ? "text" : "password"} placeholder="••••••••" value={formData.confirmPassword} onChange={handleField} required />
                           <span className="password-toggle" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>{showConfirmPassword ? <EyeClosed /> : <EyeOpen />}</span>
@@ -355,30 +364,30 @@ const TestPage: React.FC = () => {
                       </p>
                     </div>
                     <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}>
-                      <label style={{ fontSize: '12px', fontWeight: '700', color: 'rgba(255,255,255,.65)', marginBottom: '10px', display: 'block' }}>QUEL PROFIL VOUS CORRESPOND ?</label>
+                      <label style={{ fontSize: '12px', fontWeight: '700', color: 'rgba(255,255,255,.65)', marginBottom: '10px', display: 'block' }}>{language === 'fr' ? "QUEL PROFIL VOUS CORRESPOND ?" : "WHICH PROFILE FITS YOU?"}</label>
                       <div style={{ display: 'flex', gap: '20px' }}>
-                        <label style={{ color: '#fff', fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}><input type="radio" name="profile" value="student" checked={formData.profile === 'student'} onChange={handleField} /> Étudiant</label>
-                        <label style={{ color: '#fff', fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}><input type="radio" name="profile" value="professor" checked={formData.profile === 'professor'} onChange={handleField} /> Professeur</label>
+                        <label style={{ color: '#fff', fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}><input type="radio" name="profile" value="student" checked={formData.profile === 'student'} onChange={handleField} /> {language === 'fr' ? "Étudiant" : "Student"}</label>
+                        <label style={{ color: '#fff', fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}><input type="radio" name="profile" value="professor" checked={formData.profile === 'professor'} onChange={handleField} /> {language === 'fr' ? "Professeur" : "Professor"}</label>
                       </div>
                     </div>
                   </div>
                   <div className="middle-fields" style={{ marginTop: '24px' }}>
                     <p id="form-agree">
-                      <span className="description-medium">En cliquant sur Démarrer maintenant, vous accédez à l'expérience complète Anatomy 3D.</span>
-                      <button type="submit" className="custom-button blue large arrows-button-blue" style={{ width: '100%', justifyContent: 'center' }}>Démarrer maintenant <ArrowLg /></button>
+                      <span className="description-medium">{language === 'fr' ? "En cliquant sur Démarrer maintenant, vous accédez à l'expérience complète Anatomy 3D." : "By clicking Start now, you access the full Anatomy 3D experience."}</span>
+                      <button type="submit" className="custom-button blue large arrows-button-blue" style={{ width: '100%', justifyContent: 'center' }}>{language === 'fr' ? "Démarrer maintenant" : "Start now"} <ArrowLg /></button>
                     </p>
                   </div>
                 </form>
               </>
             ) : (
               <div className="welcome-back-card" style={{ padding: '40px 0' }}>
-                <h2 style={{ fontSize: '36px', marginBottom: '20px', color: '#fff' }}>Bon retour parmi nous !</h2>
+                <h2 style={{ fontSize: '36px', marginBottom: '20px', color: '#fff' }}>{language === 'fr' ? 'Bon retour parmi nous !' : 'Welcome back!'}</h2>
                 <p className="main-text-medium" style={{ marginBottom: '30px', opacity: 0.8, color: 'rgba(255,255,255,0.8)' }}>
-                  Vous êtes déjà connecté à votre espace personnel. Prêt à reprendre votre exploration de l'anatomie humaine ?
+                  {language === 'fr' ? "Vous êtes déjà connecté à votre espace personnel. Prêt à reprendre votre exploration de l'anatomie humaine ?" : "You are already connected to your personal space. Ready to resume your exploration of human anatomy?"}
                 </p>
                 <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
-                  <Link to="/atlas" className="custom-button blue large">Aller à l'Atlas <ArrowLg /></Link>
-                  <Link to="/dash" className="custom-button white large">Mon Dashboard <ArrowLg /></Link>
+                  <Link to="/atlas" className="custom-button blue large">{language === 'fr' ? "Aller à l'Atlas" : "Go to Atlas"} <ArrowLg /></Link>
+                  <Link to="/dash" className="custom-button white large">{language === 'fr' ? "Mon Dashboard" : "My Dashboard"} <ArrowLg /></Link>
                 </div>
               </div>
             )}
@@ -386,11 +395,14 @@ const TestPage: React.FC = () => {
         </div>
         <div className="right-side">
           <div className="description-wrapper">
-            <div className="banner-titles"><p className="h3-small">Visualisation, Interactions, Maîtrise —</p><p className="main-text-medium">Une nouvelle façon d'enseigner et d'apprendre l'anatomie.</p></div>
+            <div className="banner-titles"><p className="h3-small">{language === 'fr' ? "Visualisation, Interactions, Maîtrise —" : "Visualization, Interactions, Mastery —"}</p><p className="main-text-medium">{language === 'fr' ? "Une nouvelle façon d'enseigner et d'apprendre l'anatomie." : "A new way to teach and learn anatomy."}</p></div>
             <div className="banner-list-wrapper">
-              <p className="main-text-bold">L'essentiel :</p>
+              <p className="main-text-bold">{language === 'fr' ? "L'essentiel :" : "The essentials:"}</p>
               <div className="banner-list bullets">
-                {["Visualisation 3D directe", "Génération de liens pour les cours", "Évaluation par quiz IA", "Contrôle total des structures"].map((txt, i) => (
+                {(language === 'fr' 
+                  ? ["Visualisation 3D directe", "Génération de liens pour les cours", "Évaluation par quiz IA", "Contrôle total des structures"]
+                  : ["Direct 3D visualization", "Link generation for classes", "AI quiz evaluation", "Total control over structures"]
+                ).map((txt, i) => (
                   <div key={i} className="list-item"><div className="item-bullet"></div><p className="main-text-medium">{txt}</p></div>
                 ))}
               </div>
@@ -403,11 +415,11 @@ const TestPage: React.FC = () => {
         <div className="footer-container">
           <div className="footer-content">
             {[
-              { title: 'Outils', links: [{ label: 'Visualiseur 3D', href: '/atlas' }, { label: 'Quiz Interactifs', href: '/quiz' }, { label: 'Outil Professeur', href: '#' }]},
-              { title: 'Informations', links: [{ label: 'À propos', href: '#about' }, { label: 'Conditions', href: '#' }]},
-              { title: 'Accès', links: [
-                { label: token ? 'Dashboard' : 'Connexion', href: token ? '/dash' : '/login' },
-                { label: token ? 'Mon Profil' : 'S\'inscrire', href: token ? '/profile' : '#register' }
+              { title: language === 'fr' ? 'Outils' : 'Tools', links: [{ label: language === 'fr' ? 'Visualiseur 3D' : '3D Viewer', href: '/atlas' }, { label: language === 'fr' ? 'Quiz Interactifs' : 'Interactive Quizzes', href: '/quiz' }, { label: language === 'fr' ? 'Outil Professeur' : 'Teacher Tool', href: '#' }]},
+              { title: language === 'fr' ? 'Informations' : 'Information', links: [{ label: language === 'fr' ? 'À propos' : 'About', href: '#about' }, { label: language === 'fr' ? 'Conditions' : 'Terms', href: '#' }]},
+              { title: language === 'fr' ? 'Accès' : 'Access', links: [
+                { label: token ? 'Dashboard' : (language === 'fr' ? 'Connexion' : 'Login'), href: token ? '/dash' : '/login' },
+                { label: token ? (language === 'fr' ? 'Mon Profil' : 'My Profile') : (language === 'fr' ? "S'inscrire" : 'Sign Up'), href: token ? '/profile' : '#register' }
               ]},
             ].map((col, ci) => (
               <div key={ci} className="menu-block">
@@ -427,16 +439,28 @@ const TestPage: React.FC = () => {
                 </div>
               </div>
             ))}
+            
+            <div className="menu-block">
+              <div className="footer-section">
+                <p className="menu-title">{language === 'fr' ? "Langue" : "Language"}</p>
+                <div style={{ display: 'flex', gap: '15px' }}>
+                  <button onClick={() => setLanguage('fr')} style={{ background: 'none', border: 'none', color: language === 'fr' ? 'var(--blue)' : 'rgba(255,255,255,0.4)', fontWeight: language === 'fr' ? 'bold' : 'normal', cursor: 'pointer', padding: 0 }}>FR</button>
+                  <span style={{ color: 'rgba(255,255,255,0.2)' }}>|</span>
+                  <button onClick={() => setLanguage('en')} style={{ background: 'none', border: 'none', color: language === 'en' ? 'var(--blue)' : 'rgba(255,255,255,0.4)', fontWeight: language === 'en' ? 'bold' : 'normal', cursor: 'pointer', padding: 0 }}>EN</button>
+                </div>
+              </div>
+            </div>
           </div>
+          
           <div className="footer-information">
             <div className="footer-info-logo-container">
               <span className="footer-logo">ANATOMY<span>3D</span></span>
-              <p className="footer-info-text">Maîtriser l'anatomie humaine par la manipulation 3D directe et l'évaluation personnalisée.</p>
+              <p className="footer-info-text">{language === 'fr' ? "Maîtriser l'anatomie humaine par la manipulation 3D directe et l'évaluation personnalisée." : "Master human anatomy via direct 3D manipulation and customized evaluation."}</p>
             </div>
             <div className="footer-contacts-desktop">
               <div className="contact-items"><a href="mailto:anatomy3d@gmail.com">anatomy3d@gmail.com</a></div>
               {!token ? (
-                <a href="#register" className="custom-button blue large without-arrow desktop-contact-us">Démarrer maintenant</a>
+                <a href="#register" className="custom-button blue large without-arrow desktop-contact-us">{language === 'fr' ? "Démarrer maintenant" : "Start now"}</a>
               ) : (
                 <Link to="/dash" className="custom-button blue large without-arrow desktop-contact-us">Dashboard</Link>
               )}
