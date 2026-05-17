@@ -100,6 +100,15 @@ const TestPage: React.FC = () => {
   const headerRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
+    if (window.location.hash) {
+      setTimeout(() => {
+        const el = document.querySelector(window.location.hash);
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, []);
+
+  useEffect(() => {
     const onScroll = () => {
       const scrolled = window.scrollY || document.documentElement.scrollTop;
       setSkinny(scrolled > 20);

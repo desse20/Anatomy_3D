@@ -48,9 +48,7 @@ const Login: React.FC = () => {
 
     return (
         <div className="auth-page">
-            <div className="auth-side-image" style={{ 
-                backgroundImage: `linear-gradient(rgba(12, 121, 242, 0.4), rgba(9, 17, 26, 0.8)), url('https://i.pinimg.com/736x/4b/27/47/4b2747b08ef05c33ff24a6e155bdc3ec.jpg')`
-            }}>
+            <div className="auth-side-image" style={{ backgroundImage: `url('https://i.pinimg.com/736x/4b/27/47/4b2747b08ef05c33ff24a6e155bdc3ec.jpg')` }}>
                 <div className="auth-side-content">
                     <h2>{language === 'fr' ? "L'excellence dans l'apprentissage de l'anatomie." : "Excellence in anatomy learning."}</h2>
                     <p>{language === 'fr' ? "Accédez à des outils de visualisation 3D de haute précision pour approfondir vos connaissances médicales." : "Access high-precision 3D visualization tools to deepen your medical knowledge."}</p>
@@ -67,7 +65,7 @@ const Login: React.FC = () => {
                 </div>
                 
                 <div className="auth-container">
-                    <div className="auth-logo">ANATOMY<span>3D</span></div>
+                    <div className="auth-logo" onClick={() => navigate('/')}>ANATOMY<span>3D</span></div>
                     
                     <header className="auth-header">
                         <h1>{language === 'fr' ? "Connexion" : "Login"}</h1>
@@ -77,39 +75,37 @@ const Login: React.FC = () => {
                     {error && <div style={{ background: '#ffeeee', color: '#e30000', padding: '12px', borderRadius: '8px', marginBottom: '20px', fontSize: '14px', fontWeight: '600', textAlign: 'center', border: '1px solid #ffcccc' }}>{error}</div>}
 
                     <form className="auth-form" onSubmit={handleSubmit}>
-                        <div style={{ display: 'flex', gap: '20px' }}>
-                            <div className="form-group" style={{ flex: 1 }}>
-                                <label>{language === 'fr' ? "EMAIL" : "EMAIL"}</label>
+                        <div className="form-group">
+                            <label>{language === 'fr' ? "EMAIL" : "EMAIL"}</label>
+                            <input 
+                                type="email" 
+                                placeholder={language === 'fr' ? "votre-email@gmail.com" : "your-email@gmail.com"} 
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                required 
+                            />
+                        </div>
+
+                        <div className="form-group">
+                            <label>{language === 'fr' ? "MOT DE PASSE" : "PASSWORD"}</label>
+                            <div className="password-input-wrapper">
                                 <input 
-                                    type="email" 
-                                    placeholder={language === 'fr' ? "votre-email@gmail.com" : "your-email@gmail.com"} 
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
+                                    type={showPassword ? "text" : "password"} 
+                                    placeholder="••••••••" 
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
                                     required 
                                 />
-                            </div>
-
-                            <div className="form-group" style={{ flex: 1 }}>
-                                <label>{language === 'fr' ? "MOT DE PASSE" : "PASSWORD"}</label>
-                                <div className="password-input-wrapper">
-                                    <input 
-                                        type={showPassword ? "text" : "password"} 
-                                        placeholder="••••••••" 
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        required 
-                               / >
-                                    <span 
-                                        className="password-toggle" 
-                                        onClick={() => setShowPassword(!showPassword)}
-                                    >
-                                        {showPassword ? (
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
-                                        ) : (
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                                        )}
-                                    </span>
-                                </div>
+                                <span 
+                                    className="password-toggle" 
+                                    onClick={() => setShowPassword(!showPassword)}
+                                >
+                                    {showPassword ? (
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                                    ) : (
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                    )}
+                                </span>
                             </div>
                         </div>
 
@@ -123,7 +119,7 @@ const Login: React.FC = () => {
                     </form>
 
                     <div className="auth-footer">
-                        {language === 'fr' ? "Pas encore de compte ?" : "Don't have an account?"} <Link to="/register">{language === 'fr' ? "S'inscrire gratuitement" : "Sign up for free"}</Link>
+                        {language === 'fr' ? "Pas encore de compte ?" : "Don't have an account?"} <a href="/#register">{language === 'fr' ? "S'inscrire gratuitement" : "Sign up for free"}</a>
                     </div>
                 </div>
             </div>

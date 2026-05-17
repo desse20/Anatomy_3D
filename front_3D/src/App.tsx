@@ -2,7 +2,6 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import LandingPage from './index';
 import AnatomyViewer from './components/AnatomyViewer';
 import Login from './auth/login';
-import Register from './auth/register';
 import ForgotPassword from './auth/ForgotPassword';
 import ResetPassword from './auth/ResetPassword';
 import Dashboard from './pages/Dashboard';
@@ -25,7 +24,6 @@ function App() {
           
           {/* Guest only Routes */}
           <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
-          <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
           <Route path="/forgot-password" element={<GuestRoute><ForgotPassword /></GuestRoute>} />
           <Route path="/password-reset" element={<GuestRoute><ResetPassword /></GuestRoute>} />
           

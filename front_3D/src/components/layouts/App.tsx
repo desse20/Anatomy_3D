@@ -42,7 +42,8 @@ const App: React.FC<AppProps> = ({ children, breadcrumb, title }) => {
     const handleLogout = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        navigate('/login');
+        navigate('/');
+        window.location.reload();
     };
 
     const isActive = (path: string) => location.pathname === path;
