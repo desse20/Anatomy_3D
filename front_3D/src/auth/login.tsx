@@ -65,7 +65,6 @@ const Login: React.FC = () => {
                 </div>
                 
                 <div className="auth-container">
-                    <div className="auth-logo" onClick={() => navigate('/')}>ANATOMY<span>3D</span></div>
                     
                     <header className="auth-header">
                         <h1>{language === 'fr' ? "Connexion" : "Login"}</h1>

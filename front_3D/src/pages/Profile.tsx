@@ -190,7 +190,7 @@ const Profile: React.FC = () => {
                         )}
 
                         <form className="settings-form-container" onSubmit={handleProfileUpdate}>
-                            <div style={{ display: 'flex', gap: '20px' }}>
+                            <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
                                 <div className="form-group" style={{ flex: 1 }}>
                                     <label>{language === 'fr' ? "Prénom" : "First Name"}</label>
                                     <input 
@@ -412,17 +412,6 @@ const Profile: React.FC = () => {
                 </aside>
 
                 <div className="settings-content">
-                    <div style={{ position: 'absolute', top: '32px', right: '40px', zIndex: 10 }}>
-                        <div className="role-badge">
-                            <div className="role-badge-dot"></div>
-                            <span className="role-badge-text">
-                                {user.role === 'teacher' 
-                                    ? (language === 'fr' ? 'Professeur' : 'Teacher')
-                                    : (language === 'fr' ? 'Étudiant' : 'Student')
-                                }
-                            </span>
-                        </div>
-                    </div>
                     {renderContent()}
                 </div>
             </div>

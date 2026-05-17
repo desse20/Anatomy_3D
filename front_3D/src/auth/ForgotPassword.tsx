@@ -48,7 +48,6 @@ const ForgotPassword: React.FC = () => {
                 <Link to="/login" className="back-to-home">← {language === 'fr' ? "Retour à la connexion" : "Back to Login"}</Link>
                 
                 <div className="auth-container">
-                    <div className="auth-logo">ANATOMY<span>3D</span></div>
                     
                     <header className="auth-header">
                         <h1>{language === 'fr' ? "Mot de passe oublié ?" : "Forgot Password?"}</h1>

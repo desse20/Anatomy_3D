@@ -216,9 +216,14 @@ const TestPage: React.FC = () => {
           </div>
 
           {!token ? (
-            <a href="#register" className="custom-button blue large" onClick={() => setMobileOpen(false)}>
-              {language === 'fr' ? "S'inscrire" : "Sign Up"} <ArrowLg />
-            </a>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
+              <Link to="/login" className="custom-button outline large" style={{ justifyContent: 'center' }} onClick={() => setMobileOpen(false)}>
+                {language === 'fr' ? 'Se connecter' : 'Login'}
+              </Link>
+              <a href="#register" className="custom-button blue large" style={{ justifyContent: 'center' }} onClick={() => setMobileOpen(false)}>
+                {language === 'fr' ? "S'inscrire" : "Sign Up"} <ArrowLg />
+              </a>
+            </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
               <Link to="/dash" className="custom-button blue large" onClick={() => setMobileOpen(false)}>
@@ -414,11 +419,21 @@ const TestPage: React.FC = () => {
                         </div>
                       </p>
                     </div>
-                    <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}>
-                      <label style={{ fontSize: '12px', fontWeight: '700', color: 'rgba(255,255,255,.65)', marginBottom: '10px', display: 'block' }}>{language === 'fr' ? "QUEL PROFIL VOUS CORRESPOND ?" : "WHICH PROFILE FITS YOU?"}</label>
-                      <div style={{ display: 'flex', gap: '20px' }}>
-                        <label style={{ color: '#fff', fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}><input type="radio" name="profile" value="student" checked={formData.profile === 'student'} onChange={handleField} /> {language === 'fr' ? "Étudiant" : "Student"}</label>
-                        <label style={{ color: '#fff', fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}><input type="radio" name="profile" value="professor" checked={formData.profile === 'professor'} onChange={handleField} /> {language === 'fr' ? "Professeur" : "Professor"}</label>
+                    <div style={{ gridColumn: '1 / -1', marginTop: '16px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: '800', color: 'rgba(255,255,255,.5)', marginBottom: '12px', display: 'block', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                        {language === 'fr' ? "QUEL PROFIL VOUS CORRESPOND ?" : "WHICH PROFILE FITS YOU?"}
+                      </label>
+                      <div className="profile-selection-group">
+                        <label className="profile-radio-label">
+                          <input type="radio" name="profile" value="student" checked={formData.profile === 'student'} onChange={handleField} />
+                          <span className="radio-checkmark"></span>
+                          {language === 'fr' ? "Étudiant" : "Student"}
+                        </label>
+                        <label className="profile-radio-label">
+                          <input type="radio" name="profile" value="professor" checked={formData.profile === 'professor'} onChange={handleField} />
+                          <span className="radio-checkmark"></span>
+                          {language === 'fr' ? "Professeur" : "Professor"}
+                        </label>
                       </div>
                     </div>
                   </div>

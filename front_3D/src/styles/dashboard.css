@@ -30,6 +30,9 @@
     color: rgba(255, 255, 255, 0.05);
 }
 
+.p-0 { padding: 0 !important; }
+.overflow-hidden { overflow: hidden !important; }
+
 /* Dashboard Grid */
 .aspect-video {
     aspect-ratio: 16 / 9;
@@ -62,6 +65,12 @@
     letter-spacing: 0.2px;
 }
 
+.dash-role-wrapper {
+    position: absolute;
+    top: 32px;
+    right: 40px;
+}
+
 @media (max-width: 768px) {
     .dash-grid {
         grid-template-columns: 1fr;
@@ -69,10 +78,24 @@
     .dash-card.full-width {
         grid-column: span 1;
     }
+    .dash-role-wrapper {
+        position: relative;
+        top: 0;
+        right: 0;
+        margin-top: -10px;
+        margin-bottom: 20px;
+        display: inline-block;
+    }
     .dash-home-link-hero {
-        padding: 12px 24px;
-        font-size: 14px;
+        padding: 12px 16px;
+        font-size: 13px;
         width: 100%;
         justify-content: space-between;
+        gap: 8px;
+        white-space: normal;
+        word-break: break-word;
+    }
+    .dash-home-link-hero svg {
+        flex-shrink: 0;
     }
 }

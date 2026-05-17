@@ -31,22 +31,10 @@ const Dashboard: React.FC = () => {
             breadcrumb={language === 'fr' ? 'Tableau de bord' : 'Dashboard'} 
             title={language === 'fr' ? 'Tableau de bord' : 'Dashboard'}
         >
-            <Link to="/" className="dash-home-link-hero">
+            <Link to="/" className="dash-home-link-hero" style={{ marginBottom: '40px' }}>
                 <span className="home-link-text">{language === 'fr' ? "Retour au portail d'accueil" : "Back to Home Portal"}</span>
                 <ArrowLg />
             </Link>
-
-            <div style={{ position: 'absolute', top: '32px', right: '40px' }}>
-                <div className="role-badge">
-                    <div className="role-badge-dot"></div>
-                    <span className="role-badge-text">
-                        {user.role === 'teacher' 
-                            ? (language === 'fr' ? 'Professeur' : 'Teacher')
-                            : (language === 'fr' ? 'Étudiant' : 'Student')
-                        }
-                    </span>
-                </div>
-            </div>
             <div className="dash-grid">
                 <div className="dash-card aspect-video p-0 overflow-hidden">
                     <PlaceholderPattern />

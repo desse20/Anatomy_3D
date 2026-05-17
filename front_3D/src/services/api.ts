@@ -1,5 +1,5 @@
 // front_3D/src/services/api.ts
-const API_BASE_URL = 'http://localhost:8000/api';
+const API_BASE_URL = 'http://127.0.0.1:8000/api';
 
 export const apiCall = async (endpoint: string, options: RequestInit = {}) => {
     const token = localStorage.getItem('token');

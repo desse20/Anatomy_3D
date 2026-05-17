@@ -270,8 +270,10 @@
     flex: 1;
     min-width: 0;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 32px 40px;
     position: relative;
+    max-width: 100%;
 }
 
 .dash-content-container { width: 100%; }
@@ -324,6 +326,24 @@
     0% { transform: scale(1); opacity: 1; }
     50% { transform: scale(1.3); opacity: 0.7; }
     100% { transform: scale(1); opacity: 1; }
+}
+
+.dash-role-wrapper {
+    position: absolute;
+    top: 32px;
+    right: 40px;
+    z-index: 10;
+}
+
+@media (max-width: 900px) {
+    .dash-role-wrapper {
+        position: relative;
+        top: 0;
+        right: 0;
+        margin-top: 0px;
+        margin-bottom: 20px;
+        display: inline-block;
+    }
 }
 
 

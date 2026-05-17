@@ -154,8 +154,19 @@ const App: React.FC<AppProps> = ({ children, breadcrumb, title }) => {
 
             <main className="dash-main">
                 <div className="dash-content-container">
-                    {breadcrumb && <div className="dash-breadcrumb">{breadcrumb}</div>}
-                    {title && <h1>{title}</h1>}
+                    {breadcrumb && <div className="dash-breadcrumb" style={{ marginBottom: '12px' }}>{breadcrumb}</div>}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '32px' }}>
+                        {title && <h1 style={{ margin: 0 }}>{title}</h1>}
+                        <div className="role-badge">
+                            <div className="role-badge-dot"></div>
+                            <span className="role-badge-text">
+                                {user.role === 'teacher' 
+                                    ? (language === 'fr' ? 'Professeur' : 'Teacher')
+                                    : (language === 'fr' ? 'Étudiant' : 'Student')
+                                }
+                            </span>
+                        </div>
+                    </div>
                     {children}
                 </div>
             </main>
