@@ -5,7 +5,7 @@ import '../../styles/layout.css';
 
 interface AppProps {
     children: React.ReactNode;
-    breadcrumb?: string;
+    breadcrumb?: React.ReactNode;
     title?: string;
 }
 
@@ -80,7 +80,7 @@ const App: React.FC<AppProps> = ({ children, breadcrumb, title }) => {
                 </div>
                 
                 <nav className="dash-nav-group">
-                    <div className="dash-nav-heading">{isCollapsed ? '•' : (language === 'fr' ? 'Plateforme' : 'Platform')}</div>
+                    {!isCollapsed && <div className="dash-nav-heading">{language === 'fr' ? 'Plateforme' : 'Platform'}</div>}
                     <Link to="/dash" className={`nav-item ${isActive('/dash') ? 'active' : ''}`} title="Dashboard">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
                         {!isCollapsed && <span>{language === 'fr' ? 'Tableau de bord' : 'Dashboard'}</span>}
@@ -88,7 +88,7 @@ const App: React.FC<AppProps> = ({ children, breadcrumb, title }) => {
                 </nav>
 
                 <nav className="dash-nav-group">
-                    <div className="dash-nav-heading">{isCollapsed ? '•' : (language === 'fr' ? 'Apprentissage' : 'Learning')}</div>
+                    {!isCollapsed && <div className="dash-nav-heading">{language === 'fr' ? 'Apprentissage' : 'Learning'}</div>}
                     <Link to="/atlas" className={`nav-item ${isActive('/atlas') ? 'active' : ''}`} title="Atlas 3D">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
                         {!isCollapsed && <span>{language === 'fr' ? 'Atlas 3D' : '3D Atlas'}</span>}
@@ -104,7 +104,7 @@ const App: React.FC<AppProps> = ({ children, breadcrumb, title }) => {
                 </nav>
 
                 <div className="lang-sidebar-container" style={{ marginTop: 'auto', padding: isCollapsed ? '0 0 16px' : '0 12px 16px' }}>
-                    <div className="dash-nav-heading">{isCollapsed ? '•' : (language === 'fr' ? 'Paramètres' : 'Settings')}</div>
+                    {!isCollapsed && <div className="dash-nav-heading">{language === 'fr' ? 'Paramètres' : 'Settings'}</div>}
                     <div className="lang-switcher-sidebar" style={{ justifyContent: isCollapsed ? 'center' : 'flex-start' }}>
                         <button 
                             className={`lang-btn ${language === 'fr' ? 'active' : ''}`} 

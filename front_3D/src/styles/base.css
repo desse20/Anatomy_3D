@@ -3,7 +3,8 @@
 
 :root {
     --dash-sidebar-width: 280px;
-    --dash-primary: #0C79F2;
+    --dash-primary: #056CF2; /* Brand Blue from Footer */
+    --dash-primary-light: #9DC7FF; /* Medical Light Blue from Logo */
     --dash-bg: #ffffff;
     --dash-sidebar-bg: #f9fafb;
     --dash-border: #e4e4e7;
@@ -13,12 +14,12 @@
 }
 
 .dark {
-    --dash-bg: #090911;
-    --dash-sidebar-bg: #0d0d17;
-    --dash-border: #1f1f2e;
+    --dash-bg: rgb(1, 11, 37); /* Footer Deep Blue */
+    --dash-sidebar-bg: rgb(1, 11, 37); 
+    --dash-border: rgba(255, 255, 255, 0.08); /* Finer border for dark bg */
     --dash-text-main: #f9fafb;
     --dash-text-muted: #9ca3af;
-    --dash-accent-hover: #1a1a2e;
+    --dash-accent-hover: rgba(255, 255, 255, 0.05);
 }
 
 * {

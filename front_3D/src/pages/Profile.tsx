@@ -371,6 +371,21 @@ const Profile: React.FC = () => {
             }`} 
             title={language === 'fr' ? "Paramètres" : "Settings"}
         >
+            <style>{`
+                .settings-input {
+                    border: 2px solid #64748B !important;
+                    background: #F8FAFC !important;
+                    color: #0F172A !important;
+                    visibility: visible !important;
+                    display: block !important;
+                    opacity: 1 !important;
+                }
+                .dark .settings-input {
+                    border: 1px solid var(--dash-border) !important;
+                    background: var(--dash-sidebar-bg) !important;
+                    color: var(--dash-text-main) !important;
+                }
+            `}</style>
             <div className="settings-container">
                 {renderDeleteModal()}
                 <aside className="settings-sidebar">
@@ -397,12 +412,15 @@ const Profile: React.FC = () => {
                 </aside>
 
                 <div className="settings-content">
-                    <div className="dash-internal-header" style={{ position: 'absolute', top: '0', right: '0' }}>
-                        <div style={{ padding: '6px 14px', background: 'rgba(12, 121, 242, 0.08)', color: 'var(--dash-primary)', borderRadius: '100px', fontSize: '12px', fontWeight: '800', border: '1px solid rgba(12, 121, 242, 0.15)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                            {user.role === 'teacher' 
-                                ? (language === 'fr' ? 'Professeur' : 'Teacher')
-                                : (language === 'fr' ? 'Étudiant' : 'Student')
-                            }
+                    <div style={{ position: 'absolute', top: '32px', right: '40px', zIndex: 10 }}>
+                        <div className="role-badge">
+                            <div className="role-badge-dot"></div>
+                            <span className="role-badge-text">
+                                {user.role === 'teacher' 
+                                    ? (language === 'fr' ? 'Professeur' : 'Teacher')
+                                    : (language === 'fr' ? 'Étudiant' : 'Student')
+                                }
+                            </span>
                         </div>
                     </div>
                     {renderContent()}

@@ -23,12 +23,15 @@ const Dashboard: React.FC = () => {
             breadcrumb={language === 'fr' ? 'Tableau de bord' : 'Dashboard'} 
             title={language === 'fr' ? 'Tableau de bord' : 'Dashboard'}
         >
-            <div className="dash-internal-header" style={{ position: 'absolute', top: '32px', right: '40px' }}>
-                <div style={{ padding: '6px 14px', background: 'rgba(12, 121, 242, 0.08)', color: 'var(--dash-primary)', borderRadius: '100px', fontSize: '12px', fontWeight: '800', border: '1px solid rgba(12, 121, 242, 0.15)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    {user.role === 'teacher' 
-                        ? (language === 'fr' ? 'Professeur' : 'Teacher')
-                        : (language === 'fr' ? 'Étudiant' : 'Student')
-                    }
+            <div style={{ position: 'absolute', top: '32px', right: '40px' }}>
+                <div className="role-badge">
+                    <div className="role-badge-dot"></div>
+                    <span className="role-badge-text">
+                        {user.role === 'teacher' 
+                            ? (language === 'fr' ? 'Professeur' : 'Teacher')
+                            : (language === 'fr' ? 'Étudiant' : 'Student')
+                        }
+                    </span>
                 </div>
             </div>
             <div className="dash-grid">

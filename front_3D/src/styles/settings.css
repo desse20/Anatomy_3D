@@ -74,26 +74,38 @@
 .form-group label {
     display: block;
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 700; 
     margin-bottom: 8px;
+    color: #0B1521; /* Match landing page dark typography */
+}
+.dark .form-group label {
+    color: var(--dash-text-muted);
 }
 
 .settings-input {
+    display: block;
     width: 100%;
-    padding: 12px 14px;
-    border: 1px solid var(--dash-border);
-    background: var(--dash-sidebar-bg);
-    color: var(--dash-text-main);
-    border-radius: 10px;
+    padding: 12px 16px;
+    border: 1.5px solid #64748B; /* Darker Slate for guaranteed visibility */
+    background: #F8FAFC; /* Subtle tint to separate from white background */
+    color: #0F172A;
+    border-radius: 8px;
     font-family: inherit;
     font-size: 14px;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    outline: none;
+}
+.dark .settings-input {
+    background: var(--dash-sidebar-bg);
+    border: 1px solid var(--dash-border);
+    color: var(--dash-text-main);
+    box-shadow: none;
 }
 
 .settings-input:focus {
-    outline: none;
     border-color: var(--dash-primary);
-    box-shadow: 0 0 0 3px rgba(12, 121, 242, 0.1);
+    box-shadow: 0 0 0 4px rgba(12, 121, 242, 0.1);
+    background: #ffffff;
 }
 
 .btn-save {
@@ -148,10 +160,10 @@
 .appearance-selector {
     display: flex;
     background: var(--dash-accent-hover);
-    padding: 4px;
-    border-radius: 10px;
-    gap: 4px;
-    max-width: 400px;
+    padding: 6px;
+    border-radius: 14px;
+    gap: 6px;
+    width: 100%; /* Lengthen to full width */
     margin-top: 20px;
 }
 
@@ -173,9 +185,18 @@
 .appearance-option:hover { color: var(--dash-text-main); }
 
 .appearance-option.active {
-    background: var(--dash-bg);
-    color: var(--dash-text-main);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    background: 
+        linear-gradient(180deg, rgba(255, 255, 255, 0) 52.13%, #002989 100%),
+        linear-gradient(270deg, rgba(255, 255, 255, 0) 39.34%, rgb(1 11 37 / 0.8) 100%),
+        #056CF2;
+    color: #ffffff;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+}
+.dark .appearance-option.active {
+    background: 
+        linear-gradient(180deg, rgba(0, 0, 0, 0) 52.13%, #002989 100%),
+        linear-gradient(270deg, rgba(0, 0, 0, 0) 39.34%, rgb(1 11 37 / 0.8) 100%),
+        #056CF2;
 }
 
 .settings-message {

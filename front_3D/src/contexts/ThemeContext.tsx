@@ -11,7 +11,10 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [theme, setTheme] = useState<Theme>(() => {
-        return (localStorage.getItem('theme') as Theme) || 'system';
+        const saved = localStorage.getItem('theme');
+        // If first time or if it was 'system', force 'dark'
+        if (!saved || saved === 'system') return 'dark';
+        return saved as Theme;
     });
 
     useEffect(() => {

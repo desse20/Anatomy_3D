@@ -241,9 +241,26 @@ const TestPage: React.FC = () => {
           <img src="https://storage.googleapis.com/dev_resources_voka_io_303011/common/Frame%201597887620%20(1).webp" alt="Anatomy 3D" />
         </div>
         <div className="hiro-section-content">
-          <h1 className="main-h1">{language === 'fr' ? "Maîtrisez l'Anatomie Humaine par Immersion 3D Totale" : "Master Human Anatomy via Total 3D Immersion"}</h1>
-          <p className="subtitle-semibold">{language === 'fr' ? "Explorez, manipulez et interagissez avec le corps humain en temps réel. Destiné aux étudiants pour une visualisation précise et aux professeurs pour moderniser leurs cours sans dessins manuels." : "Explore, manipulate and interact with the human body in real time. Designed for students for precise visualization and for professors to modernize their classes without manual drawings."}</p>
-          {!token ? <a href="#register" className="custom-button blue large">{language === 'fr' ? "Démarrer gratuitement" : "Start for free"} <ArrowLg /></a> : <Link to="/dash" className="custom-button blue large">{language === 'fr' ? "Accéder à mon espace" : "Access my workspace"} <ArrowLg /></Link>}
+          <div className="hiro-text">
+            <h1 className="main-h1">{language === 'fr' ? "Maîtrisez l'Anatomie Humaine par Immersion 3D Totale" : "Master Human Anatomy via Total 3D Immersion"}</h1>
+            <p className="subtitle-semibold">{language === 'fr' ? "Explorez, manipulez et interagissez avec le corps humain en temps réel. Destiné aux étudiants pour une visualisation précise et aux professeurs pour moderniser leurs cours sans dessins manuels." : "Explore, manipulate and interact with the human body in real time. Designed for students for precise visualization and for professors to modernize their classes without manual drawings."}</p>
+            {!token ? (
+              <a href="#register" className="custom-button blue large">{language === 'fr' ? "Démarrer gratuitement" : "Start for free"} <ArrowLg /></a>
+            ) : (
+              <Link to="/dash" className="custom-button blue large">{language === 'fr' ? "Accéder à mon espace" : "Access my workspace"} <ArrowLg /></Link>
+            )}
+          </div>
+
+          <div className="hiro-visual">
+            <div className="video-phone-frame">
+              <iframe 
+                src="https://www.youtube.com/embed/qbBPYTuQVnk?autoplay=1&mute=1&controls=0&loop=1&playlist=qbBPYTuQVnk&modestbranding=1&rel=0&disablekb=1&fs=0"
+                title="Anatomy 3D Preview"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              ></iframe>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -290,6 +307,31 @@ const TestPage: React.FC = () => {
           <p className="main-h3">{language === 'fr' ? "Après la visualisation 3D, testez vos connaissances avec nos" : "After 3D visualization, test your knowledge with our custom"} <span style={{ color: '#9DC7FF' }}>{language === 'fr' ? "Quiz Interactifs" : "Interactive Quizzes"}</span> {language === 'fr' ? "sur mesure." : "."}</p>
         </div>
         <Link to="/quiz" className="custom-button white large">{language === 'fr' ? "Accéder aux Quiz" : "Access Quizzes"} <ArrowLg /></Link>
+      </section>
+
+      <section className="visual-customization-section" id="customization">
+        <div className="visual-customization-container">
+          <div className="advanced-visualization-tab" style={{ margin: '0 auto 24px', width: 'fit-content' }}>
+            <div className="advanced-visualization-dot"></div>
+            <p className="subtitle-semibold">{language === 'fr' ? 'Sur demande' : 'On request'}</p>
+          </div>
+          <h2 className="main-h2" style={{ marginBottom: '10px' }}>{language === 'fr' ? 'Personnalisation Visuelle' : 'Visual Customization'}</h2>
+          
+          <div className="visual-items-grid">
+            <div className="visual-item">
+              <img decoding="async" src="https://storage.googleapis.com/dev_resources_voka_io_303011/common/PaintBucket-iframe.webp" alt="Background" />
+              <h4>{language === 'fr' ? 'Arrière-plan' : 'Background'}</h4>
+            </div>
+            <div className="visual-item">
+              <img decoding="async" src="https://storage.googleapis.com/dev_resources_voka_io_303011/common/circles-iframe.webp" alt="Color schemes & fonts" />
+              <h4>{language === 'fr' ? 'Thèmes & Polices' : 'Color schemes & fonts'}</h4>
+            </div>
+            <div className="visual-item">
+              <img decoding="async" src="https://storage.googleapis.com/dev_resources_voka_io_303011/common/toggle-iframe.webp" alt="Light/dark mode" />
+              <h4>{language === 'fr' ? 'Mode Clair/Sombre' : 'Light/dark mode'}</h4>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section className="modeling-and-simulation-section">
