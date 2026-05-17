@@ -5,6 +5,7 @@ import {
     CheckCircle2, 
     XCircle,
     RotateCcw,
+    AlertCircle,
 } from 'lucide-react';
 
 
@@ -53,6 +54,9 @@ const Quiz: React.FC = () => {
     const [quizType, setQuizType] = useState<string | null>(null);
     const [questionCount, setQuestionCount] = useState(10);
     const [immediateReveal, setImmediateReveal] = useState(false);
+    const [showFeedback, setShowFeedback] = useState(false);
+    const [isReviewMode, setIsReviewMode] = useState(false);
+    const [masterQuestions, setMasterQuestions] = useState<Question[]>([]);
 
     // Restore state from URL hash on initial load (e.g. after page refresh)
     useEffect(() => {
@@ -77,29 +81,118 @@ const Quiz: React.FC = () => {
         setStep(4);
         setIsLoading(true);
         setError(null);
+        setShowFeedback(false);
         try {
             let lang = language === 'fr' ? 'French' : 'English';
-            let format = quizType === 'MCQ' ? "JSON: [{text, options[4], correctAnswer(0-3), explanation}]" :
-                         quizType === 'MCQ_MULTI' ? "JSON: [{text, options[4], correctAnswer(array of indices 0-3), explanation}]" :
-                         quizType === 'TRUE_FALSE' ? "JSON: [{text, options:['True','False'], correctAnswer(0-1), explanation}]" :
-                         "JSON: [{text, correctAnswer(string), explanation}]";
+            let tfOpts = language === 'fr' ? "['Vrai','Faux']" : "['True','False']";
+            let format = "";
+            if (quizType === 'MCQ') {
+                format = "STRICT MCQ: 4 options exactly. correctAnswer:number (0-3). [{text, options, correctAnswer, explanation}]";
+            } else if (quizType === 'MCQ_MULTI') {
+                format = "STRICT MULTI-MCQ: 4 options. correctAnswer:number_array (e.g. [0,2]). [{text, options, correctAnswer, explanation}]";
+            } else if (quizType === 'TRUE_FALSE') {
+                format = `STRICT TRUE/FALSE: 2 options ${tfOpts}. correctAnswer:number (0 or 1). [{text, options, correctAnswer, explanation}]`;
+            } else {
+                format = "STRICT OPEN QUESTION: NO options array. NO numeric index. correctAnswer MUST BE A STRING (the name of the structure). [{text, correctAnswer:string, explanation}]";
+            }
 
-            const prompt = `Medical Anatomy Quiz. Language: ${lang}. Type: ${quizType}. Count: ${questionCount}. ${format}. Clinical level. Raw JSON array only.`;
+            const prompt = `CRITICAL: OUTPUT MUST BE A VALID JSON ARRAY ONLY. NO COMMENTS. NO EXPLANATIONS OUTSIDE JSON.
+                            Anatomy Quiz in ${lang.toUpperCase()}. 
+                            Format: ${format}. 
+                            Count: ${questionCount}.
+                            JSON Schema: [{"text": "...", "options": ["..."], "correctAnswer": 0, "explanation": "..."}]
+                            RESPONSE MUST START WITH [ AND END WITH ].`;
             const response = await ollamaService.generate('phi3:latest', prompt);
             
-            const jsonMatch = response.match(/\[\s*\{[\s\S]*\}\s*\]/);
-            if (jsonMatch) {
-                const parsed = JSON.parse(jsonMatch[0]);
-                setQuestions(parsed.map((q: any, i: number) => ({ id: i + 1, ...q })));
-            } else {
+            // Extraction ULTRA-ROBUSTE du JSON
+            let parsedData = null;
+            let rawJson = response.trim();
+            
+            // Nettoyage atomique avant tentative
+            const cleanString = (str: string) => {
+                let cleaned = str
+                    .replace(/\/\/.*/g, "") // Supprime les commentaires //
+                    .replace(/\/\*[\s\S]*?\*\//g, "") // Supprime les commentaires /* */
+                    .replace(/[\u0000-\u001F\u007F-\u009F]/g, "") // Caractères de contrôle
+                    .replace(/"\w+":\s*,/g, "") // Supprime les clés vides hallucinnées
+                    .replace(/,\s*([\]\}])/g, "$1"); // Virgules traînantes
+                
+                // Gestion de la troncation : si ça finit mal (ex: coupure réseau), on sauve ce qui est complet
+                if (!cleaned.endsWith(']') && !cleaned.endsWith('}')) {
+                    const lastBrace = cleaned.lastIndexOf('}');
+                    if (lastBrace !== -1) {
+                        cleaned = cleaned.substring(0, lastBrace + 1);
+                        if (!cleaned.endsWith(']')) cleaned += ']';
+                        if (!cleaned.startsWith('[')) cleaned = '[' + cleaned;
+                    }
+                }
+                return cleaned;
+            };
+
+            try {
+                parsedData = JSON.parse(cleanString(rawJson));
+            } catch (e) {
+                const jsonMatch = rawJson.match(/\[[\s\S]*\]/);
+                if (jsonMatch) {
+                    try {
+                        parsedData = JSON.parse(cleanString(jsonMatch[0]));
+                    } catch (e2) {
+                        console.error("Final parse attempt failed", e2);
+                        // Tentative de secours : extraire les objets individuellement via regex
+                        const objects = cleanString(jsonMatch[0]).match(/\{[\s\S]*?\}/g);
+                        if (objects) {
+                            parsedData = objects.map(objStr => {
+                                try { return JSON.parse(objStr); } catch { return null; }
+                            }).filter(x => x !== null);
+                        }
+                    }
+                }
+            }
+
+            if (!parsedData) {
+                console.error("AI Response was not valid JSON:", response);
                 throw new Error("Invalid format");
             }
-        } catch (err) {
-            setError(language === 'fr' ? "Erreur de génération par l'IA." : "AI Generation Error.");
+
+            // Extraction du tableau
+            const questionsArray = Array.isArray(parsedData) ? parsedData : (parsedData.quiz || []);
+            console.log("🧩 [AI_PARSED_ARRAY]:", questionsArray);
+            
+            if (questionsArray.length > 0) {
+                const finalQuestions = questionsArray.map((q: any, i: number) => {
+                    // Sécurisation stricte des options selon le type de quiz choisi
+                    let defaultOpts = ["Option A", "Option B", "Option C", "Option D"];
+                    if (quizType === 'TRUE_FALSE') {
+                        defaultOpts = language === 'fr' ? ["Vrai", "Faux"] : ["True", "False"];
+                    }
+                    
+                    return {
+                        id: i + 1,
+                        text: q.text || q.question || "Description anatomique...",
+                        options: q.options || defaultOpts,
+                        correctAnswer: q.correctAnswer !== undefined ? q.correctAnswer : (q.answer || 0),
+                        explanation: q.explanation || ""
+                    };
+                });
+                console.log("💎 [FINAL_QUIZ_READY]:", finalQuestions);
+                setQuestions(finalQuestions);
+                setMasterQuestions(finalQuestions);
+                setIsReviewMode(false);
+            } else {
+                throw new Error("Empty quiz array");
+            }
+        } catch (err: any) {
+            console.error("Quiz Start Error:", err);
+            setError(language === 'fr' ? `Erreur: ${err.message || "IA Indisponible"}` : `Error: ${err.message || "AI Unavailable"}`);
         } finally { setIsLoading(false); }
     };
 
     const handleAnswer = (val: any) => {
+        // Sécurité anti-clic vide
+        if (quizType === 'OPEN' && (!val || !val.trim())) return;
+        if (quizType === 'MCQ_MULTI' && (!val || val.length === 0)) return;
+        if (quizType !== 'OPEN' && quizType !== 'MCQ_MULTI' && (val === null || val === undefined)) return;
+
         const q = questions[currentIdx];
         let correct = false;
         if (quizType === 'MCQ_MULTI') {
@@ -116,16 +209,76 @@ const Quiz: React.FC = () => {
         updated[currentIdx] = { ...q, userAnswer: val, isCorrect: correct };
         setQuestions(updated);
 
-        if (currentIdx < questions.length - 1) {
+        if (immediateReveal) {
+            setShowFeedback(true);
+        } else {
+            proceedToNext(updated);
+        }
+    };
+
+    const proceedToNext = (currentQuestions: Question[]) => {
+        if (currentIdx < currentQuestions.length - 1) {
             setCurrentIdx(currentIdx + 1);
             setSelectedOpt(null);
             setSelectedOpts([]);
             setTextAnswer('');
+            setShowFeedback(false);
         } else {
-            const score = updated.filter(x => x.isCorrect).length;
-            setResults({ correct: score, total: updated.length });
+            let finalSet = currentQuestions;
+            
+            // Si on finit une session de révision, on fusionne les progrès dans le master
+            if (isReviewMode) {
+                finalSet = masterQuestions.map(mq => {
+                    const revised = currentQuestions.find(rq => rq.id === mq.id);
+                    return revised ? revised : mq;
+                });
+                setMasterQuestions(finalSet);
+                setQuestions(finalSet);
+                setIsReviewMode(false);
+            }
+
+            const score = finalSet.filter(x => x.isCorrect).length;
+            setResults({ correct: score, total: finalSet.length });
             setStep(5);
+            const typeLabel = types.find(t => t.id === quizType)?.label || '';
+            navigate(`/quiz/#${slugify(typeLabel)}/result`, { replace: true });
         }
+    };
+
+    const handleRetake = () => {
+        const resetQs = questions.map(q => ({ ...q, userAnswer: undefined, isCorrect: undefined }));
+        setQuestions(resetQs);
+        setCurrentIdx(0);
+        setResults({ correct: 0, total: resetQs.length });
+        setSelectedOpt(null);
+        setSelectedOpts([]);
+        setTextAnswer('');
+        setShowFeedback(false);
+        setStep(4);
+        const typeLabel = types.find(t => t.id === quizType)?.label || '';
+        navigate(`/quiz/#${slugify(typeLabel)}`, { replace: true });
+    };
+
+    const handleRetakeMissed = () => {
+        setIsReviewMode(true);
+        // On base toujours la révision sur le Master pour accumuler les corrections
+        const missed = masterQuestions.filter(q => q.isCorrect === false);
+        if (missed.length === 0) {
+            setIsReviewMode(false);
+            return;
+        }
+
+        const resetQs = missed.map(q => ({ ...q, userAnswer: undefined, isCorrect: undefined }));
+        setQuestions(resetQs);
+        setCurrentIdx(0);
+        setResults({ correct: 0, total: resetQs.length });
+        setSelectedOpt(null);
+        setSelectedOpts([]);
+        setTextAnswer('');
+        setShowFeedback(false);
+        setStep(4);
+        const typeLabel = types.find(t => t.id === quizType)?.label || '';
+        navigate(`/quiz/#${slugify(typeLabel)}/review`, { replace: true });
     };
 
     const reset = () => {
@@ -136,6 +289,8 @@ const Quiz: React.FC = () => {
         setResults({ correct: 0, total: 0 });
         setSelectedOpts([]);
         setSelectedOpt(null);
+        setTextAnswer('');
+        setShowFeedback(false);
         navigate('/quiz', { replace: true });
     };
 
@@ -381,6 +536,7 @@ const Quiz: React.FC = () => {
                                             className="qz-open-textarea"
                                             value={textAnswer}
                                             onChange={e => setTextAnswer(e.target.value)}
+                                            disabled={showFeedback}
                                             placeholder={language === 'fr' ? 'Rédigez votre réponse ici…' : 'Write your answer here…'}
                                         />
                                     ) : quizType === 'MCQ_MULTI' ? (
@@ -388,8 +544,10 @@ const Quiz: React.FC = () => {
                                             {questions[currentIdx].options?.map((opt, i) => (
                                                 <button
                                                     key={i}
+                                                    disabled={showFeedback}
                                                     className={`qz-option-btn${selectedOpts.includes(i) ? ' qz-selected' : ''}`}
                                                     onClick={() => {
+                                                        if (showFeedback) return;
                                                         if (selectedOpts.includes(i)) {
                                                             setSelectedOpts(selectedOpts.filter(x => x !== i));
                                                         } else {
@@ -409,8 +567,12 @@ const Quiz: React.FC = () => {
                                             {questions[currentIdx].options?.map((opt, i) => (
                                                 <button
                                                     key={i}
+                                                    disabled={showFeedback}
                                                     className={`qz-option-btn${selectedOpt === i ? ' qz-selected' : ''}`}
-                                                    onClick={() => setSelectedOpt(i)}
+                                                    onClick={() => {
+                                                        setSelectedOpt(i);
+                                                        if (immediateReveal) handleAnswer(i);
+                                                    }}
                                                 >
                                                     <span className="qz-opt-letter">{String.fromCharCode(65 + i)}</span>
                                                     <span className="qz-opt-text">{opt}</span>
@@ -419,24 +581,67 @@ const Quiz: React.FC = () => {
                                         </div>
                                     )}
 
+                                    {/* Explanation for Immediate Reveal */}
+                                    <AnimatePresence>
+                                        {showFeedback && (
+                                            <motion.div 
+                                                initial={{ opacity: 0, y: 10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                className={`qz-immediate-feedback ${questions[currentIdx].isCorrect ? 'is-correct' : 'is-wrong'}`}
+                                            >
+                                                <div className="qz-fb-header">
+                                                    {questions[currentIdx].isCorrect ? <CheckCircle2 size={18}/> : <XCircle size={18}/>}
+                                                    <strong>{questions[currentIdx].isCorrect 
+                                                        ? (language === 'fr' ? 'Excellent !' : 'Excellent!') 
+                                                        : (language === 'fr' ? 'Incorrect' : 'Incorrect')}</strong>
+                                                </div>
+                                                
+                                                {!questions[currentIdx].isCorrect && (
+                                                    <p className="qz-fb-correction">
+                                                        {language === 'fr' ? 'La bonne réponse était : ' : 'The correct answer was: '}
+                                                        <strong>{typeof questions[currentIdx].correctAnswer === 'number' 
+                                                            ? questions[currentIdx].options?.[questions[currentIdx].correctAnswer as number]
+                                                            : questions[currentIdx].correctAnswer}</strong>
+                                                    </p>
+                                                )}
+
+                                                {questions[currentIdx].explanation && (
+                                                    <div className="qz-fb-explanation">
+                                                        {questions[currentIdx].explanation}
+                                                    </div>
+                                                )}
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+
                                     {/* Next / Submit */}
                                     <button
                                         className="qz-next-btn"
                                         onClick={() => {
-                                            const finalAns = quizType === 'OPEN' ? textAnswer :
-                                                            quizType === 'MCQ_MULTI' ? selectedOpts :
-                                                            (selectedOpt ?? '');
-                                            handleAnswer(finalAns);
+                                            if (showFeedback) {
+                                                proceedToNext(questions);
+                                            } else {
+                                                const finalAns = quizType === 'OPEN' ? textAnswer :
+                                                                quizType === 'MCQ_MULTI' ? selectedOpts :
+                                                                (selectedOpt ?? '');
+                                                handleAnswer(finalAns);
+                                            }
                                         }}
                                         disabled={
-                                            (quizType === 'OPEN' && !textAnswer.trim()) ||
-                                            (quizType === 'MCQ_MULTI' && selectedOpts.length === 0) ||
-                                            (quizType !== 'OPEN' && quizType !== 'MCQ_MULTI' && selectedOpt === null)
+                                            !showFeedback && (
+                                                (quizType === 'OPEN' && !textAnswer.trim()) ||
+                                                (quizType === 'MCQ_MULTI' && selectedOpts.length === 0) ||
+                                                (quizType !== 'OPEN' && quizType !== 'MCQ_MULTI' && selectedOpt === null)
+                                            )
                                         }
                                     >
-                                        {currentIdx === questions.length - 1
-                                            ? (language === 'fr' ? 'Valider l\'examen' : 'Submit Exam')
-                                            : (language === 'fr' ? 'Question suivante →' : 'Next Question →')
+                                        {showFeedback 
+                                            ? (currentIdx === questions.length - 1 
+                                                ? (language === 'fr' ? 'Voir le bilan final' : 'See final results') 
+                                                : (language === 'fr' ? 'Question suivante →' : 'Next Question →'))
+                                            : (currentIdx === questions.length - 1
+                                                ? (language === 'fr' ? 'Valider l\'examen' : 'Submit Exam')
+                                                : (language === 'fr' ? 'Valider la réponse' : 'Validate answer'))
                                         }
                                     </button>
                                 </div>
@@ -447,75 +652,125 @@ const Quiz: React.FC = () => {
                     {/* STEP 5 : RESULTS */}
                     {step === 5 && (() => {
                         const pct = Math.round((results.correct / results.total) * 100);
-                        const r = 80; const circ = 2 * Math.PI * r;
-                        const offset = circ - (pct / 100) * circ;
+                        const scoreOn20 = ((results.correct / results.total) * 20).toFixed(1);
+                        
+                        const getMessage = () => {
+                            const val = parseFloat(scoreOn20);
+                            if (language === 'fr') {
+                                if (val >= 18) return { title: "Excellent", sub: "Expertise anatomique exceptionnelle.", color: "#34d399" };
+                                if (val >= 16) return { title: "Très Bien", sub: "Maîtrise avancée des structures.", color: "#10b981" };
+                                if (val >= 14) return { title: "Bien", sub: "Bonne compréhension de la région.", color: "#0ea5e9" };
+                                if (val >= 12) return { title: "Assez Bien", sub: "Des bases solides à consolider.", color: "#fbbf24" };
+                                if (val >= 10) return { title: "Passable", sub: "Le strict minimum est acquis.", color: "#f97316" };
+                                return { title: "Médiocre", sub: "Besoin de revoir les fondamentaux.", color: "#f87171" };
+                            } else {
+                                if (val >= 18) return { title: "Excellent", sub: "Outstanding anatomical expertise.", color: "#34d399" };
+                                if (val >= 16) return { title: "Very Good", sub: "Advanced mastery of structures.", color: "#10b981" };
+                                if (val >= 14) return { title: "Good", sub: "Good understanding of the region.", color: "#0ea5e9" };
+                                if (val >= 12) return { title: "Satisfactory", sub: "Solid foundations to reinforce.", color: "#fbbf24" };
+                                if (val >= 10) return { title: "Passable", sub: "The bare minimum is acquired.", color: "#f97316" };
+                                return { title: "Mediocre", sub: "Need to review the fundamentals.", color: "#f87171" };
+                            }
+                        };
+                        const feed = getMessage();
+
                         return (
                         <motion.div key="step5" variants={pageVariants} initial="initial" animate="animate" exit="exit" className="qz-results-page">
-                            {/* Hero */}
-                            <div className="qz-results-hero">
-                                <h1 className="qz-results-hero-title">
-                                    {language === 'fr' ? 'Bilan IA de vos connaissances' : 'AI Knowledge Assessment'}
-                                </h1>
+                            <div className="qz-results-main-row">
+                                {/* Left: Info and Actions */}
+                                <div className="qz-results-info-col">
+                                    <div className="qz-results-hero-badge">
+                                        <span className="qz-pulse-dot"></span>
+                                        {language === 'fr' ? 'Diagnostic IA Finalisé' : 'AI Diagnostic Finalized'}
+                                    </div>
+                                    <h1 className="qz-results-hero-title" style={{ color: feed.color }}>
+                                        {feed.title}
+                                    </h1>
+                                    <p className="qz-results-hero-subtitle">{feed.sub}</p>
+                                    
+                                    <div className="qz-stats-row">
+                                        <span className="qz-stat-pill correct">
+                                            <CheckCircle2 size={14}/> {results.correct} {language === 'fr' ? 'correctes' : 'correct'}
+                                        </span>
+                                        <span className="qz-stat-pill wrong">
+                                            <XCircle size={14}/> {results.total - results.correct} {language === 'fr' ? 'incorrectes' : 'incorrect'}
+                                        </span>
+                                    </div>
 
-                                {/* Animated SVG ring */}
-                                <div className="qz-score-ring">
-                                    <svg width="180" height="180" viewBox="0 0 180 180">
-                                        <circle className="qz-score-ring-track" cx="90" cy="90" r={r}/>
-                                        <circle
-                                            className="qz-score-ring-fill"
-                                            cx="90" cy="90" r={r}
-                                            strokeDasharray={circ}
-                                            strokeDashoffset={offset}
-                                        />
-                                    </svg>
-                                    <div className="qz-score-ring-label">
-                                        <span className="qz-score-pct">{pct}<span>%</span></span>
-                                        <span className="qz-score-sub">{results.correct}/{results.total}</span>
+                                    <div className="qz-results-actions-inline">
+                                        <button className="qz-restart-btn primary" onClick={reset}>
+                                            <RotateCcw size={18}/>
+                                            {language === 'fr' ? 'Nouveau' : 'New'}
+                                        </button>
+                                        
+                                        {results.correct < results.total && (
+                                            <button className="qz-restart-btn secondary" onClick={handleRetakeMissed}>
+                                                <AlertCircle size={18}/>
+                                                {language === 'fr' ? 'Réviser erreurs' : 'Review Errors'}
+                                            </button>
+                                        )}
+
+                                        <button className="qz-restart-btn ghost" onClick={handleRetake}>
+                                            {language === 'fr' ? "Reinit Tout" : "Retry All"}
+                                        </button>
                                     </div>
                                 </div>
 
-                                {/* Stats pills */}
-                                <div className="qz-stats-row">
-                                    <span className="qz-stat-pill correct">
-                                        <CheckCircle2 size={14}/> {results.correct} {language === 'fr' ? 'correctes' : 'correct'}
-                                    </span>
-                                    <span className="qz-stat-pill wrong">
-                                        <XCircle size={14}/> {results.total - results.correct} {language === 'fr' ? 'incorrectes' : 'incorrect'}
-                                    </span>
+                                {/* Right: The Score Ring */}
+                                <div className="qz-results-score-col">
+                                    <div className="qz-score-ring big">
+                                        <svg width="240" height="240" viewBox="0 0 240 240">
+                                            <circle className="qz-score-ring-track" cx="120" cy="120" r="100"/>
+                                            <circle
+                                                className="qz-score-ring-fill"
+                                                cx="120" cy="120" r="100"
+                                                stroke={feed.color}
+                                                style={{ filter: `drop-shadow(0 0 12px ${feed.color}66)` }}
+                                                strokeDasharray={2 * Math.PI * 100}
+                                                strokeDashoffset={(2 * Math.PI * 100) - (pct / 100) * (2 * Math.PI * 100)}
+                                            />
+                                        </svg>
+                                        <div className="qz-score-ring-label">
+                                            <span className="qz-score-pct">{scoreOn20}<span>/20</span></span>
+                                            <span className="qz-score-sub">{results.correct} {language === 'fr' ? 'sur' : 'of'} {results.total}</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
-                            {/* Breakdown */}
+                            {/* Section breakdown */}
+                            <div className="qz-results-section-divider">
+                                <span>{language === 'fr' ? 'Détails du Bilan' : 'Detailed Assessment'}</span>
+                            </div>
+
                             <div className="qz-breakdown">
                                 {questions.map((q, i) => (
                                     <div key={i} className={`qz-bk-card ${q.isCorrect ? 'is-correct' : 'is-wrong'}`}>
+                                        <div className="qz-bk-status-icon">
+                                            {q.isCorrect ? <CheckCircle2 size={22} /> : <XCircle size={22} />}
+                                        </div>
                                         <div className="qz-bk-header">
-                                            {q.isCorrect ? <CheckCircle2 size={16}/> : <XCircle size={16}/>}
                                             {language === 'fr' ? 'Question' : 'Question'} {i + 1}
                                         </div>
                                         <p className="qz-bk-question">{q.text}</p>
-                                        {!q.isCorrect && (
-                                            <div className="qz-bk-correction">
-                                                <strong>{language === 'fr' ? 'Réponse attendue : ' : 'Expected answer: '}</strong>
-                                                {typeof q.correctAnswer === 'number' ? q.options?.[q.correctAnswer] : q.correctAnswer}
-                                            </div>
-                                        )}
+                                        
+                                        <div className="qz-bk-correction">
+                                            <strong>{language === 'fr' ? 'Réponse : ' : 'Answer: '}</strong>
+                                            {typeof q.correctAnswer === 'number' 
+                                                ? (Array.isArray(q.correctAnswer) 
+                                                    ? q.correctAnswer.map((idx: number) => q.options?.[idx]).join(', ')
+                                                    : q.options?.[q.correctAnswer])
+                                                : q.correctAnswer}
+                                        </div>
+
                                         {q.explanation && (
                                             <div className="qz-bk-explanation">
-                                                <strong>{language === 'fr' ? 'Explication IA' : 'AI Explanation'}</strong>
+                                                <strong>{language === 'fr' ? 'Explication' : 'Explanation'}</strong>
                                                 {q.explanation}
                                             </div>
                                         )}
                                     </div>
                                 ))}
-                            </div>
-
-                            {/* Actions */}
-                            <div className="qz-results-actions">
-                                <button className="qz-restart-btn" onClick={reset}>
-                                    <RotateCcw size={16}/>
-                                    {language === 'fr' ? 'Nouvelle session' : 'New session'}
-                                </button>
                             </div>
                         </motion.div>
                         );

@@ -12,104 +12,129 @@ use Illuminate\Support\Facades\Log;
 class AiController extends Controller
 {
     private $cacheFile = 'ai_quiz_history.json';
-    private $anatomyFile = '/home/bellox/Soutennance/Anatomy_3D/front_3D/public/z_anatomy_hierarchy_Copie.json';
+    private $anatomyFile = 'anatomy_hierarchy.json';
+    private $localStaticFallbackFile = 'cache_questions.json';
+    private $hfToken;
+
+    public function __construct()
+    {
+        $this->hfToken = env('HF_TOKEN', 'YOUR_TOKEN_HERE');
+    }
+    private $apiBase = 'https://router.huggingface.co/v1';
 
     public function generate(Request $request)
     {
         $request->validate([
-            'model' => 'required|string',
+            'model' => 'nullable|string',
             'prompt' => 'required|string',
+            'bone' => 'nullable|string'
         ]);
 
-        // 1. Get Chunking Context
-        $context = $this->getAnatomyChunk();
+        $requestedModel = $request->model ?: 'deepseek-ai/DeepSeek-V4-Flash';
+        $boneName = $request->bone;
 
-        // 2. Get History (Avoid Repetitions)
+        $context = $this->getAnatomyChunk();
         $history = $this->getHistory();
         $historyList = count($history) > 0 ? implode("|", array_slice(array_reverse($history), 0, 5)) : "None";
 
-        // 3. Enrich Prompt
         $enrichedPrompt = "ANATOMY CONTEXT:\n$context\n" . 
                           "AVOID REPEATING: $historyList\n\n" . 
                           $request->prompt;
 
-        // 4. Fallback Strategy
-        // Limit to 2 models max to avoid overloading the local system's RAM/CPU
-        $models = [$request->model, 'tinyllama:latest'];
-        $models = array_unique($models); // Remove duplicates
+        Log::info("=== AI GENERATION REQUEST ===");
 
-        $lastError = "";
-        foreach ($models as $model) {
+        // --- STEP 1: CLOUD API ---
+        $apiModels = [$requestedModel, "deepseek-ai/DeepSeek-V4-Flash", "meta-llama/Llama-3.1-8B-Instruct"];
+        $apiModels = array_unique($apiModels);
+
+        foreach ($apiModels as $apiModel) {
             try {
-                // EXÉCUTION DANS LE TERMINAL (via Symfony Process pour la robustesse et la stabilité)
-                Log::info("=== AI TERMINAL EXECUTION STARTED ===");
-                Log::info("MODEL: " . $model);
-
-                // Utilisation du composant Process de Laravel/Symfony qui exécute proprement la commande bash sans bug de syntaxe
-                // CRITIQUE : Ollama plante s'il ne connaît pas $HOME pour trouver ses modèles. Il faut injecter l'environnement manuellement.
-                $process = new \Symfony\Component\Process\Process(
-                    ['/usr/local/bin/ollama', 'run', $model, $enrichedPrompt],
-                    null,
-                    [
-                        'HOME' => '/home/bellox', 
-                        'PATH' => '/usr/bin:/bin:/usr/local/bin',
-                        'TERM' => 'dumb',     // Demande à ollama de ne pas envoyer d'animations
-                        'NO_COLOR' => '1',    // Désactive les couleurs dans la console
-                        'OLLAMA_NOHISTORY' => '1'
-                    ]
-                );
-                $process->setTimeout(600); // Laisse jusqu'à 10 minutes au terminal pour répondre
-                $process->run();
-
-                if (!$process->isSuccessful()) {
-                    throw new \Exception($process->getErrorOutput());
-                }
-
-                $output = $process->getOutput();
-                
-                // CRITIQUE : Nettoyage drastique des codes de formatage Bash pour rendre le texte "Propre"
-                // 1. Supprime les codes d'échappement (couleurs, curseurs, clear-line comme [K ou [3D)
-                $output = preg_replace('/\x1b(\[|\(|\))[;?0-9]*[0-9A-Za-z]/', '', $output);
-                $output = preg_replace('/\x1b/', '', $output);
-                // 2. Supprimer les éventuelles séquences orphelines liées aux effacements de texte d'Ollama
-                $output = preg_replace('/\[\d*[A-HJKSTfimn]/', '', $output);
-                
-                Log::info("RAW OLLAMA OUTPUT: " . ($output ?: "EMPTY"));
-
-                if (!empty($output)) {
-                    $this->updateHistory($output);
-                    Log::info("=== AI BASH EXECUTION SUCCEEDED ===");
-                    return response()->json([
-                        'model' => $model,
-                        'response' => $output
+                Log::info("📡 TRYING CLOUD API: $apiModel");
+                $response = Http::withToken($this->hfToken)
+                    ->timeout(12)
+                    ->post($this->apiBase . '/chat/completions', [
+                        'model' => $apiModel,
+                        'messages' => [
+                            ['role' => 'system', 'content' => "Tu es un serveur de données JSON strict. INTERDICTION de parler. INTERDICTION d'ajouter des commentaires // ou des explications. Réponds UNIQUEMENT avec un tableau JSON [{}]. Structure: text, options(array), correctAnswer(int), explanation."],
+                            ['role' => 'user', 'content' => $enrichedPrompt]
+                        ],
+                        'max_tokens' => 600
                     ]);
+
+                if ($response->successful()) {
+                    $output = $response->json('choices.0.message.content');
+                    if ($output) {
+                        // Nettoyage Markdown si l'IA en a mis quand même
+                        $output = preg_replace('/^```json\s*|```$/m', '', $output);
+                        $output = trim($output);
+                        
+                        Log::info("✅ CLOUD API SUCCESS: $apiModel");
+                        $this->updateHistory($output);
+                        return response()->json(['model' => $apiModel, 'source' => 'cloud_api', 'response' => $output]);
+                    }
                 }
-                
-                $lastError = "La commande bash n'a rien retourné pour $model.";
-                Log::error("BASH ERROR: " . $lastError);
             } catch (\Throwable $e) {
-                // Utilisation de \Throwable pour capturer ABSOLUMENT TOUTES les erreurs (Fatales incluses)
-                $lastError = "Erreur Process Terminal sur $model: " . $e->getMessage();
-                Log::error("PHP EXCEPTION/ERROR: " . $lastError);
+                Log::error("❌ CLOUD API ERROR: " . $e->getMessage());
             }
         }
 
-        Log::error("ALL MODELS FAILED OR TIMED OUT.");
+        // --- STEP 2: LOCAL OLLAMA ---
+        Log::info("🐢 FALLING BACK TO OLLAMA...");
+        foreach (['llama3:latest', 'tinyllama:latest'] as $localModel) {
+            try {
+                $process = new \Symfony\Component\Process\Process(
+                    ['/usr/local/bin/ollama', 'run', $localModel, $enrichedPrompt],
+                    null,
+                    ['HOME' => '/home/bellox', 'PATH' => '/usr/bin:/bin:/usr/local/bin', 'TERM' => 'dumb', 'NO_COLOR' => '1']
+                );
+                $process->setTimeout(45);
+                $process->run();
 
-        return response()->json([
-            'error' => 'All AI models failed or timed out.',
-            'details' => $lastError
-        ], 500);
+                if ($process->isSuccessful() && !empty(trim($process->getOutput()))) {
+                    $output = preg_replace('/\x1b(\[|\(|\))[;?0-9]*[0-9A-Za-z]/', '', $process->getOutput());
+                    Log::info("✅ OLLAMA SUCCESS: $localModel");
+                    $this->updateHistory($output);
+                    return response()->json(['model' => $localModel, 'source' => 'local_ollama', 'response' => $output]);
+                }
+            } catch (\Throwable $e) {
+                Log::error("❌ OLLAMA ERROR: " . $e->getMessage());
+            }
+        }
+
+        // --- STEP 3: STATIC CACHE ---
+        Log::warning("🚨 EMERGENCY FALLBACK TO STATIC CACHE...");
+        if (Storage::exists($this->localStaticFallbackFile)) {
+            try {
+                $staticData = json_decode(Storage::get($this->localStaticFallbackFile), true);
+                $questionSet = ($boneName && isset($staticData[$boneName])) ? $staticData[$boneName] : $staticData[array_rand($staticData)];
+                if ($questionSet) {
+                    Log::info("💎 STATIC CACHE SUCCESS: " . ($questionSet['bone'] ?? 'Random'));
+                    // Simulate RAW JSON ARRAY as expected by Quiz.tsx handleStart
+                    $simulatedResponse = json_encode([
+                        [
+                            "text" => $questionSet['question'], 
+                            "options" => ["Vrai", "Faux", "N/A", "Inutile"], 
+                            "correctAnswer" => 0,
+                            "explanation" => "Question de secours locale."
+                        ]
+                    ]);
+                    return response()->json(['model' => 'static_cache', 'source' => 'emergency', 'response' => $simulatedResponse]);
+                }
+            } catch (\Throwable $e) { Log::error("❌ STATIC ERROR: " . $e->getMessage()); }
+        }
+
+        return response()->json(['error' => 'All AI systems failed.'], 500);
     }
 
     private function getAnatomyChunk()
     {
-        if (!File::exists($this->anatomyFile)) {
+        $path = storage_path('app/' . $this->anatomyFile);
+        if (!File::exists($path)) {
             return "No anatomical context available.";
         }
 
         try {
-            $json = json_decode(File::get($this->anatomyFile), true);
+            $json = json_decode(File::get($path), true);
             if (!$json) return "Format error in anatomy file.";
 
             // Pick 1 random item (drastically reduced for CPU local performance)

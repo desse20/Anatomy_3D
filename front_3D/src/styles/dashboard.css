@@ -30,6 +30,49 @@
     color: rgba(255, 255, 255, 0.05);
 }
 
+/* Dashboard Grid */
 .aspect-video {
     aspect-ratio: 16 / 9;
+}
+
+/* Home Link Hero Style */
+.dash-home-link-hero {
+    display: inline-flex;
+    align-items: center;
+    gap: 16px;
+    padding: 13px 28px;
+    background: #056CF2;
+    border-radius: 100px;
+    color: #fff;
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 40px;
+    box-shadow: 0 10px 30px rgba(5, 108, 242, 0.3);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dash-home-link-hero:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 15px 40px rgba(5, 108, 242, 0.4);
+    background: #034ec9;
+}
+
+.dash-home-link-hero .home-link-text {
+    letter-spacing: 0.2px;
+}
+
+@media (max-width: 768px) {
+    .dash-grid {
+        grid-template-columns: 1fr;
+    }
+    .dash-card.full-width {
+        grid-column: span 1;
+    }
+    .dash-home-link-hero {
+        padding: 12px 24px;
+        font-size: 14px;
+        width: 100%;
+        justify-content: space-between;
+    }
 }

@@ -11,7 +11,7 @@ export interface OllamaResponse {
 }
 
 export const ollamaService = {
-    generate: async (model: string, prompt: string): Promise<string> => {
+    generate: async (model: string, prompt: string, bone?: string): Promise<string> => {
         try {
             // Use the Laravel proxy to avoid CORS issues and improve reliability
             const data: any = await apiCall('/ai/generate', {
@@ -19,8 +19,11 @@ export const ollamaService = {
                 body: JSON.stringify({
                     model,
                     prompt,
+                    bone,
                 }),
             });
+
+            console.log("📥 [AI_BACKEND_RAW]:", data);
 
             if (data.error) {
                 throw new Error(data.error);

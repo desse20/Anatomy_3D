@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\AiController;
 
 Route::prefix('ai')->group(function () {
     Route::post('generate', [AiController::class, 'generate']);
+    Route::post('evaluate', [AiController::class, 'evaluate']);
     Route::get('models', [AiController::class, 'models']);
 });
 
