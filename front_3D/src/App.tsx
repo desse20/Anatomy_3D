@@ -12,6 +12,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { ProtectedRoute, GuestRoute } from './components/AuthGuards';
 
+
 function App() {
   return (
     <LanguageProvider>
@@ -20,6 +21,7 @@ function App() {
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<LandingPage />} />
+
           
           {/* Guest only Routes */}
           <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
