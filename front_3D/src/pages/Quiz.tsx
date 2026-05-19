@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     CheckCircle2, 
@@ -10,7 +10,8 @@ import {
 
 
 import Layout from '../components/layouts/App';
-import { ollamaService } from '../services/ollama';
+import { aiService } from '../services/ai';
+import { apiCall } from '../services/api';
 import { useLanguage } from '../contexts/LanguageContext';
 import '../styles/quiz.css';
 
@@ -49,23 +50,39 @@ const HASH_TO_TYPE: Record<string, string> = {
 const Quiz: React.FC = () => {
     const { language } = useLanguage();
     const navigate = useNavigate();
+    const location = useLocation();
+
+    // Paramètres de révision ciblée venant de Review.tsx
+    const navState = (location.state as any) ?? {};
+    const targetSystem: string | null = navState.system ?? null;
+    const [targetSystemLabel, setTargetSystemLabel] = useState<string | null>(targetSystem);
 
     const [step, setStep] = useState(1);
-    const [quizType, setQuizType] = useState<string | null>(null);
-    const [questionCount, setQuestionCount] = useState(10);
+    const [quizType, setQuizType] = useState<string | null>(navState.quizType ?? null);
+    const [questionCount, setQuestionCount] = useState<number>(navState.questionCount ?? 10);
     const [immediateReveal, setImmediateReveal] = useState(false);
     const [showFeedback, setShowFeedback] = useState(false);
     const [isReviewMode, setIsReviewMode] = useState(false);
     const [masterQuestions, setMasterQuestions] = useState<Question[]>([]);
 
-    // Restore state from URL hash on initial load (e.g. after page refresh)
+    // Si on arrive depuis Review.tsx avec un système ciblé, on saute directement à l'étape 4
     useEffect(() => {
+        if (navState.reviewMode && navState.quizType && navState.system) {
+            setTargetSystemLabel(navState.system);
+            setQuizType(navState.quizType);
+            setQuestionCount(navState.questionCount ?? 10);
+            setStep(4);
+            handleStartWithSystem(navState.system, navState.quizType, navState.questionCount ?? 10);
+            return;
+        }
+        // Restore state from URL hash on initial load
         const hash = window.location.hash.replace('#', '');
         const matchedType = HASH_TO_TYPE[hash];
         if (matchedType) {
             setQuizType(matchedType);
             setStep(2);
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const [isLoading, setIsLoading] = useState(false);
@@ -77,114 +94,106 @@ const Quiz: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [results, setResults] = useState({ correct: 0, total: 0 });
 
+    const buildPrompt = (system: string | null, type: string | null, count: number) => {
+        const lang   = language === 'fr' ? 'French' : 'English';
+        const tfOpts = language === 'fr' ? "['Vrai','Faux']" : "['True','False']";
+        let format = '';
+        if (type === 'MCQ')        format = 'STRICT MCQ: 4 options exactly. correctAnswer:number (0-3). [{text, options, correctAnswer, explanation}]';
+        else if (type === 'MCQ_MULTI') format = 'STRICT MULTI-MCQ: 4 options. correctAnswer:number_array (e.g. [0,2]). [{text, options, correctAnswer, explanation}]';
+        else if (type === 'TRUE_FALSE') format = `STRICT TRUE/FALSE: 2 options ${tfOpts}. correctAnswer:number (0 or 1). [{text, options, correctAnswer, explanation}]`;
+        else format = 'STRICT OPEN QUESTION: NO options array. NO numeric index. correctAnswer MUST BE A STRING (the name of the structure). [{text, correctAnswer:string, explanation}]';
+
+        const scope = system
+            ? `FOCUS EXCLUSIVELY on the "${system}" anatomical system and its sub-structures.`
+            : 'Cover diverse anatomy topics.';
+
+        return `CRITICAL: OUTPUT MUST BE A VALID JSON ARRAY ONLY. NO COMMENTS. NO EXPLANATIONS OUTSIDE JSON.
+                Anatomy Quiz in ${lang.toUpperCase()}.
+                ${scope}
+                Format: ${format}.
+                Count: ${count}.
+                JSON Schema: [{"text": "...", "options": ["..."], "correctAnswer": 0, "explanation": "..."}]
+                RESPONSE MUST START WITH [ AND END WITH ].`;
+    };
+
+    // Lancement depuis Review.tsx (avec système ciblé)
+    const handleStartWithSystem = async (system: string, type: string, count: number) => {
+        setIsLoading(true);
+        setError(null);
+        setShowFeedback(false);
+        const prompt = buildPrompt(system, type, count);
+        try {
+            const response = await aiService.generate('phi3:latest', prompt);
+            await parseAndSetQuestions(response, type);
+        } catch (err: any) {
+            setError(language === 'fr' ? `Erreur: ${err.message || 'IA Indisponible'}` : `Error: ${err.message || 'AI Unavailable'}`);
+        } finally { setIsLoading(false); }
+    };
+
     const handleStart = async () => {
         setStep(4);
         setIsLoading(true);
         setError(null);
         setShowFeedback(false);
         try {
-            let lang = language === 'fr' ? 'French' : 'English';
-            let tfOpts = language === 'fr' ? "['Vrai','Faux']" : "['True','False']";
-            let format = "";
-            if (quizType === 'MCQ') {
-                format = "STRICT MCQ: 4 options exactly. correctAnswer:number (0-3). [{text, options, correctAnswer, explanation}]";
-            } else if (quizType === 'MCQ_MULTI') {
-                format = "STRICT MULTI-MCQ: 4 options. correctAnswer:number_array (e.g. [0,2]). [{text, options, correctAnswer, explanation}]";
-            } else if (quizType === 'TRUE_FALSE') {
-                format = `STRICT TRUE/FALSE: 2 options ${tfOpts}. correctAnswer:number (0 or 1). [{text, options, correctAnswer, explanation}]`;
-            } else {
-                format = "STRICT OPEN QUESTION: NO options array. NO numeric index. correctAnswer MUST BE A STRING (the name of the structure). [{text, correctAnswer:string, explanation}]";
-            }
-
-            const prompt = `CRITICAL: OUTPUT MUST BE A VALID JSON ARRAY ONLY. NO COMMENTS. NO EXPLANATIONS OUTSIDE JSON.
-                            Anatomy Quiz in ${lang.toUpperCase()}. 
-                            Format: ${format}. 
-                            Count: ${questionCount}.
-                            JSON Schema: [{"text": "...", "options": ["..."], "correctAnswer": 0, "explanation": "..."}]
-                            RESPONSE MUST START WITH [ AND END WITH ].`;
-            const response = await ollamaService.generate('phi3:latest', prompt);
-            
-            // Extraction ULTRA-ROBUSTE du JSON
-            let parsedData = null;
-            let rawJson = response.trim();
-            
-            // Nettoyage atomique avant tentative
-            const cleanString = (str: string) => {
-                let cleaned = str
-                    .replace(/\/\/.*/g, "") // Supprime les commentaires //
-                    .replace(/\/\*[\s\S]*?\*\//g, "") // Supprime les commentaires /* */
-                    .replace(/[\u0000-\u001F\u007F-\u009F]/g, "") // Caractères de contrôle
-                    .replace(/"\w+":\s*,/g, "") // Supprime les clés vides hallucinnées
-                    .replace(/,\s*([\]\}])/g, "$1"); // Virgules traînantes
-                
-                // Gestion de la troncation : si ça finit mal (ex: coupure réseau), on sauve ce qui est complet
-                if (!cleaned.endsWith(']') && !cleaned.endsWith('}')) {
-                    const lastBrace = cleaned.lastIndexOf('}');
-                    if (lastBrace !== -1) {
-                        cleaned = cleaned.substring(0, lastBrace + 1);
-                        if (!cleaned.endsWith(']')) cleaned += ']';
-                        if (!cleaned.startsWith('[')) cleaned = '[' + cleaned;
-                    }
-                }
-                return cleaned;
-            };
-
-            try {
-                parsedData = JSON.parse(cleanString(rawJson));
-            } catch (e) {
-                const jsonMatch = rawJson.match(/\[[\s\S]*\]/);
-                if (jsonMatch) {
-                    try {
-                        parsedData = JSON.parse(cleanString(jsonMatch[0]));
-                    } catch (e2) {
-                        console.error("Final parse attempt failed", e2);
-                        // Tentative de secours : extraire les objets individuellement via regex
-                        const objects = cleanString(jsonMatch[0]).match(/\{[\s\S]*?\}/g);
-                        if (objects) {
-                            parsedData = objects.map(objStr => {
-                                try { return JSON.parse(objStr); } catch { return null; }
-                            }).filter(x => x !== null);
-                        }
-                    }
-                }
-            }
-
-            if (!parsedData) {
-                console.error("AI Response was not valid JSON:", response);
-                throw new Error("Invalid format");
-            }
-
-            // Extraction du tableau
-            const questionsArray = Array.isArray(parsedData) ? parsedData : (parsedData.quiz || []);
-            console.log("🧩 [AI_PARSED_ARRAY]:", questionsArray);
-            
-            if (questionsArray.length > 0) {
-                const finalQuestions = questionsArray.map((q: any, i: number) => {
-                    // Sécurisation stricte des options selon le type de quiz choisi
-                    let defaultOpts = ["Option A", "Option B", "Option C", "Option D"];
-                    if (quizType === 'TRUE_FALSE') {
-                        defaultOpts = language === 'fr' ? ["Vrai", "Faux"] : ["True", "False"];
-                    }
-                    
-                    return {
-                        id: i + 1,
-                        text: q.text || q.question || "Description anatomique...",
-                        options: q.options || defaultOpts,
-                        correctAnswer: q.correctAnswer !== undefined ? q.correctAnswer : (q.answer || 0),
-                        explanation: q.explanation || ""
-                    };
-                });
-                console.log("💎 [FINAL_QUIZ_READY]:", finalQuestions);
-                setQuestions(finalQuestions);
-                setMasterQuestions(finalQuestions);
-                setIsReviewMode(false);
-            } else {
-                throw new Error("Empty quiz array");
-            }
+            const prompt   = buildPrompt(targetSystemLabel, quizType, questionCount);
+            const response = await aiService.generate('phi3:latest', prompt);
+            await parseAndSetQuestions(response, quizType);
         } catch (err: any) {
             console.error("Quiz Start Error:", err);
             setError(language === 'fr' ? `Erreur: ${err.message || "IA Indisponible"}` : `Error: ${err.message || "AI Unavailable"}`);
         } finally { setIsLoading(false); }
+    };
+
+    // Parsing JSON ultra-robuste — partagé avec handleStartWithSystem (Review.tsx)
+    const parseAndSetQuestions = async (response: string, type: string | null) => {
+        const cleanStr = (s: string) => {
+            let c = s
+                .replace(/\/\/.*/g, '')
+                .replace(/\/\*[\s\S]*?\*\//g, '')
+                .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
+                .replace(/"\w+":\s*,/g, '')
+                .replace(/,\s*([\]\}])/g, '$1');
+            if (!c.endsWith(']') && !c.endsWith('}')) {
+                const lb = c.lastIndexOf('}');
+                if (lb !== -1) {
+                    c = c.substring(0, lb + 1);
+                    if (!c.endsWith(']')) c += ']';
+                    if (!c.startsWith('[')) c = '[' + c;
+                }
+            }
+            return c;
+        };
+        let parsed: any = null;
+        const raw = response.trim();
+        try { parsed = JSON.parse(cleanStr(raw)); } catch {
+            const m = raw.match(/\[[\s\S]*\]/);
+            if (m) {
+                try { parsed = JSON.parse(cleanStr(m[0])); }
+                catch {
+                    const objs = cleanStr(m[0]).match(/\{[\s\S]*?\}/g);
+                    if (objs) parsed = objs.map((o: string) => { try { return JSON.parse(o); } catch { return null; } }).filter(Boolean);
+                }
+            }
+        }
+        if (!parsed) throw new Error("Invalid JSON");
+        const arr = Array.isArray(parsed) ? parsed : (parsed.quiz || []);
+        if (!arr.length) throw new Error("Empty quiz array");
+        const finalQs = arr.map((q: any, i: number) => {
+            const defOpts = type === 'TRUE_FALSE'
+                ? (language === 'fr' ? ['Vrai', 'Faux'] : ['True', 'False'])
+                : ['Option A', 'Option B', 'Option C', 'Option D'];
+            return {
+                id: i + 1,
+                text: q.text || q.question || 'Description anatomique...',
+                options: q.options || defOpts,
+                correctAnswer: q.correctAnswer !== undefined ? q.correctAnswer : (q.answer || 0),
+                explanation: q.explanation || ''
+            };
+        });
+        setQuestions(finalQs);
+        setMasterQuestions(finalQs);
+        setIsReviewMode(false);
     };
 
     const handleAnswer = (val: any) => {
@@ -240,6 +249,19 @@ const Quiz: React.FC = () => {
             const score = finalSet.filter(x => x.isCorrect).length;
             setResults({ correct: score, total: finalSet.length });
             setStep(5);
+            
+            // Sync Mastery
+            finalSet.forEach(q => {
+                const subjectName = targetSystemLabel || 'Sujet Général';
+                apiCall('mastery/record', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        anatomical_object_name: subjectName,
+                        is_correct: !!q.isCorrect
+                    })
+                }).catch(e => console.error("Mastery track error", e));
+            });
+
             const typeLabel = types.find(t => t.id === quizType)?.label || '';
             navigate(`/quiz/#${slugify(typeLabel)}/result`, { replace: true });
         }

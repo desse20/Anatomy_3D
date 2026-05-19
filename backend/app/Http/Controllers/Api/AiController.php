@@ -27,19 +27,30 @@ class AiController extends Controller
         $request->validate([
             'model' => 'nullable|string',
             'prompt' => 'required|string',
-            'bone' => 'nullable|string'
+            'bone' => 'nullable|string',
+            'type' => 'nullable|string'
         ]);
 
         $requestedModel = $request->model ?: 'deepseek-ai/DeepSeek-V4-Flash';
         $boneName = $request->bone;
+        $isExplanation = $request->type === 'explain';
 
         $context = $this->getAnatomyChunk();
-        $history = $this->getHistory();
-        $historyList = count($history) > 0 ? implode("|", array_slice(array_reverse($history), 0, 5)) : "None";
+        
+        if ($isExplanation) {
+            $enrichedPrompt = $request->prompt;
+            $systemPrompt = "Tu es un professeur d'anatomie expert. Fournis des explications complètes et détaillées en markdown.";
+            $maxTokens = 2000;
+        } else {
+            $history = $this->getHistory();
+            $historyList = count($history) > 0 ? implode("|", array_slice(array_reverse($history), 0, 5)) : "None";
 
-        $enrichedPrompt = "ANATOMY CONTEXT:\n$context\n" . 
-                          "AVOID REPEATING: $historyList\n\n" . 
-                          $request->prompt;
+            $enrichedPrompt = "ANATOMY CONTEXT:\n$context\n" . 
+                              "AVOID REPEATING: $historyList\n\n" . 
+                              $request->prompt;
+            $systemPrompt = "Tu es un serveur de données JSON strict. INTERDICTION de parler. INTERDICTION d'ajouter des commentaires // ou des explications. Réponds UNIQUEMENT avec un tableau JSON [{}]. Structure: text, options(array), correctAnswer(int), explanation.";
+            $maxTokens = 600;
+        }
 
         Log::info("=== AI GENERATION REQUEST ===");
 
@@ -51,14 +62,14 @@ class AiController extends Controller
             try {
                 Log::info("📡 TRYING CLOUD API: $apiModel");
                 $response = Http::withToken($this->hfToken)
-                    ->timeout(12)
+                    ->timeout($isExplanation ? 30 : 12)
                     ->post($this->apiBase . '/chat/completions', [
                         'model' => $apiModel,
                         'messages' => [
-                            ['role' => 'system', 'content' => "Tu es un serveur de données JSON strict. INTERDICTION de parler. INTERDICTION d'ajouter des commentaires // ou des explications. Réponds UNIQUEMENT avec un tableau JSON [{}]. Structure: text, options(array), correctAnswer(int), explanation."],
+                            ['role' => 'system', 'content' => $systemPrompt],
                             ['role' => 'user', 'content' => $enrichedPrompt]
                         ],
-                        'max_tokens' => 600
+                        'max_tokens' => $maxTokens
                     ]);
 
                 if ($response->successful()) {

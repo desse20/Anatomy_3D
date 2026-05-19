@@ -5,6 +5,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\AiController;
+use App\Http\Controllers\Api\AnatomyController;
+use App\Http\Controllers\Api\MasteryController;
 
 Route::prefix('ai')->group(function () {
     Route::post('generate', [AiController::class, 'generate']);
@@ -45,4 +47,17 @@ Route::prefix('users')->middleware('simple_auth')->group(function () {
     Route::get('{user}', [UserController::class, 'show']);
     Route::put('{user}', [UserController::class, 'update']);
     Route::delete('{user}', [UserController::class, 'destroy']);
+});
+
+// Anatomy hierarchy (public, pas besoin d'auth pour lire la structure)
+Route::prefix('anatomy')->group(function () {
+    Route::get('roots',           [AnatomyController::class, 'roots']);
+    Route::get('subtree/{name}',  [AnatomyController::class, 'subtree']);
+    Route::get('search',          [AnatomyController::class, 'search']);
+});
+
+// Maîtrise utilisateur (privé)
+Route::prefix('mastery')->middleware('simple_auth')->group(function () {
+    Route::get('stats',    [MasteryController::class, 'stats']);
+    Route::post('record',  [MasteryController::class, 'record']);
 });

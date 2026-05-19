@@ -1,0 +1,276 @@
+/* Pro Anatomy Viewer - Elegant Medical Design */
+:root {
+  --med-primary: #2a5298;
+  --med-secondary: #1e3c72;
+  --med-accent: #00d2ff;
+  --med-bg: #0f172a;
+  --med-card: rgba(30, 41, 59, 0.7);
+  --med-text: #f8fafc;
+  --med-text-muted: #94a3b8;
+  --med-glass: rgba(255, 255, 255, 0.05);
+  --med-border: rgba(255, 255, 255, 0.1);
+}
+
+.pro-anatomy-container {
+  display: grid;
+  grid-template-columns: 320px 1fr 350px;
+  height: calc(100vh - 120px);
+  background: var(--med-bg);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--med-border);
+  margin: 10px;
+}
+
+/* Sidebar Panels */
+.anatomy-sidebar {
+  background: var(--med-card);
+  backdrop-filter: blur(10px);
+  border-right: 1px solid var(--med-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.search-results-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 15px;
+  right: 15px;
+  background: #1e293b;
+  border: 1px solid var(--med-accent);
+  border-radius: 8px;
+  z-index: 100;
+  max-height: 200px;
+  overflow-y: auto;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+}
+
+.search-res-item {
+  padding: 10px 15px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--med-border);
+  font-size: 0.9rem;
+}
+
+.search-res-item:hover {
+  background: var(--med-primary);
+}
+
+.tree-children {
+  margin-left: 15px;
+  border-left: 1px solid var(--med-border);
+}
+
+.anatomy-sidebar-right {
+  border-right: none;
+  border-left: 1px solid var(--med-border);
+}
+
+.sidebar-header {
+  padding: 20px;
+  background: linear-gradient(to right, var(--med-secondary), var(--med-primary));
+  color: white;
+}
+
+.sidebar-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.search-box {
+  padding: 15px;
+  background: var(--med-glass);
+}
+
+.search-input {
+  width: 100%;
+  padding: 10px 15px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--med-border);
+  border-radius: 8px;
+  color: white;
+  outline: none;
+}
+
+.tree-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+/* Tree Styles */
+.tree-item {
+  margin-bottom: 2px;
+}
+
+.tree-row {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+  color: var(--med-text-muted);
+}
+
+.tree-row:hover {
+  background: var(--med-glass);
+  color: var(--med-text);
+}
+
+.tree-row.selected {
+  background: var(--med-primary);
+  color: white;
+  box-shadow: 0 4px 12px rgba(42, 82, 152, 0.3);
+}
+
+.toggle-icon {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+  font-size: 10px;
+  transition: transform 0.2s;
+}
+
+.toggle-icon.expanded {
+  transform: rotate(90deg);
+}
+
+.toggle-placeholder {
+  width: 18px;
+  margin-right: 8px;
+}
+
+.visibility-toggle {
+  margin-left: auto;
+  opacity: 0.4;
+  transition: opacity 0.2s;
+}
+
+.tree-row:hover .visibility-toggle {
+  opacity: 1;
+}
+
+/* 3D Viewport */
+.viewport-container {
+  position: relative;
+  background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+}
+
+#canvas-3d {
+  width: 100%;
+  height: 100%;
+}
+
+.viewport-overlay {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  pointer-events: none;
+}
+
+.stats-badge {
+  background: var(--med-glass);
+  padding: 8px 15px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  color: var(--med-accent);
+  border: 1px solid var(--med-border);
+  backdrop-filter: blur(5px);
+}
+
+/* Info Panel */
+.info-content {
+  padding: 25px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.info-title {
+  font-size: 1.4rem;
+  margin-bottom: 15px;
+  color: var(--med-accent);
+  font-weight: 700;
+}
+
+.info-desc {
+  line-height: 1.6;
+  color: var(--med-text);
+  margin-bottom: 25px;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin-bottom: 25px;
+}
+
+.info-card {
+  background: var(--med-glass);
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--med-border);
+}
+
+.card-label {
+  display: block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: var(--med-text-muted);
+  margin-bottom: 5px;
+}
+
+.card-value {
+  font-size: 0.9rem;
+  color: var(--med-text);
+  font-weight: 600;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag {
+  background: rgba(0, 210, 255, 0.1);
+  color: var(--med-accent);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  border: 1px solid rgba(0, 210, 255, 0.2);
+}
+
+.empty-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--med-text-muted);
+  text-align: center;
+}
+
+/* Tooltip */
+.anatomy-tooltip {
+  position: fixed;
+  padding: 8px 15px;
+  background: rgba(15, 23, 42, 0.9);
+  color: white;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  pointer-events: none;
+  z-index: 1000;
+  border: 1px solid var(--med-accent);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+}

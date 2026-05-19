@@ -1,7 +1,7 @@
-// front_3D/src/services/ollama.ts
+// front_3D/src/services/ai.ts
 import { apiCall } from './api';
 
-export interface OllamaResponse {
+export interface AiResponse {
     model: string;
     created_at: string;
     response: string;
@@ -10,8 +10,8 @@ export interface OllamaResponse {
     total_duration?: number;
 }
 
-export const ollamaService = {
-    generate: async (model: string, prompt: string, bone?: string): Promise<string> => {
+export const aiService = {
+    generate: async (model: string, prompt: string, bone?: string, type?: string): Promise<string> => {
         try {
             // Use the Laravel proxy to avoid CORS issues and improve reliability
             const data: any = await apiCall('/ai/generate', {
@@ -20,6 +20,7 @@ export const ollamaService = {
                     model,
                     prompt,
                     bone,
+                    type,
                 }),
             });
 

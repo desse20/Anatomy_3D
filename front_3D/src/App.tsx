@@ -7,6 +7,9 @@ import ResetPassword from './auth/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Quiz from './pages/Quiz';
+import Review from './pages/Review';
+import Levels from './pages/Levels';
+import Test from './pages/Test';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { ProtectedRoute, GuestRoute } from './components/AuthGuards';
@@ -32,6 +35,9 @@ function App() {
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/atlas" element={<ProtectedRoute><AnatomyViewer /></ProtectedRoute>} />
           <Route path="/quiz" element={<ProtectedRoute><Quiz /></ProtectedRoute>} />
+          <Route path="/review" element={<ProtectedRoute><Review /></ProtectedRoute>} />
+          <Route path="/test" element={<ProtectedRoute><Test /></ProtectedRoute>} />
+          <Route path="/levels" element={<ProtectedRoute><Levels /></ProtectedRoute>} />
         </Routes>
       </Router>
     </ThemeProvider>
