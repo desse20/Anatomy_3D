@@ -36,15 +36,15 @@ class UpdateSharedViewRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'teacher_id.uuid' => 'L\'ID de l\'enseignant doit être un UUID valide.',
-            'teacher_id.exists' => 'L\'enseignant spécifié n\'existe pas.',
-            'asset_3d_id.uuid' => 'L\'ID de l\'asset 3D doit être un UUID valide.',
-            'asset_3d_id.exists' => 'L\'asset 3D spécifié n\'existe pas.',
-            'share_token.unique' => 'Ce token de partage est déjà utilisé.',
-            'camera_position.array' => 'La position de la caméra doit être un tableau.',
-            'camera_target.array' => 'La cible de la caméra doit être un tableau.',
-            'teacher_note.string' => 'La note de l\'enseignant doit être une chaîne de caractères.',
-            'teacher_note.max' => 'La note de l\'enseignant ne doit pas dépasser 1000 caractères.',
+            'teacher_id.uuid' => __('messages.shared_view.teacher_id_uuid'),
+            'teacher_id.exists' => __('messages.shared_view.teacher_id_exists'),
+            'asset_3d_id.uuid' => __('messages.shared_view.asset_3d_id_uuid'),
+            'asset_3d_id.exists' => __('messages.shared_view.asset_3d_id_exists'),
+            'share_token.unique' => __('messages.shared_view.token_unique'),
+            'camera_position.array' => __('messages.shared_view.camera_pos_array'),
+            'camera_target.array' => __('messages.shared_view.camera_target_array'),
+            'teacher_note.string' => __('messages.shared_view.note_string'),
+            'teacher_note.max' => __('messages.shared_view.note_max'),
         ];
     }
 }

@@ -27,9 +27,9 @@ class LoginRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'email.required' => 'L\'email est obligatoire.',
-            'email.email' => 'L\'email doit être une adresse email valide.',
-            'password.required' => 'Le mot de passe est obligatoire.',
+            'email.required' => __('messages.auth.email_required'),
+            'email.email' => __('messages.auth.email_valid'),
+            'password.required' => __('messages.auth.password_required'),
         ];
     }
 
@@ -38,13 +38,13 @@ class LoginRequest extends FormRequest
         $this->ensureIsNotRateLimited();
 
         if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
+            RateLimiter::hit($this->throttleKey(), 60); // Bloque pendant 60 secondes après 5 tentatives
+
             throw ValidationException::withMessages([
                 'email' => __('auth.failed'),
             ]);
         }
         RateLimiter::clear($this->throttleKey());
-
-        $this->session()->regenerate();
     }
 
     public function ensureIsNotRateLimited(): void

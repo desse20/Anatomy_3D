@@ -9,10 +9,13 @@ import Profile from './pages/Profile';
 import Quiz from './pages/Quiz';
 import Review from './pages/Review';
 import Levels from './pages/Levels';
-import Test from './pages/Test';
+import AdminDashboard from './pages/AdminDashboard';
+import TeacherDashboard from './pages/TeacherDashboard';
+import TechManagement from './pages/TechManagement';
+import AccessDenied from './pages/AccessDenied';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { LanguageProvider } from './contexts/LanguageContext';
-import { ProtectedRoute, GuestRoute } from './components/AuthGuards';
+import { ProtectedRoute, GuestRoute, RoleRoute } from './components/AuthGuards';
 
 
 function App() {
@@ -30,14 +33,22 @@ function App() {
           <Route path="/forgot-password" element={<GuestRoute><ForgotPassword /></GuestRoute>} />
           <Route path="/password-reset" element={<GuestRoute><ResetPassword /></GuestRoute>} />
           
-          {/* Protected Routes */}
+          {/* Protected Routes - All authenticated users */}
           <Route path="/dash" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-          <Route path="/atlas" element={<ProtectedRoute><AnatomyViewer /></ProtectedRoute>} />
-          <Route path="/quiz" element={<ProtectedRoute><Quiz /></ProtectedRoute>} />
-          <Route path="/review" element={<ProtectedRoute><Review /></ProtectedRoute>} />
-          <Route path="/test" element={<ProtectedRoute><Test /></ProtectedRoute>} />
-          <Route path="/levels" element={<ProtectedRoute><Levels /></ProtectedRoute>} />
+          <Route path="/atlas" element={<RoleRoute allowedRoles={['student']}><AnatomyViewer /></RoleRoute>} />
+          <Route path="/quiz" element={<RoleRoute allowedRoles={['student']}><Quiz /></RoleRoute>} />
+          <Route path="/review" element={<RoleRoute allowedRoles={['student']}><Review /></RoleRoute>} />
+          <Route path="/levels" element={<RoleRoute allowedRoles={['student']}><Levels /></RoleRoute>} />
+
+          {/* Admin only */}
+          <Route path="/admin" element={<RoleRoute allowedRoles={['admin']}><AdminDashboard /></RoleRoute>} />
+          <Route path="/tech" element={<RoleRoute allowedRoles={['admin']}><TechManagement /></RoleRoute>} />
+
+          {/* Teacher + Admin */}
+          <Route path="/labs" element={<RoleRoute allowedRoles={['teacher']}><TeacherDashboard /></RoleRoute>} />
+          
+          <Route path="/forbidden" element={<AccessDenied />} />
         </Routes>
       </Router>
     </ThemeProvider>

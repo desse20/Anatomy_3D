@@ -14,11 +14,24 @@ class UserController extends Controller
 {
     public function index(Request $request)
     {
-        $users = User::query()
-            ->withCount(['consultationLogs', 'masteries'])
-            ->paginate($request->get('per_page', 15));
+        $query = User::query()->withCount(['consultationLogs', 'masteries']);
+        
+        if ($request->has('search') && !empty($request->search)) {
+            $s = $request->search;
+            $query->where(function($q) use ($s) {
+                $q->where('firstname', 'LIKE', "%{$s}%")
+                  ->orWhere('lastname', 'LIKE', "%{$s}%")
+                  ->orWhere('email', 'LIKE', "%{$s}%");
+            });
+        }
+        
+        if ($request->has('role') && !empty($request->role)) {
+            $query->where('role', $request->role);
+        }
 
-        return new UserCollection($users);
+        $users = $query->paginate($request->get('per_page', 15));
+
+        return UserResource::collection($users);
     }
 
     public function store(StoreUserRequest $request)

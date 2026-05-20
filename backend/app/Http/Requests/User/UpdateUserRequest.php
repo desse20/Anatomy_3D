@@ -26,13 +26,13 @@ class UpdateUserRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'firstname.string' => 'Le prénom doit être une chaîne de caractères.',
-            'lastname.string' => 'Le nom de famille doit être une chaîne de caractères.',
-            'email.email' => 'L\'email doit être une adresse email valide.',
-            'email.unique' => 'Cet email est déjà utilisé.',
-            'password.min' => 'Le mot de passe doit contenir au moins 8 caractères.',
-            'password.confirmed' => 'La confirmation du mot de passe ne correspond pas.',
-            'role.in' => 'Le rôle doit être admin, teacher ou student.',
+            'firstname.string' => __('messages.auth.firstname_string'),
+            'lastname.string' => __('messages.auth.lastname_string'),
+            'email.email' => __('messages.auth.email_valid'),
+            'email.unique' => __('messages.auth.email_unique'),
+            'password.min' => __('messages.auth.password_min'),
+            'password.confirmed' => __('messages.auth.password_confirmed'),
+            'role.in' => __('messages.auth.role_invalid'),
         ];
     }
 }

@@ -31,7 +31,7 @@ class AuthController extends Controller
             'lastname' => $request->lastname,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'role' => $request->role ?? 'student',
+            'role' => 'student', // Toujours étudiant à l'inscription publique (sécurité)
         ]);
 
         $token = $user->generateSimpleToken();
@@ -44,7 +44,13 @@ class AuthController extends Controller
 
     public function forgotPassword(Request $request)
     {
-        $request->validate(['email' => 'required|email']);
+        $request->validate(
+            ['email' => 'required|email'],
+            [
+                'email.required' => __('messages.auth.email_required'),
+                'email.email' => __('messages.auth.email_valid'),
+            ]
+        );
 
         $status = Password::broker()->sendResetLink(
             $request->only('email')

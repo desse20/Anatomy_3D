@@ -213,14 +213,23 @@ const Review: React.FC = () => {
             contextText = targetSession.elements.map(e => `- ${e.name} (${e.type})`).join('\n');
         }
 
-        const prompt = `Agis comme un professeur d'anatomie expert et bienveillant. Langue: ${lang}.
+        const prompt = language === 'fr' 
+            ? `Agis comme un professeur d'anatomie expert et bienveillant. Langue: français.
 Sujet(s) abordé(s) dans cette discussion:
 ${contextText}
 
 Historique de la conversation:
 ${conversationHistory}
 
-Donne ta réponse la plus pertinente, claire et structurée possible. Utilise la syntaxe Markdown avec des titres, du texte en gras, et surtout des listes à puces (tiret "-") pour que les explications et les sous-éléments soient beaux, bien indentés et aérés. N'inclus PAS de balise JSON.`;
+Donne ta réponse la plus pertinente, claire et structurée possible. Utilise la syntaxe Markdown avec des titres, du texte en gras, et surtout des listes à puces (tiret "-") pour que les explications et les sous-éléments soient beaux, bien indentés et aérés. N'inclus PAS de balise JSON.`
+            : `Act as an expert and benevolent anatomy professor. Language: English.
+Subject(s) discussed in this conversation:
+${contextText}
+
+Conversation history:
+${conversationHistory}
+
+Give your answer as relevant, clear, and structured as possible. Use Markdown syntax with headings, bold text, and especially bulleted lists (dash "-") so that the explanations and sub-elements are beautiful, well-indented, and airy. Do NOT include any JSON tags.`;
 
         try {
              const response = await aiService.generate('phi3:latest', prompt, undefined, 'explain');
@@ -261,6 +270,11 @@ Donne ta réponse la plus pertinente, claire et structurée possible. Utilise la
             <div className="gpt-layout">
                 {/* SIDEBAR SESSIONS */}
                 <aside className={`gpt-sidebar ${isSidebarOpen ? 'open' : 'closed'}`}>
+                    <div className="sidebar-header-mobile">
+                        <span style={{ fontWeight: 700, fontSize: '14px' }}>{t('Historique', 'History')}</span>
+                        <button className="close-sidebar-btn" onClick={() => setIsSidebarOpen(false)}>×</button>
+                    </div>
+                    
                     <button className="new-chat-btn" onClick={startNewChat}>
                         <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
                         {t('Nouvelle discussion', 'New chat')}
@@ -269,7 +283,7 @@ Donne ta réponse la plus pertinente, claire et structurée possible. Utilise la
                     <div className="sessions-list">
                         {sessions.sort((a,b) => b.updatedAt - a.updatedAt).map(s => (
                             <div key={s.id} className={`session-item ${currentSessionId === s.id ? 'active' : ''}`}>
-                                <div className="session-item-main" onClick={() => setCurrentSessionId(s.id)}>
+                                <div className="session-item-main" onClick={() => { setCurrentSessionId(s.id); setIsSidebarOpen(false); }}>
                                     <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                                     
                                     {editingSessionId === s.id ? (
@@ -347,6 +361,17 @@ Donne ta réponse la plus pertinente, claire et structurée possible. Utilise la
                                                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                                                 </div>
                                             )}
+                                            
+                                            <div className="message-actions-bottom">
+                                                <button onClick={() => navigator.clipboard.writeText(msg.content)} title={t('Copier', 'Copy')}>
+                                                    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M8 10h9v9H8zm-3 3v9h9V13H5z"/><path d="M16 10V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h5"/></svg>
+                                                </button>
+                                                {msg.role === 'user' && (
+                                                    <button onClick={() => { setChatInput(msg.content); scrollToBottom(); }} title={t('Modifier', 'Edit')}>
+                                                        <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
@@ -440,10 +465,39 @@ Donne ta réponse la plus pertinente, claire et structurée possible. Utilise la
                     box-shadow: 0 10px 30px rgba(0,0,0,0.05);
                 }
 
+                @media (max-width: 800px) {
+                    .gpt-layout {
+                        height: calc(100vh - 180px);
+                        border: none;
+                        border-radius: 0;
+                        box-shadow: none;
+                        margin: 0 -20px; /* Offset the parent padding if needed */
+                        width: calc(100% + 40px);
+                    }
+                    .gpt-sidebar {
+                        position: absolute;
+                        z-index: 1001;
+                        height: 100%;
+                        box-shadow: 10px 0 30px rgba(0,0,0,0.1);
+                    }
+                    .gpt-messages-container {
+                        padding: 15px 5px;
+                    }
+                    .gpt-message.ai, .gpt-message.user {
+                        width: 100% !important;
+                    }
+                    .gpt-bubble {
+                        max-width: 100% !important;
+                        width: 100% !important;
+                        padding: 16px;
+                        border-radius: 12px;
+                    }
+                }
+
                 /* Sidebar */
                 .gpt-sidebar {
                     width: 260px;
-                    background: var(--dash-card-bg);
+                    background: var(--dash-bg);
                     border-right: 1px solid var(--dash-border);
                     display: flex; flex-direction: column;
                     transition: margin 0.3s ease;
@@ -452,6 +506,75 @@ Donne ta réponse la plus pertinente, claire et structurée possible. Utilise la
                     margin-left: -260px;
                 }
                 
+                .sidebar-header-mobile {
+                    display: none;
+                    padding: 16px;
+                    border-bottom: 1px solid var(--dash-border);
+                    justify-content: space-between;
+                    align-items: center;
+                }
+
+                @media (max-width: 800px) {
+                    .gpt-layout {
+                        height: calc(100vh - 160px);
+                        border: none;
+                        border-radius: 0;
+                        box-shadow: none;
+                        margin: 0 -20px;
+                        width: calc(100% + 40px);
+                    }
+                    .gpt-sidebar {
+                        position: absolute;
+                        top: 0; bottom: 0; left: 0;
+                        z-index: 1001;
+                        width: 280px;
+                        box-shadow: 10px 0 30px rgba(0,0,0,0.15);
+                    }
+                    .gpt-sidebar.closed {
+                        margin-left: -280px;
+                        opacity: 0;
+                        width: 0;
+                        pointer-events: none;
+                    }
+                    .sidebar-header-mobile {
+                        display: flex;
+                    }
+                    .gpt-input-wrapper {
+                        padding: 10px;
+                        background: var(--dash-bg);
+                        border-top: 1px solid var(--dash-border);
+                        position: sticky;
+                        bottom: 0;
+                        z-index: 10;
+                    }
+                    .gpt-header {
+                        flex-direction: row;
+                        justify-content: space-between;
+                        flex-wrap: wrap;
+                        gap: 12px;
+                        padding: 12px 16px;
+                    }
+                    .element-tags {
+                        order: 1;
+                        flex: 1;
+                    }
+                    .sidebar-toggle {
+                        order: 2;
+                    }
+                    .session-date {
+                        order: 3;
+                        width: 100%;
+                    }
+                    .gpt-input-box {
+                        padding: 10px 14px;
+                        min-height: 54px;
+                        background: var(--dash-card-bg);
+                    }
+                }
+                
+                .close-sidebar-btn {
+                    background: none; border: none; font-size: 24px; color: var(--dash-text-muted); cursor: pointer; padding: 0 10px;
+                }
                 .new-chat-btn {
                     margin: 16px; padding: 12px;
                     background: #0ea5e9; color: white;
@@ -549,6 +672,25 @@ Donne ta réponse la plus pertinente, claire et structurée possible. Utilise la
                 
                 .gpt-bubble {
                     max-width: 85%; padding: 18px 24px; border-radius: 20px;
+                    position: relative;
+                }
+                .message-actions-bottom {
+                    display: flex; gap: 12px; margin-top: 12px;
+                    padding-top: 8px; border-top: 1px solid rgba(0,0,0,0.05);
+                }
+                .message-actions-bottom button {
+                    background: color-mix(in srgb, var(--dash-text) 5%, transparent); 
+                    border: none; color: var(--dash-text-muted); 
+                    padding: 4px 10px; border-radius: 6px;
+                    display: flex; align-items: center; cursor: pointer; transition: 0.2s;
+                }
+                .message-actions-bottom button:hover { 
+                    background: #0ea5e920; color: #0ea5e9; 
+                }
+                
+                @media (max-width: 800px) {
+                    .message-actions-bottom { margin-top: 16px; }
+                    .message-actions-bottom button { padding: 6px 12px; background: color-mix(in srgb, var(--dash-text) 8%, transparent); }
                 }
                 .gpt-message.user .gpt-bubble {
                     background: color-mix(in srgb, #0ea5e9 12%, var(--dash-card-bg));
@@ -621,6 +763,7 @@ Donne ta réponse la plus pertinente, claire et structurée possible. Utilise la
                     display: flex; align-items: center; justify-content: center;
                     width: 38px; height: 38px; border-radius: 50%;
                     background: #0ea5e9; color: white; border: none; cursor: pointer;
+                    flex-shrink: 0;
                 }
                 .send-btn:disabled { background: var(--dash-border); cursor: not-allowed; }
 

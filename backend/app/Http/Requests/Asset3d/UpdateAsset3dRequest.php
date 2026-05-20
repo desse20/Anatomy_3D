@@ -24,11 +24,11 @@ class UpdateAsset3dRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'url_glb.url' => 'L\'URL doit être une adresse URL valide.',
-            'version_cache.integer' => 'La version du cache doit être un entier.',
-            'version_cache.min' => 'La version du cache doit être au moins 1.',
-            'admin_id.uuid' => 'L\'ID de l\'administrateur doit être un UUID valide.',
-            'admin_id.exists' => 'L\'administrateur spécifié n\'existe pas.',
+            'url_glb.url' => __('messages.asset_3d.url_invalid'),
+            'version_cache.integer' => __('messages.asset_3d.version_integer'),
+            'version_cache.min' => __('messages.asset_3d.version_min'),
+            'admin_id.uuid' => __('messages.asset_3d.admin_id_uuid'),
+            'admin_id.exists' => __('messages.asset_3d.admin_id_exists'),
         ];
     }
 }

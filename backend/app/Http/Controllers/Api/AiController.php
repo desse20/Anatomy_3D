@@ -5,15 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 
 class AiController extends Controller
 {
-    private $cacheFile = 'ai_quiz_history.json';
-    private $anatomyFile = 'anatomy_hierarchy.json';
-    private $localStaticFallbackFile = 'cache_questions.json';
     private $hfToken;
 
     public function __construct()
@@ -35,11 +30,11 @@ class AiController extends Controller
         $boneName = $request->bone;
         $isExplanation = $request->type === 'explain';
 
-        $context = $this->getAnatomyChunk();
+        $context = $this->getAnatomyChunk($boneName);
         
         if ($isExplanation) {
-            $enrichedPrompt = $request->prompt;
-            $systemPrompt = "Tu es un professeur d'anatomie expert. Fournis des explications complètes et détaillées en markdown.";
+            $enrichedPrompt = "CONTEXTE ANATOMIQUE DE LA BASE DE DONNÉES:\n$context\n\nRequête de l'utilisateur: " . $request->prompt;
+            $systemPrompt = "Tu es un professeur d'anatomie expert. Utilise si possible le contexte fourni pour construire ton explication. Fournis des explications complètes et détaillées en markdown.";
             $maxTokens = 2000;
         } else {
             $history = $this->getHistory();
@@ -112,57 +107,85 @@ class AiController extends Controller
             }
         }
 
-        // --- STEP 3: STATIC CACHE ---
-        Log::warning("🚨 EMERGENCY FALLBACK TO STATIC CACHE...");
-        if (Storage::exists($this->localStaticFallbackFile)) {
-            try {
-                $staticData = json_decode(Storage::get($this->localStaticFallbackFile), true);
-                $questionSet = ($boneName && isset($staticData[$boneName])) ? $staticData[$boneName] : $staticData[array_rand($staticData)];
-                if ($questionSet) {
-                    Log::info("💎 STATIC CACHE SUCCESS: " . ($questionSet['bone'] ?? 'Random'));
-                    // Simulate RAW JSON ARRAY as expected by Quiz.tsx handleStart
-                    $simulatedResponse = json_encode([
-                        [
-                            "text" => $questionSet['question'], 
-                            "options" => ["Vrai", "Faux", "N/A", "Inutile"], 
-                            "correctAnswer" => 0,
-                            "explanation" => "Question de secours locale."
-                        ]
-                    ]);
-                    return response()->json(['model' => 'static_cache', 'source' => 'emergency', 'response' => $simulatedResponse]);
-                }
-            } catch (\Throwable $e) { Log::error("❌ STATIC ERROR: " . $e->getMessage()); }
+        // --- STEP 3: STATIC CACHE (DATABASE FALLBACK) ---
+        Log::warning("🚨 EMERGENCY FALLBACK TO DATABASE...");
+        try {
+            // Utiliser la base de données comme solution de secours
+            $fallbackObj = null;
+            if ($boneName) {
+                $fallbackObj = \App\Models\AnatomicalObject::where('name', 'LIKE', '%' . $boneName . '%')
+                    ->whereNotNull('description')->first();
+            }
+            if (!$fallbackObj) {
+                $fallbackObj = \App\Models\AnatomicalObject::whereNotNull('description')
+                    ->where('description', '!=', '')
+                    ->inRandomOrder()
+                    ->first();
+            }
+
+            if ($fallbackObj) {
+                Log::info("💎 DATABASE FALLBACK SUCCESS: " . $fallbackObj->name);
+                
+                $simulatedResponse = json_encode([
+                    [
+                        "text" => "Le système est actuellement hors-ligne. (Généré depuis la DB) Voici des informations sur : " . $fallbackObj->name . ". Est-ce correct ?",
+                        "options" => ["Vrai", "Faux", "N/A", "Inutile"], 
+                        "correctAnswer" => 0,
+                        "explanation" => mb_substr($fallbackObj->description, 0, 200) . "..."
+                    ]
+                ]);
+                return response()->json(['model' => 'database_cache', 'source' => 'emergency', 'response' => $simulatedResponse]);
+            }
+        } catch (\Throwable $e) { 
+            Log::error("❌ DATABASE FALLBACK ERROR: " . $e->getMessage()); 
         }
 
         return response()->json(['error' => 'All AI systems failed.'], 500);
     }
 
-    private function getAnatomyChunk()
+    private function getAnatomyChunk($specificBone = null)
     {
-        $path = storage_path('app/' . $this->anatomyFile);
-        if (!File::exists($path)) {
-            return "No anatomical context available.";
-        }
-
         try {
-            $json = json_decode(File::get($path), true);
-            if (!$json) return "Format error in anatomy file.";
+            $item = null;
 
-            // Pick 1 random item (drastically reduced for CPU local performance)
-            $randomKeys = array_rand($json, 1);
-            if (!is_array($randomKeys)) $randomKeys = [$randomKeys];
-
-            $chunk = "";
-            foreach ($randomKeys as $key) {
-                $item = $json[$key];
-                $name = $item['name'] ?? 'Unknown';
-                $desc = $item['description'] ?? '';
-                // Take only first 150 chars to stay extremely fast
-                $shortDesc = strlen($desc) > 150 ? substr($desc, 0, 150) . "..." : $desc;
-                $chunk .= "[$name]: $shortDesc\n";
+            // 1. Si on demande une notion précise, on cible sa description dans la DB !
+            if ($specificBone) {
+                $item = \App\Models\AnatomicalObject::where('name', 'LIKE', '%' . $specificBone . '%')
+                        ->whereNotNull('description')
+                        ->first();
             }
 
-            return $chunk;
+            // 2. Si aucune notion précise ou qu'elle n'a pas de description, on y va séquentiellement
+            if (!$item) {
+                $lastId = cache()->get('last_ai_anatomy_id', 0);
+                $item = \App\Models\AnatomicalObject::where('id', '>', $lastId)
+                            ->whereNotNull('description')
+                            ->where('description', '!=', '')
+                            ->orderBy('id', 'asc')
+                            ->first();
+                            
+                if (!$item) {
+                    $item = \App\Models\AnatomicalObject::whereNotNull('description')
+                                ->where('description', '!=', '')
+                                ->orderBy('id', 'asc')
+                                ->first();
+                }
+
+                if ($item) {
+                    cache()->put('last_ai_anatomy_id', $item->id);
+                }
+            }
+
+            if (!$item) {
+                return "No database anatomy context available.";
+            }
+
+            $name = $item->name ?? 'Unknown';
+            $desc = $item->description ?? '';
+            // On envoie un bon bout de texte à l'IA
+            $shortDesc = strlen($desc) > 500 ? substr($desc, 0, 500) . "..." : $desc;
+            
+            return "[$name]: $shortDesc\n";
         } catch (\Exception $e) {
             return "Error reading chunk: " . $e->getMessage();
         }
@@ -170,10 +193,7 @@ class AiController extends Controller
 
     private function getHistory()
     {
-        if (Storage::exists($this->cacheFile)) {
-            return json_decode(Storage::get($this->cacheFile), true) ?? [];
-        }
-        return [];
+        return cache()->get('ai_quiz_history', []);
     }
 
     private function updateHistory($aiResponse)
@@ -190,7 +210,7 @@ class AiController extends Controller
                 $newHistory = array_slice($newHistory, -100);
             }
             
-            Storage::put($this->cacheFile, json_encode($newHistory));
+            cache()->put('ai_quiz_history', $newHistory);
         }
     }
 

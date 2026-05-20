@@ -27,15 +27,15 @@ class StoreAnatomicalObjectRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'id.required' => 'L\'ID de l\'objet anatomique est obligatoire.',
-            'id.integer' => 'L\'ID doit être un entier.',
-            'id.unique' => 'Cet ID est déjà utilisé.',
-            'parent_id.integer' => 'L\'ID parent doit être un entier.',
-            'parent_id.exists' => 'L\'objet parent spécifié n\'existe pas.',
-            'name.required' => 'Le nom est obligatoire.',
-            'three_js_name.required' => 'Le nom Three.js est obligatoire.',
-            'mesh.string' => 'Le mesh doit être une chaîne de caractères.',
-            'description.string' => 'La description doit être une chaîne de caractères.',
+            'id.required' => __('messages.anatomical_object.id_required'),
+            'id.integer' => __('messages.anatomical_object.id_integer'),
+            'id.unique' => __('messages.anatomical_object.id_unique'),
+            'parent_id.integer' => __('messages.anatomical_object.parent_id_integer'),
+            'parent_id.exists' => __('messages.anatomical_object.parent_id_exists'),
+            'name.required' => __('messages.anatomical_object.name_required'),
+            'three_js_name.required' => __('messages.anatomical_object.three_js_name_required'),
+            'mesh.string' => __('messages.anatomical_object.mesh_string'),
+            'description.string' => __('messages.anatomical_object.description_string'),
         ];
     }
 }

@@ -198,35 +198,45 @@ const Dashboard: React.FC = () => {
         ? Math.round((radarData.reduce((acc, curr) => acc + curr.value, 0) / (radarData.length * 5)) * 100) 
         : 0;
 
+    // User data
+    const userJson = localStorage.getItem('user');
+    const user = userJson ? JSON.parse(userJson) : { role: 'student' };
+    const userRole = user.role || 'student';
+    const isStudent = userRole === 'student';
+
     return (
-        <App breadcrumb={t('Tableau de bord', 'Dashboard')} title={t('Tableau de bord', 'Dashboard')}>
-            <Link to="/" className="dash-home-link-hero" style={{ marginBottom: '30px' }}>
-                <span className="home-link-text">{t("Retour au portail d'accueil", "Back to Home Portal")}</span>
-                <ArrowLg />
-            </Link>
-            
-            {loading ? (
-                <div style={{ padding: '40px', color: 'var(--dash-text-muted)' }}>{t('Chargement des données biométriques...', 'Loading biometric data...')}</div>
-            ) : (
-                <>
-                    {/* BARRE DE PROGRESSION COMPLÈTEMENT EN HAUT */}
-                    <div className="dash-card" style={{ padding: '24px 30px', marginBottom: '24px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--dash-text)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                {t('Compétence globale en anatomie', 'Global Anatomy Competence')}
-                            </span>
-                            <span style={{ fontSize: '20px', fontWeight: 800, color: '#0ea5e9' }}>{globalProgress}%</span>
+        <App breadcrumb={
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                <span>{t('Tableau de bord', 'Dashboard')}</span>
+                {!loading && isStudent && (
+                    <div className="competence-bar-container" style={{ display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '250px', marginLeft: 'auto' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
+                            <span>{t('Compétence globale', 'Global Competence')}</span>
+                            <span style={{ color: '#0ea5e9', fontWeight: 800 }}>{globalProgress}%</span>
                         </div>
-                        <div style={{ width: '100%', height: '12px', background: 'var(--dash-border)', borderRadius: '100px', overflow: 'hidden' }}>
+                        <div style={{ width: '100%', height: '6px', background: 'var(--dash-border)', borderRadius: '100px', overflow: 'hidden' }}>
                             <motion.div 
                                 initial={{ width: 0 }}
                                 animate={{ width: `${globalProgress}%` }}
                                 transition={{ duration: 1.2, ease: "easeOut", delay: 0.2 }}
-                                style={{ height: '100%', background: 'linear-gradient(90deg, #0ea5e9, #34d399)', borderRadius: '100px', boxShadow: '0 0 10px rgba(52, 211, 153, 0.4)' }}
+                                style={{ height: '100%', background: 'linear-gradient(90deg, #0ea5e9, #34d399)', borderRadius: '100px' }}
                             />
                         </div>
                     </div>
-
+                )}
+            </div>
+        }>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '16px' }}>
+                        <h1 style={{ margin: 0 }}>{t('Tableau de bord', 'Dashboard')}</h1>
+                <Link to="/" className="dash-home-link-hero" style={{ margin: 0 }}>
+                    <span className="home-link-text">{t("Retour au portail d'accueil", "Back to Home Portal")}</span>
+                    <ArrowLg />
+                </Link>
+            </div>
+            {loading ? (
+                <div style={{ padding: '40px', color: 'var(--dash-text-muted)' }}>{t('Chargement des données biométriques...', 'Loading biometric data...')}</div>
+            ) : isStudent ? (
+                <>
                     <div className="dash-grid">
                         {/* Cadre 1 : Calendrier */}
                     <div className="dash-card custom-card">
@@ -309,8 +319,61 @@ const Dashboard: React.FC = () => {
                         </div>
                     </div>
                 </div>
-            </>
-        )}
+                </>
+            ) : (
+                /* Admin or Teacher dashboard - Literally Empty Skeleton Frames */
+                <div className="dash-grid">
+                    <div className="dash-card custom-card">
+                        <div className="card-header">
+                            <span className="card-icon" style={{ display: 'none' }}></span>
+                            <div className="skeleton-line" style={{ width: '120px', height: '14px' }}></div>
+                        </div>
+                        <div className="card-content" style={{ gap: '12px', marginTop: '20px' }}>
+                            <div className="skeleton-line" style={{ width: '100%' }}></div>
+                            <div className="skeleton-line" style={{ width: '90%' }}></div>
+                            <div className="skeleton-line" style={{ width: '95%' }}></div>
+                            <div className="skeleton-line" style={{ width: '40%', marginTop: 'auto' }}></div>
+                        </div>
+                    </div>
+                    <div className="dash-card custom-card">
+                        <div className="card-header">
+                            <span className="card-icon" style={{ display: 'none' }}></span>
+                            <div className="skeleton-line" style={{ width: '100px', height: '14px' }}></div>
+                        </div>
+                        <div className="card-content" style={{ gap: '12px', marginTop: '20px' }}>
+                            <div className="skeleton-line" style={{ width: '100%' }}></div>
+                            <div className="skeleton-line" style={{ width: '95%' }}></div>
+                            <div className="skeleton-line" style={{ width: '85%' }}></div>
+                            <div className="skeleton-line" style={{ width: '50%', marginTop: 'auto' }}></div>
+                        </div>
+                    </div>
+                    <div className="dash-card custom-card">
+                        <div className="card-header">
+                            <span className="card-icon" style={{ display: 'none' }}></span>
+                            <div className="skeleton-line" style={{ width: '140px', height: '14px' }}></div>
+                        </div>
+                        <div className="card-content" style={{ gap: '12px', marginTop: '20px' }}>
+                            <div className="skeleton-line" style={{ width: '90%' }}></div>
+                            <div className="skeleton-line" style={{ width: '100%' }}></div>
+                            <div className="skeleton-line" style={{ width: '95%' }}></div>
+                            <div className="skeleton-line" style={{ width: '60%', marginTop: 'auto' }}></div>
+                        </div>
+                    </div>
+                    <div className="dash-card full-width custom-card-bottom skeleton-responsive-container" style={{ minHeight: '380px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center', width: '100%', padding: '20px' }}>
+                            <div className="skeleton-line" style={{ width: '80%', maxWidth: '300px', height: '24px' }}></div>
+                            <div className="skeleton-line" style={{ width: '90%', maxWidth: '500px' }}></div>
+                            <div className="skeleton-line" style={{ width: '85%', maxWidth: '450px' }}></div>
+                            
+                            <div style={{ display: 'flex', gap: '15px', marginTop: '40px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                                <div className="skeleton-line" style={{ width: '100px', height: '80px', borderRadius: '12px' }}></div>
+                                <div className="skeleton-line" style={{ width: '100px', height: '80px', borderRadius: '12px' }}></div>
+                                <div className="skeleton-line" style={{ width: '100px', height: '80px', borderRadius: '12px' }}></div>
+                            </div>
+                         </div>
+                    </div>
+                </div>
+            )}
 
             <style>{`
                 .custom-card {
@@ -398,6 +461,27 @@ const Dashboard: React.FC = () => {
                 .rm-val { font-size: 32px; font-weight: 800; color: var(--dash-text); line-height: 1; }
                 .radar-stat-box.accent .rm-val { color: #0ea5e9; }
                 .rm-label { font-size: 12px; color: var(--dash-text-muted); font-weight: 600; text-transform: uppercase; }
+
+                /* Skeleton Styles */
+                .skeleton-line {
+                    background: var(--dash-border);
+                    height: 12px;
+                    border-radius: 6px;
+                    position: relative;
+                    overflow: hidden;
+                    opacity: 0.6;
+                }
+                .skeleton-line::after {
+                    content: "";
+                    position: absolute;
+                    top: 0; right: 0; bottom: 0; left: 0;
+                    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+                    animation: shimmer 2s infinite;
+                }
+                @keyframes shimmer {
+                    0% { transform: translateX(-100%); }
+                    100% { transform: translateX(100%); }
+                }
                 
                 @media (max-width: 800px) {
                     .radar-layout { flex-direction: column; }

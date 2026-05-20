@@ -177,9 +177,14 @@ const Profile: React.FC = () => {
             case 'profile':
                 return (
                     <>
-                        <div className="settings-header">
-                            <h2>{language === 'fr' ? "Profil" : "Profile"}</h2>
-                            <p>{language === 'fr' ? "Mettez à jour vos informations personnelles." : "Update your personal information."}</p>
+                        <div className="settings-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div>
+                                <h2>{language === 'fr' ? "Profil" : "Profile"}</h2>
+                                <p>{language === 'fr' ? "Mettez à jour vos informations personnelles." : "Update your personal information."}</p>
+                            </div>
+                            <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--dash-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '8px' }}>
+                                {user.role === 'admin' ? 'Administrateur' : user.role === 'teacher' ? 'Professeur' : 'Étudiant'}
+                            </span>
                         </div>
 
                         {message && currentTab === 'profile' && (
@@ -222,6 +227,7 @@ const Profile: React.FC = () => {
                                     required
                                 />
                             </div>
+
                             <div className="form-actions">
                                 <button type="submit" className="btn-save" disabled={loading}>
                                     {loading ? (language === 'fr' ? "Mise à jour..." : "Updating...") : (language === 'fr' ? "Enregistrer" : "Save")}

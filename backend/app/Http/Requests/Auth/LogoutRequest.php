@@ -19,6 +19,13 @@ class LogoutRequest extends FormRequest
 
     public function fulfill(): void
     {
+        $user = $this->user();
+        
+        // Invalide le token HMAC en incrémentant la version
+        if ($user) {
+            $user->invalidateToken();
+        }
+
         Auth::logout();
 
         request()->session()->invalidate();

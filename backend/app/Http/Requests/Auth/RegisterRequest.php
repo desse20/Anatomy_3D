@@ -19,21 +19,21 @@ class RegisterRequest extends FormRequest
             'lastname' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'confirmed', Password::defaults()],
-            'role' => ['sometimes', 'string', 'in:admin,teacher,student'],
+            // Le rôle n'est PAS accepté à l'inscription publique (sécurité anti-escalade)
         ];
     }
 
     public function messages(): array
     {
         return [
-            'firstname.required' => 'Le prénom est obligatoire.',
-            'lastname.required' => 'Le nom de famille est obligatoire.',
-            'email.required' => 'L\'email est obligatoire.',
-            'email.email' => 'L\'email doit être une adresse email valide.',
-            'email.unique' => 'Cet email est déjà utilisé.',
-            'password.required' => 'Le mot de passe est obligatoire.',
-            'password.confirmed' => 'La confirmation du mot de passe ne correspond pas.',
-            'role.in' => 'Le rôle doit être admin, teacher ou student.',
+            'firstname.required' => __('messages.auth.firstname_required'),
+            'lastname.required' => __('messages.auth.lastname_required'),
+            'email.required' => __('messages.auth.email_required'),
+            'email.email' => __('messages.auth.email_valid'),
+            'email.unique' => __('messages.auth.email_unique'),
+            'password.required' => __('messages.auth.password_required'),
+            'password.confirmed' => __('messages.auth.password_confirmed'),
+            'role.in' => __('messages.auth.role_invalid'),
         ];
     }
 }

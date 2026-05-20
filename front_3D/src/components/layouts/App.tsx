@@ -37,6 +37,11 @@ const App: React.FC<AppProps> = ({ children, breadcrumb, title }) => {
         console.error("Error parsing user data", e);
     }
 
+    const userRole = user.role || 'student';
+    const isAdmin = userRole === 'admin';
+    const isTeacher = userRole === 'teacher';
+    const isStudent = userRole === 'student';
+
     const initials = (user.firstname?.[0] || 'U') + (user.lastname?.[0] || '');
 
     const handleLogout = () => {
@@ -85,8 +90,25 @@ const App: React.FC<AppProps> = ({ children, breadcrumb, title }) => {
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
                         {!isCollapsed && <span>{language === 'fr' ? 'Tableau de bord' : 'Dashboard'}</span>}
                     </Link>
+                    {isAdmin && (
+                        <>
+                            <Link to="/admin" className={`nav-item ${isActive('/admin') ? 'active' : ''}`} title="Supervision">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+                                {!isCollapsed && <span>{language === 'fr' ? 'Supervision' : 'Supervision'}</span>}
+                            </Link>
+                            <Link to="/tech" className={`nav-item ${isActive('/tech') ? 'active' : ''}`} title="Gestion Technique">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                                {!isCollapsed && <span>{language === 'fr' ? 'Gestion Technique' : 'Tech Management'}</span>}
+                            </Link>
+                        </>
+                    )}
+                    {isTeacher && (
+                        <Link to="/labs" className={`nav-item ${isActive('/labs') ? 'active' : ''}`} title="Labs">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 2H9a1 1 0 0 0-1 1v2c0 .6.4 1 1 1h6c.6 0 1-.4 1-1V3c0-.6-.4-1-1-1Z"/><path d="M8 5H5a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3"/><path d="M12 12v6"/><path d="m9 15 3 3 3-3"/></svg>
+                            {!isCollapsed && <span>{language === 'fr' ? 'Mes Salles (Labs)' : 'My Labs'}</span>}
+                        </Link>
+                    )}
                 </nav>
-
                 <nav className="dash-nav-group">
                     {!isCollapsed && <div className="dash-nav-heading">{language === 'fr' ? 'Apprentissage' : 'Learning'}</div>}
                     <Link to="/atlas" className={`nav-item ${isActive('/atlas') ? 'active' : ''}`} title="Atlas 3D">
@@ -97,26 +119,33 @@ const App: React.FC<AppProps> = ({ children, breadcrumb, title }) => {
                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
                         {!isCollapsed && <span>{language === 'fr' ? 'Mon Profil' : 'My Profile'}</span>}
                     </Link>
-                    <Link to="/quiz" className={`nav-item ${isActive('/quiz') ? 'active' : ''}`} title="Quiz IA">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v5"></path><path d="M9 11H7a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5a2 2 0 0 0 2-2h-2"></path><path d="M12 11v4"></path><path d="M10 13h4"></path></svg>
-                        {!isCollapsed && <span>{language === 'fr' ? 'Quiz IA' : 'AI Quiz'}</span>}
-                    </Link>
-                    <Link to="/review" className={`nav-item ${isActive('/review') ? 'active' : ''}`} title={language === 'fr' ? 'Révisions' : 'Review'}>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                        {!isCollapsed && <span>{language === 'fr' ? 'Révisions' : 'Review'}</span>}
-                    </Link>
-                    <Link to="/levels" className={`nav-item ${isActive('/levels') ? 'active' : ''}`} title={language === 'fr' ? 'Niveaux' : 'Levels'}>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-                        {!isCollapsed && <span>{language === 'fr' ? 'Niveaux' : 'Levels'}</span>}
-                    </Link>
-                    <Link to="/test" className={`nav-item ${isActive('/test') ? 'active' : ''}`} title="Test JSON/Model">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="m12 8-4 4 4 4M16 12H8"/></svg>
-                        {!isCollapsed && <span>{language === 'fr' ? 'Test Modèle' : 'Test Model'}</span>}
-                    </Link>
+                    {userRole === 'student' && (
+                        <>
+                            <Link to="/quiz" className={`nav-item ${isActive('/quiz') ? 'active' : ''}`} title="Quiz IA">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v5"></path><path d="M9 11H7a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5a2 2 0 0 0 2-2h-2"></path><path d="M12 11v4"></path><path d="M10 13h4"></path></svg>
+                                {!isCollapsed && <span>{language === 'fr' ? 'Quiz IA' : 'AI Quiz'}</span>}
+                            </Link>
+                            <Link to="/review" className={`nav-item ${isActive('/review') ? 'active' : ''}`} title={language === 'fr' ? 'Révisions' : 'Review'}>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                {!isCollapsed && <span>{language === 'fr' ? 'Révisions' : 'Review'}</span>}
+                            </Link>
+                            <Link to="/levels" className={`nav-item ${isActive('/levels') ? 'active' : ''}`} title={language === 'fr' ? 'Niveaux' : 'Levels'}>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                                {!isCollapsed && <span>{language === 'fr' ? 'Niveaux' : 'Levels'}</span>}
+                            </Link>
+                        </>
+                    )}
                 </nav>
 
-                <div className="lang-sidebar-container" style={{ marginTop: 'auto', padding: isCollapsed ? '0 0 16px' : '0 12px 16px' }}>
-                    {!isCollapsed && <div className="dash-nav-heading">{language === 'fr' ? 'Paramètres' : 'Settings'}</div>}
+                <div className="lang-sidebar-container" style={{ marginTop: 'auto', padding: isCollapsed ? '16px 0' : '0 12px 16px' }}>
+                    {!isCollapsed && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }} className="dash-nav-heading">
+                            <span>{language === 'fr' ? 'Paramètres' : 'Settings'}</span>
+                            <span style={{ fontSize: '10px', color: 'var(--dash-text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                {userRole === 'admin' ? 'Administrateur' : userRole === 'teacher' ? 'Professeur' : 'Étudiant'}
+                            </span>
+                        </div>
+                    )}
                     <div className="lang-switcher-sidebar" style={{ justifyContent: isCollapsed ? 'center' : 'flex-start' }}>
                         <button 
                             className={`lang-btn ${language === 'fr' ? 'active' : ''}`} 
@@ -178,28 +207,53 @@ const App: React.FC<AppProps> = ({ children, breadcrumb, title }) => {
             <nav className="mobile-bottom-nav">
                 <Link to="/dash" className={`bottom-nav-item ${isActive('/dash') ? 'active' : ''}`}>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-                    <span>Dashboard</span>
+                    <span>{language === 'fr' ? 'Dash' : 'Dash'}</span>
                 </Link>
-                <Link to="/atlas" className={`bottom-nav-item ${isActive('/atlas') ? 'active' : ''}`}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                    <span>Atlas</span>
-                </Link>
-                <Link to="/quiz" className={`bottom-nav-item ${isActive('/quiz') ? 'active' : ''}`}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v5"></path><path d="M9 11H7a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5a2 2 0 0 0 2-2h-2"></path><path d="M12 11v4"></path><path d="M10 13h4"></path></svg>
-                    <span>Quiz</span>
-                </Link>
-                <Link to="/review" className={`bottom-nav-item ${isActive('/review') ? 'active' : ''}`}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                    <span>{language === 'fr' ? 'Révisions' : 'Review'}</span>
-                </Link>
-                <Link to="/levels" className={`bottom-nav-item ${isActive('/levels') ? 'active' : ''}`}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-                    <span>{language === 'fr' ? 'Niveaux' : 'Levels'}</span>
-                </Link>
-                <Link to="/test" className={`bottom-nav-item ${isActive('/test') ? 'active' : ''}`}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="m12 8-4 4 4 4M16 12H8"/></svg>
-                    <span>Test</span>
-                </Link>
+                
+                {(isStudent || isTeacher || isAdmin) && (
+                    <Link to="/atlas" className={`bottom-nav-item ${isActive('/atlas') ? 'active' : ''}`}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                        <span>Atlas</span>
+                    </Link>
+                )}
+                
+                {isStudent && (
+                    <>
+                        <Link to="/quiz" className={`bottom-nav-item ${isActive('/quiz') ? 'active' : ''}`}>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v5"></path><path d="M9 11H7a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5a2 2 0 0 0 2-2h-2"></path><path d="M12 11v4"></path><path d="M10 13h4"></path></svg>
+                            <span>Quiz</span>
+                        </Link>
+                        <Link to="/review" className={`bottom-nav-item ${isActive('/review') ? 'active' : ''}`}>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                            <span>{language === 'fr' ? 'Révisions' : 'Review'}</span>
+                        </Link>
+                        <Link to="/levels" className={`bottom-nav-item ${isActive('/levels') ? 'active' : ''}`}>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                            <span>{language === 'fr' ? 'Niveaux' : 'Levels'}</span>
+                        </Link>
+                    </>
+                )}
+
+                {isTeacher && (
+                    <Link to="/labs" className={`bottom-nav-item ${isActive('/labs') ? 'active' : ''}`}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 2H9a1 1 0 0 0-1 1v2c0 .6.4 1 1 1h6c.6 0 1-.4 1-1V3c0-.6-.4-1-1-1Z"/><path d="M8 5H5a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3"/><path d="M12 12v6"/><path d="m9 15 3 3 3-3"/></svg>
+                        <span>{language === 'fr' ? 'Labs' : 'Labs'}</span>
+                    </Link>
+                )}
+
+                {isAdmin && (
+                    <>
+                        <Link to="/admin" className={`bottom-nav-item ${isActive('/admin') ? 'active' : ''}`}>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+                            <span>{language === 'fr' ? 'Superv.' : 'Superv.'}</span>
+                        </Link>
+                        <Link to="/tech" className={`bottom-nav-item ${isActive('/tech') ? 'active' : ''}`}>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                            <span>{language === 'fr' ? 'Tech' : 'Tech'}</span>
+                        </Link>
+                    </>
+                )}
+
                 <Link to="/profile" className={`bottom-nav-item ${isActive('/profile') ? 'active' : ''}`}>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                     <span>{language === 'fr' ? 'Paramètres' : 'Settings'}</span>

@@ -10,6 +10,8 @@ class Asset3d extends Model
 {
     use HasUuids;
 
+    protected $table = 'assets_3d';
+
     protected $fillable = [
         'url_glb',
         'version_cache',

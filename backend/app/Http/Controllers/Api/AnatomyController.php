@@ -4,68 +4,48 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\File;
+use App\Models\AnatomicalObject;
 
 class AnatomyController extends Controller
 {
-    private function getJsonPath(): string
-    {
-        // On cherche d'abord dans public, puis dans storage
-        $publicPath = public_path('anatomy_database.json');
-        if (File::exists($publicPath)) return $publicPath;
-
-        $storagePath = storage_path('app/anatomy_database.json');
-        if (File::exists($storagePath)) return $storagePath;
-
-        // Fallback : dans le dossier parent du projet
-        $parentPath = base_path('../anatomy_database.json');
-        if (File::exists($parentPath)) return $parentPath;
-
-        return '';
-    }
-
     /**
      * GET /api/anatomy/roots
-     * Retourne les systèmes anatomiques principaux (2ème niveau de hiérarchie)
-     * en filtrant les nœuds techniques (Cross Section, HOW TO, etc.)
+     * Retourne les systèmes anatomiques principaux
      */
     public function roots()
     {
-        $jsonPath = $this->getJsonPath();
-        if (!$jsonPath) {
-            return response()->json(['error' => 'anatomy_database.json not found'], 404);
-        }
-
-        // Nœuds techniques à exclure
         $excluded = ['Cross Section', 'HOW TO', 'Take a picture', 'Reference lines', 'Reference planes', 'Movements'];
 
         try {
-            $data = json_decode(File::get($jsonPath), true);
-            if (!$data || !isset($data['hierarchy_tree'])) {
-                return response()->json(['error' => 'Invalid JSON structure'], 500);
+            // Le "vrai" parent de tous les systèmes a souvent l'ID 1 (Treatise on Man / Corps Humain)
+            $topNode = AnatomicalObject::where('id', 1)->first();
+            
+            if ($topNode && AnatomicalObject::where('parent_id', $topNode->id)->count() > 0) {
+                $nodes = AnatomicalObject::where('parent_id', $topNode->id)->withCount('children')->get();
+            } else {
+                // Secours : on prend ce qui est explicitement null, mais trié
+                $nodes = AnatomicalObject::whereNull('parent_id')->withCount('children')->get();
+                if ($nodes->count() === 1) {
+                    $nodes = AnatomicalObject::where('parent_id', $nodes->first()->id)->withCount('children')->get();
+                }
             }
 
-            // "Corps Humain" est le seul nœud racine → on prend ses enfants
-            $topNode  = $data['hierarchy_tree'][0];
-            $children = $topNode['children'] ?? [];
-
-            $roots = collect($children)
-                ->filter(function ($node) use ($excluded) {
-                    $name = $node['clean_name'] ?? $node['name'];
+            $roots = $nodes->filter(function ($node) use ($excluded) {
+                    $name = $node->name;
                     foreach ($excluded as $ex) {
                         if (stripos($name, $ex) !== false) return false;
                     }
-                    return !empty($node['children']);
+                    return clone $node;
                 })
                 ->map(function ($node) {
-                    $name = $node['clean_name'] ?? $node['name'];
-                    // Nettoyer le suffixe .g
-                    $cleanName = preg_replace('/\.g$/', '', $name);
+                    $name = $node->name;
+                    $cleanName = preg_replace('/\.g$/i', '', $name);
                     return [
                         'name'        => $cleanName,
-                        'raw_name'    => $node['name'],
-                        'type'        => $node['type'] ?? 'group',
-                        'child_count' => count($node['children'] ?? []),
+                        'raw_name'    => $name,
+                        'type'        => 'group',
+                        'child_count' => $node->children_count,
+                        'id'          => $node->id
                     ];
                 })
                 ->values();
@@ -82,37 +62,24 @@ class AnatomyController extends Controller
      */
     public function subtree(string $name)
     {
-        $jsonPath = $this->getJsonPath();
-        if (!$jsonPath) {
-            return response()->json(['error' => 'File not found'], 404);
-        }
-
         try {
-            $data = json_decode(File::get($jsonPath), true);
-            $tree  = $data['hierarchy_tree'] ?? [];
+            $rootNode = AnatomicalObject::where('name', 'LIKE', $name . '%')->first();
 
-            // Trouver le nœud racine demandé
-            $rootNode = null;
-            foreach ($tree as $node) {
-                if (
-                    strtolower($node['name']) === strtolower($name) ||
-                    strtolower($node['clean_name'] ?? '') === strtolower($name)
-                ) {
-                    $rootNode = $node;
-                    break;
+            if (!$rootNode) {
+                // Essayer sans le cas
+                $rootNode = AnatomicalObject::where('name', 'LIKE', '%' . $name . '%')->first();
+                if (!$rootNode) {
+                    return response()->json(['error' => "Node '$name' not found"], 404);
                 }
             }
 
-            if (!$rootNode) {
-                return response()->json(['error' => "Node '$name' not found"], 404);
-            }
-
-            // Extraire récursivement tous les noms (pour le ciblage IA)
             $allNames = [];
-            $this->collectNames($rootNode, $allNames);
+            $this->collectNamesFromDb($rootNode, $allNames);
+
+            $cleanName = preg_replace('/\.g$/i', '', $rootNode->name);
 
             return response()->json([
-                'root'      => $rootNode['clean_name'] ?? $rootNode['name'],
+                'root'      => $cleanName,
                 'all_names' => $allNames,
                 'count'     => count($allNames),
             ]);
@@ -121,20 +88,23 @@ class AnatomyController extends Controller
         }
     }
 
-    private function collectNames(array $node, array &$names): void
+    private function collectNamesFromDb($node, array &$names): void
     {
-        $name = $node['clean_name'] ?? $node['name'];
-        if (!empty($name) && ($node['type'] ?? '') === 'mesh') {
-            $names[] = $name;
+        $cleanName = preg_replace('/\.g$/i', '', $node->name);
+        
+        if (!empty($cleanName) && strtolower($node->mesh ?? '') === 'mesh') {
+            $names[] = $cleanName;
         }
-        foreach ($node['children'] ?? [] as $child) {
-            $this->collectNames($child, $names);
+        
+        $children = AnatomicalObject::where('parent_id', $node->id)->get();
+        foreach ($children as $child) {
+            $this->collectNamesFromDb($child, $names);
         }
     }
 
     /**
      * GET /api/anatomy/search?q={query}
-     * Recherche un terme dans tout l'arbre anatomique et retourne les correspondances.
+     * Recherche un terme dans tout l'arbre anatomique
      */
     public function search(Request $request)
     {
@@ -143,32 +113,19 @@ class AnatomyController extends Controller
             return response()->json(['results' => []]);
         }
 
-        $jsonPath = $this->getJsonPath();
-        if (!$jsonPath) {
-            return response()->json(['error' => 'File not found'], 404);
-        }
-
         try {
-            $data = json_decode(File::get($jsonPath), true);
-            $tree  = $data['hierarchy_tree'] ?? [];
             $results = [];
+            $excluded = ['Cross Section', 'HOW TO', 'Take a picture', 'Reference lines', 'Reference planes', 'Movements'];
 
-            $this->searchInTree($tree, strtolower($query), $results);
+            $nodes = AnatomicalObject::where('name', 'LIKE', '%' . $query . '%')
+                        ->withCount('children')
+                        ->limit(20)
+                        ->get();
 
-            // Prendre les 20 premiers résultats pour ne pas surcharger
-            return response()->json(['results' => array_slice($results, 0, 20)]);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
-    }
-
-    private function searchInTree(array $nodes, string $query, array &$results): void
-    {
-        foreach ($nodes as $node) {
-            $name = $node['clean_name'] ?? $node['name'];
-            if (stripos($name, $query) !== false) {
-                // Ignore technical nodes
-                $excluded = ['Cross Section', 'HOW TO', 'Take a picture', 'Reference lines', 'Reference planes', 'Movements'];
+            foreach ($nodes as $node) {
+                $name = $node->name;
+                $cleanName = preg_replace('/\.g$/i', '', $name);
+                
                 $isExcluded = false;
                 foreach ($excluded as $ex) {
                     if (stripos($name, $ex) !== false) {
@@ -176,18 +133,20 @@ class AnatomyController extends Controller
                         break;
                     }
                 }
+
                 if (!$isExcluded) {
                     $results[] = [
-                        'name' => $name,
-                        'raw_name' => $node['name'],
-                        'type' => $node['type'] ?? 'group',
-                        'child_count' => count($node['children'] ?? [])
+                        'name' => $cleanName,
+                        'raw_name' => $name,
+                        'type' => strtolower($node->mesh ?? '') === 'mesh' ? 'mesh' : 'group',
+                        'child_count' => $node->children_count
                     ];
                 }
             }
-            if (!empty($node['children'])) {
-                $this->searchInTree($node['children'], $query, $results);
-            }
+
+            return response()->json(['results' => array_slice($results, 0, 20)]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 }

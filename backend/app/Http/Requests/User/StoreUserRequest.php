@@ -27,16 +27,16 @@ class StoreUserRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'firstname.required' => 'Le prénom est obligatoire.',
-            'lastname.required' => 'Le nom de famille est obligatoire.',
-            'email.required' => 'L\'email est obligatoire.',
-            'email.email' => 'L\'email doit être une adresse email valide.',
-            'email.unique' => 'Cet email est déjà utilisé.',
-            'password.required' => 'Le mot de passe est obligatoire.',
-            'password.min' => 'Le mot de passe doit contenir au moins 8 caractères.',
-            'password.confirmed' => 'La confirmation du mot de passe ne correspond pas.',
-            'role.required' => 'Le rôle est obligatoire.',
-            'role.in' => 'Le rôle doit être admin, teacher ou student.',
+            'firstname.required' => __('messages.auth.firstname_required'),
+            'lastname.required' => __('messages.auth.lastname_required'),
+            'email.required' => __('messages.auth.email_required'),
+            'email.email' => __('messages.auth.email_valid'),
+            'email.unique' => __('messages.auth.email_unique'),
+            'password.required' => __('messages.auth.password_required'),
+            'password.min' => __('messages.auth.password_min'),
+            'password.confirmed' => __('messages.auth.password_confirmed'),
+            'role.required' => __('messages.auth.role_required'),
+            'role.in' => __('messages.auth.role_invalid'),
         ];
     }
 }

@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Mail;
 use App\Mail\ResetPasswordMail;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class User extends Authenticatable
 {
@@ -65,10 +66,34 @@ class User extends Authenticatable
         return $this->hasMany(UserMastery::class);
     }
 
+    /**
+     * RELATION : Un admin peut avoir des assets 3D.
+     */
+    public function assets(): HasMany
+    {
+        return $this->hasMany(Asset3d::class, 'admin_id');
+    }
+
+    /**
+     * Génère un nouveau token, le hache et le stocke en BD.
+     */
     public function generateSimpleToken(): string
     {
-        $hmac = hash_hmac('sha256', $this->id . $this->email, config('app.key'));
-        return base64_encode($this->id) . '.' . $hmac;
+        $tokenStr = \Illuminate\Support\Str::random(60);
+        
+        $this->token = hash('sha256', $tokenStr);
+        $this->save();
+        
+        return base64_encode($this->id) . '.' . $tokenStr;
+    }
+
+    /**
+     * Invalide le token existant (logout).
+     */
+    public function invalidateToken(): void
+    {
+        $this->token = null;
+        $this->save();
     }
 
     /**

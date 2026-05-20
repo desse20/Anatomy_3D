@@ -29,17 +29,15 @@ class SimpleTokenAuth
         }
 
         $userId = base64_decode($parts[0]);
-        $hmac   = $parts[1];
+        $tokenStr   = $parts[1];
 
         $user = User::find($userId);
-        if (!$user) {
+        if (!$user || !$user->token) {
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
-        // Vérifie la signature en régénérant le token attendu
-        $expectedToken = $user->generateSimpleToken();
-        
-        if (!hash_equals($expectedToken, $token)) {
+        // Vérifie que le hash du token fourni correspond à celui en base
+        if (!hash_equals($user->token, hash('sha256', $tokenStr))) {
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 

@@ -28,12 +28,12 @@ class UpdateAnatomicalObjectRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'parent_id.integer' => 'L\'ID parent doit être un entier.',
-            'parent_id.exists' => 'L\'objet parent spécifié n\'existe pas.',
-            'name.string' => 'Le nom doit être une chaîne de caractères.',
-            'three_js_name.string' => 'Le nom Three.js doit être une chaîne de caractères.',
-            'mesh.string' => 'Le mesh doit être une chaîne de caractères.',
-            'description.string' => 'La description doit être une chaîne de caractères.',
+            'parent_id.integer' => __('messages.anatomical_object.parent_id_integer'),
+            'parent_id.exists' => __('messages.anatomical_object.parent_id_exists'),
+            'name.string' => __('messages.anatomical_object.name_string'),
+            'three_js_name.string' => __('messages.anatomical_object.three_js_name_string'),
+            'mesh.string' => __('messages.anatomical_object.mesh_string'),
+            'description.string' => __('messages.anatomical_object.description_string'),
         ];
     }
 }

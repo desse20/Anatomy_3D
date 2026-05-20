@@ -34,6 +34,12 @@ export const apiCall = async (endpoint: string, options: RequestInit = {}) => {
             } catch (e) {
                 // Not JSON
             }
+            if (response.status === 401) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = '/login';
+                return;
+            }
             const defaultMsg = lang === 'fr' ? 'Une erreur est survenue' : 'An error occurred';
             const error = new Error((errorData as any).message || (errorData as any).error || defaultMsg);
             (error as any).data = errorData;
