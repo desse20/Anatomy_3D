@@ -12,6 +12,7 @@ import Levels from './pages/Levels';
 import AdminDashboard from './pages/AdminDashboard';
 import TeacherDashboard from './pages/TeacherDashboard';
 import TechManagement from './pages/TechManagement';
+import DatabaseManagement from './pages/DatabaseManagement';
 import AccessDenied from './pages/AccessDenied';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { LanguageProvider } from './contexts/LanguageContext';
@@ -44,6 +45,7 @@ function App() {
           {/* Admin only */}
           <Route path="/admin" element={<RoleRoute allowedRoles={['admin']}><AdminDashboard /></RoleRoute>} />
           <Route path="/tech" element={<RoleRoute allowedRoles={['admin']}><TechManagement /></RoleRoute>} />
+          <Route path="/database" element={<RoleRoute allowedRoles={['admin']}><DatabaseManagement /></RoleRoute>} />
 
           {/* Teacher + Admin */}
           <Route path="/labs" element={<RoleRoute allowedRoles={['teacher']}><TeacherDashboard /></RoleRoute>} />

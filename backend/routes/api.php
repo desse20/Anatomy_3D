@@ -53,15 +53,9 @@ Route::prefix('mastery')->middleware(['simple_auth', 'role:student'])->group(fun
     Route::post('record',  [MasteryController::class, 'record']);
 });
 
+use App\Http\Controllers\Api\BaseDonneesController;
+
 // Console Technique
-Route::prefix('system')->middleware(['simple_auth', 'role:admin|teacher'])->group(function () {
-    Route::get('stats', function () {
-        $dbName = env('DB_DATABASE');
-        $sizeQuery = \Illuminate\Support\Facades\DB::select('SELECT SUM(data_length + index_length) / 1024 / 1024 AS size FROM information_schema.TABLES WHERE table_schema = ?', [$dbName]);
-        $sizeInMb = $sizeQuery[0]->size ?? 0;
-        
-        return response()->json([
-            'database_size_mb' => round($sizeInMb, 2)
-        ]);
-    });
+Route::prefix('system')->middleware(['simple_auth', 'role:admin'])->group(function () {
+    Route::get('stats', [BaseDonneesController::class, 'stats']);
 });
