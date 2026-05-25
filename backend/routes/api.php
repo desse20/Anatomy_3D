@@ -7,11 +7,20 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\AiController;
 use App\Http\Controllers\Api\AnatomyController;
 use App\Http\Controllers\Api\MasteryController;
+use App\Http\Controllers\Api\ConversationController;
 
 Route::prefix('ai')->middleware(['simple_auth', 'role:student'])->group(function () {
     Route::post('generate', [AiController::class, 'generate']);
     Route::post('evaluate', [AiController::class, 'evaluate']);
-    Route::get('models', [AiController::class, 'models']);
+    Route::get('models',   [AiController::class, 'models']);
+});
+
+Route::prefix('conversations')->middleware(['simple_auth', 'role:student'])->group(function () {
+    Route::get('',                         [ConversationController::class, 'index']);
+    Route::post('',                        [ConversationController::class, 'store']);
+    Route::put('{id}',                     [ConversationController::class, 'update']);
+    Route::delete('{id}',                  [ConversationController::class, 'destroy']);
+    Route::get('{id}/messages',            [ConversationController::class, 'messages']);
 });
 
 Route::prefix('auth')->group(function () {
@@ -43,6 +52,7 @@ Route::prefix('users')->middleware('simple_auth')->group(function () {
 
 // Anatomy hierarchy (Accès restreint aux utilisateurs identifiés)
 Route::prefix('anatomy')->middleware(['simple_auth', 'role:student|teacher'])->group(function () {
+    Route::get('all',             [AnatomyController::class, 'all']);
     Route::get('roots',           [AnatomyController::class, 'roots']);
     Route::get('subtree/{name}',  [AnatomyController::class, 'subtree']);
     Route::get('search',          [AnatomyController::class, 'search']);

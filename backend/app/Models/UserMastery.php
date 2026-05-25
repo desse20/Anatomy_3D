@@ -13,13 +13,13 @@ class UserMastery extends Model
     protected $table = 'user_mastery'; // Précisé car le pluriel automatique peut différer
 
     protected $fillable = [
-        'user_id',
+        'student_id',
         'anatomical_object_id',
         'success_count',
         'failure_count',
         'mastery_level',
         'next_review_at',
-        'last_review_at'
+        'last_review_at',
     ];
 
     // Cast des dates pour manipulation facile avec Carbon
@@ -28,9 +28,9 @@ class UserMastery extends Model
         'last_review_at' => 'datetime',
     ];
 
-    public function user(): BelongsTo
+    public function student(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'student_id');
     }
 
     public function anatomicalObject(): BelongsTo

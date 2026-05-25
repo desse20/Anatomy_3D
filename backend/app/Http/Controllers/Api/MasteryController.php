@@ -24,7 +24,7 @@ class MasteryController extends Controller
             return response()->json(['error' => 'Unauthenticated'], 401);
         }
 
-        $masteries = UserMastery::where('user_id', $userId)
+        $masteries = UserMastery::where('student_id', $userId)
             ->with('anatomicalObject')
             ->get();
 
@@ -124,7 +124,7 @@ class MasteryController extends Controller
 
         $mastery = UserMastery::firstOrCreate(
             [
-                'user_id'               => $userId,
+                'student_id'            => $userId,
                 'anatomical_object_id'  => $obj->id,
             ],
             [

@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
+use App\Http\Requests\Chat\StoreChatRequest;
+use App\Models\Chat;
+use App\Models\Conversation;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class AiController extends Controller
 {
@@ -17,33 +20,63 @@ class AiController extends Controller
     }
     private $apiBase = 'https://router.huggingface.co/v1';
 
-    public function generate(Request $request)
+    public function generate(StoreChatRequest $request)
     {
-        $request->validate([
-            'model' => 'nullable|string',
-            'prompt' => 'required|string',
-            'bone' => 'nullable|string',
-            'type' => 'nullable|string'
-        ]);
+        $validated      = $request->validated();
+        $requestedModel = $validated['model'] ?? 'deepseek-ai/DeepSeek-V4-Flash';
+        $boneName       = $validated['bone'] ?? null;
+        $isExplanation  = ($validated['type'] ?? '') === 'explain';
+        $userInput      = $validated['input'];
+        $conversationId = $validated['conversation_id'] ?? null;
+        $studentId      = auth()->id();
 
-        $requestedModel = $request->model ?: 'deepseek-ai/DeepSeek-V4-Flash';
-        $boneName = $request->bone;
-        $isExplanation = $request->type === 'explain';
+        // --- Résoudre la conversation ---
+        if ($conversationId) {
+            $conversation = Conversation::where('id', $conversationId)
+                ->where('student_id', $studentId)
+                ->first();
+        }
+        // Si pas trouvée ou pas fournie, en créer une nouvelle
+        if (empty($conversation)) {
+            $conversation = Conversation::create([
+                'student_id' => $studentId,
+                'name'       => $boneName ? 'Discussion : ' . $boneName : 'Nouvelle discussion',
+            ]);
+        }
 
         $context = $this->getAnatomyChunk($boneName);
-        
+
+        // --- Historique de la session depuis la DB ---
+        $sessionHistory = '';
         if ($isExplanation) {
-            $enrichedPrompt = "CONTEXTE ANATOMIQUE DE LA BASE DE DONNÉES:\n$context\n\nRequête de l'utilisateur: " . $request->prompt;
-            $systemPrompt = "Tu es un professeur d'anatomie expert. Utilise si possible le contexte fourni pour construire ton explication. Fournis des explications complètes et détaillées en markdown.";
+            $prevChats = Chat::where('conversation_id', $conversation->id)
+                             ->orderBy('created_at', 'asc')
+                             ->limit(10)
+                             ->get(['input', 'output']);
+
+            if ($prevChats->isNotEmpty()) {
+                $lines = [];
+                foreach ($prevChats as $c) {
+                    $lines[] = "Étudiant: " . $c->input;
+                    $lines[] = "Professeur: " . $c->output;
+                }
+                $sessionHistory = implode("\n\n", $lines);
+            }
+        }
+
+        if ($isExplanation) {
+            $historyBlock   = $sessionHistory ? "\n\nHistorique de la conversation:\n$sessionHistory" : '';
+            $enrichedPrompt = "CONTEXTE ANATOMIQUE DE LA BASE DE DONNÉES:\n$context\n\nRequête de l'utilisateur: " . $userInput . $historyBlock;
+            $systemPrompt   = "Tu es un professeur d'anatomie expert. Utilise si possible le contexte fourni pour construire ton explication. Fournis des explications complètes et détaillées en markdown.";
             $maxTokens = 2000;
         } else {
-            $history = $this->getHistory();
-            $historyList = count($history) > 0 ? implode("|", array_slice(array_reverse($history), 0, 5)) : "None";
+            $history     = $this->getHistory();
+            $historyList = count($history) > 0 ? implode('|', array_slice(array_reverse($history), 0, 5)) : 'None';
 
-            $enrichedPrompt = "ANATOMY CONTEXT:\n$context\n" . 
-                              "AVOID REPEATING: $historyList\n\n" . 
-                              $request->prompt;
-            $systemPrompt = "Tu es un serveur de données JSON strict. INTERDICTION de parler. INTERDICTION d'ajouter des commentaires // ou des explications. Réponds UNIQUEMENT avec un tableau JSON [{}]. Structure: text, options(array), correctAnswer(int), explanation.";
+            $enrichedPrompt = "ANATOMY CONTEXT:\n$context\n" .
+                              "AVOID REPEATING: $historyList\n\n" .
+                              $userInput;
+            $systemPrompt   = "Tu es un serveur de données JSON strict. INTERDICTION de parler. INTERDICTION d'ajouter des commentaires // ou des explications. Réponds UNIQUEMENT avec un tableau JSON [{}]. Structure: text, options(array), correctAnswer(int), explanation.";
             $maxTokens = 600;
         }
 
@@ -70,13 +103,26 @@ class AiController extends Controller
                 if ($response->successful()) {
                     $output = $response->json('choices.0.message.content');
                     if ($output) {
-                        // Nettoyage Markdown si l'IA en a mis quand même
                         $output = preg_replace('/^```json\s*|```$/m', '', $output);
                         $output = trim($output);
-                        
+
                         Log::info("✅ CLOUD API SUCCESS: $apiModel");
-                        $this->updateHistory($output);
-                        return response()->json(['model' => $apiModel, 'source' => 'cloud_api', 'response' => $output]);
+
+                        // Persister dans la table chats
+                        $chat = Chat::create([
+                            'conversation_id' => $conversation->id,
+                            'input'           => $userInput,
+                            'output'          => $output,
+                            'created_at'      => now(),
+                        ]);
+
+                        return response()->json([
+                            'chat_id'         => $chat->id,
+                            'conversation_id' => $conversation->id,
+                            'model'           => $apiModel,
+                            'source'          => 'cloud_api',
+                            'response'        => $output,
+                        ]);
                     }
                 }
             } catch (\Throwable $e) {
@@ -99,8 +145,22 @@ class AiController extends Controller
                 if ($process->isSuccessful() && !empty(trim($process->getOutput()))) {
                     $output = preg_replace('/\x1b(\[|\(|\))[;?0-9]*[0-9A-Za-z]/', '', $process->getOutput());
                     Log::info("✅ OLLAMA SUCCESS: $localModel");
-                    $this->updateHistory($output);
-                    return response()->json(['model' => $localModel, 'source' => 'local_ollama', 'response' => $output]);
+
+                    // Persister dans la table chats
+                    $chat = Chat::create([
+                        'conversation_id' => $conversation->id,
+                        'input'           => $userInput,
+                        'output'          => $output,
+                        'created_at'      => now(),
+                    ]);
+
+                    return response()->json([
+                        'chat_id'         => $chat->id,
+                        'conversation_id' => $conversation->id,
+                        'model'           => $localModel,
+                        'source'          => 'local_ollama',
+                        'response'        => $output,
+                    ]);
                 }
             } catch (\Throwable $e) {
                 Log::error("❌ OLLAMA ERROR: " . $e->getMessage());
@@ -193,25 +253,47 @@ class AiController extends Controller
 
     private function getHistory()
     {
-        return cache()->get('ai_quiz_history', []);
+        if (!auth()->check()) {
+            return [];
+        }
+
+        // Anti-répétition pour le quiz : on lit les outputs des 10 derniers chats de l'étudiant
+        $chats = Chat::whereHas('conversation', fn($q) => $q->where('student_id', auth()->id()))
+                     ->orderBy('created_at', 'desc')
+                     ->limit(10)
+                     ->get(['output']);
+
+        $history = [];
+        foreach ($chats as $chat) {
+            if ($chat->output) {
+                preg_match_all('/"text":\s*"([^"]+)"/', $chat->output, $matches);
+                if (!empty($matches[1])) {
+                    $history = array_merge($history, $matches[1]);
+                }
+            }
+        }
+
+        return $history;
     }
 
-    private function updateHistory($aiResponse)
+    /**
+     * Retourne l'historique des messages du student connecté.
+     * ?group=<uuid> → filtre sur une session précise
+     * ?limit=50     → nombre max de messages (défaut 50)
+     */
+    public function history(\Illuminate\Http\Request $request)
     {
-        // Try to extract question texts from JSON response
-        preg_match_all('/"text":\s*"([^"]+)"/', $aiResponse, $matches);
-        
-        if (!empty($matches[1])) {
-            $history = $this->getHistory();
-            $newHistory = array_merge($history, $matches[1]);
-            
-            // Keep only last 100 questions to avoid huge file
-            if (count($newHistory) > 100) {
-                $newHistory = array_slice($newHistory, -100);
-            }
-            
-            cache()->put('ai_quiz_history', $newHistory);
+        $query = Chat::where('student_id', auth()->id())
+                     ->orderBy('created_at', 'asc');
+
+        if ($request->filled('group')) {
+            $query->where('group', $request->query('group'));
         }
+
+        $limit = min((int) $request->query('limit', 50), 200);
+        $chats = $query->limit($limit)->get(['id', 'group', 'input', 'output', 'created_at']);
+
+        return response()->json(['data' => $chats]);
     }
 
     public function models()

@@ -115,10 +115,6 @@ const App: React.FC<AppProps> = ({ children, breadcrumb, title }) => {
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
                         {!isCollapsed && <span>{language === 'fr' ? 'Atlas 3D' : '3D Atlas'}</span>}
                     </Link>
-                    <Link to="/profile" className={`nav-item ${isActive('/profile') ? 'active' : ''}`} title="Profil">
-                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                        {!isCollapsed && <span>{language === 'fr' ? 'Mon Profil' : 'My Profile'}</span>}
-                    </Link>
                     {userRole === 'student' && (
                         <>
                             <Link to="/quiz" className={`nav-item ${isActive('/quiz') ? 'active' : ''}`} title="Quiz IA">
@@ -135,6 +131,10 @@ const App: React.FC<AppProps> = ({ children, breadcrumb, title }) => {
                             </Link>
                         </>
                     )}
+                    <Link to="/profile" className={`nav-item ${isActive('/profile') ? 'active' : ''}`} title="Profil">
+                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                        {!isCollapsed && <span>{language === 'fr' ? 'Mon Profil' : 'My Profile'}</span>}
+                    </Link>
                 </nav>
 
                 <div className="lang-sidebar-container" style={{ marginTop: 'auto', padding: isCollapsed ? '16px 0' : '0 12px 16px' }}>
@@ -195,9 +195,37 @@ const App: React.FC<AppProps> = ({ children, breadcrumb, title }) => {
 
             <main className="dash-main">
                 <div className="dash-content-container">
-                    {breadcrumb && <div className="dash-breadcrumb" style={{ marginBottom: '12px' }}>{breadcrumb}</div>}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '32px' }}>
-                        {title && <h1 style={{ margin: 0 }}>{title}</h1>}
+                    <div className="dash-top-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '30px', gap: '20px' }}>
+                        <div className="breadcrumb-area" style={{ flex: 1 }}>
+                            {breadcrumb && <div className="dash-breadcrumb" style={{ marginBottom: '8px' }}>{breadcrumb}</div>}
+                            {title && <h1 style={{ margin: 0, fontSize: '28px' }}>{title}</h1>}
+                        </div>
+
+                        <Link to="/profile" className="header-user-widget" style={{ 
+                            textDecoration: 'none', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '12px',
+                            padding: '6px 14px',
+                            background: 'var(--dash-card-bg)',
+                            borderRadius: '100px',
+                            border: '1px solid var(--dash-border)',
+                            transition: 'all 0.2s ease',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+                        }}>
+                             <div className="huw-avatar" style={{ 
+                                width: '36px', height: '36px', borderRadius: '50%', 
+                                background: '#0ea5e9', 
+                                color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                flexShrink: 0
+                            }}>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                            </div>
+                            <div className="huw-text" style={{ textAlign: 'left', minWidth: 0 }}>
+                                <div className="huw-name" style={{ color: 'var(--dash-text)', fontWeight: 800, fontSize: '13px', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.firstname} {user.lastname}</div>
+                                <div className="huw-email" style={{ color: 'var(--dash-text-muted)', fontSize: '11px', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.email}</div>
+                            </div>
+                        </Link>
                     </div>
                     {children}
                 </div>

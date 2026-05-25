@@ -59,5 +59,19 @@ return [
         'code_sent' => 'Code sent successfully.',
         'code_invalid' => 'The verification code is invalid or has expired.',
         'email_send_error' => 'Error while sending the email.',
-    ]
+    ],
+    'chat' => [
+        'input_required' => 'The message is required.',
+        'input_string'   => 'The message must be a string.',
+        'input_max'      => 'The message must not exceed 2000 characters.',
+        'group_uuid'     => 'The conversation group must be a valid UUID.',
+        'type_in'        => 'The type must be "explain" or "quiz".',
+    ],
+    'lab' => [
+        'name_required'      => 'The lab name is required.',
+        'name_string'        => 'The name must be a string.',
+        'name_max'           => 'The name must not exceed 255 characters.',
+        'description_string' => 'The description must be a string.',
+        'description_max'    => 'The description must not exceed 2000 characters.',
+    ],
 ];

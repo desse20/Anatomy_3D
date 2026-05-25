@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import type { AnatomyItem, ExtendedMesh, NameToMeshMap } from '../types/anatomy';
+import { anatomyService } from '../services/api';
 import '../styles/anatomy-viewer.css';
 
 interface AnatomyViewerProps {
@@ -218,34 +218,17 @@ const AnatomyViewer: React.FC<AnatomyViewerProps> = ({
       setIsLoading(true);
       setError(null);
 
-      // Load and clean JSON data
-      const response = await fetch(jsonDataPath);
-      if (!response.ok) throw new Error(`JSON introuvable (${response.status})`);
-      const rawData: AnatomyItem[] = await response.json();
-      console.log(`JSON brut : ${rawData.length} entrées`);
-
-      // Deduplication
-      const uniqueMap = new Map();
-      for (const item of rawData) {
-        if (!uniqueMap.has(item.id)) uniqueMap.set(item.id, item);
+      // ── RÉCUPÉRATION DE TOUTE LA HIÉRARCHIE VIA L'API ──
+      console.log("Chargement de l'atlas complet via l'API...");
+      const rawData: AnatomyItem[] = await anatomyService.getAll();
+      
+      if (!Array.isArray(rawData)) {
+          console.error("Format de données invalide reçu de l'API (attendu: Array):", rawData);
+          throw new Error("L'API n'a pas renvoyé l'atlas complet.");
       }
-      const tempData = Array.from(uniqueMap.values()) as AnatomyItem[];
-      console.log(`Après déduplication : ${tempData.length} entrées`);
 
-      // Remove items with undefined IDs and orphans
-      const validIds = new Set(tempData.filter(d => d.id && d.id !== undefined).map(d => d.id));
-      const cleanedData = tempData.filter(item => {
-        // Skip items with undefined ID
-        if (!item.id || item.id === undefined) {
-          console.warn(`Item avec ID undefined supprimé : ${item.name}`);
-          return false;
-        }
-        if (!item.parent_id || item.parent_id === 0) return true;
-        if (validIds.has(item.parent_id)) return true;
-        console.warn(`Orphelin supprimé : ${item.name} (id ${item.id})`);
-        return false;
-      });
-      console.log(`Après nettoyage : ${cleanedData.length} entrées`);
+      console.log(`Données API reçues : ${rawData.length} entrées`);
+      const cleanedData = rawData;
       setAnatomicalData(cleanedData);
 
       // Load GLB model

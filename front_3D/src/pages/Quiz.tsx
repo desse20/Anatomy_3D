@@ -124,7 +124,7 @@ const Quiz: React.FC = () => {
         const prompt = buildPrompt(system, type, count);
         try {
             const response = await aiService.generate('phi3:latest', prompt);
-            await parseAndSetQuestions(response, type);
+            await parseAndSetQuestions(response.response, type);
         } catch (err: any) {
             setError(language === 'fr' ? `Erreur: ${err.message || 'IA Indisponible'}` : `Error: ${err.message || 'AI Unavailable'}`);
         } finally { setIsLoading(false); }
@@ -138,7 +138,7 @@ const Quiz: React.FC = () => {
         try {
             const prompt   = buildPrompt(targetSystemLabel, quizType, questionCount);
             const response = await aiService.generate('phi3:latest', prompt);
-            await parseAndSetQuestions(response, quizType);
+            await parseAndSetQuestions(response.response, quizType);
         } catch (err: any) {
             console.error("Quiz Start Error:", err);
             setError(language === 'fr' ? `Erreur: ${err.message || "IA Indisponible"}` : `Error: ${err.message || "AI Unavailable"}`);

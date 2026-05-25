@@ -18,7 +18,8 @@ interface Message {
     content: string;
 }
 interface Session {
-    id: string;
+    id: string;             // ID local (timestamp)
+    conversationId?: string; // UUID de la conversation backend
     name: string;
     elements: AnatNode[];
     messages: Message[];
@@ -54,6 +55,39 @@ const Review: React.FC = () => {
     const [editingTitle, setEditingTitle] = useState('');
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    // ── Sync localStorage ↔ backend ────────────────────────────────────────
+    // Au montage, on récupère les conversations existantes en BDD et on purge
+    // les sessions locales dont le conversationId n'existe plus (ex. après migrate:fresh).
+    useEffect(() => {
+        aiService.listConversations()
+            .then((serverConvs) => {
+                const serverMap = new Map(serverConvs.map(c => [c.id, c]));
+                setSessions(prev => {
+                    let changed = false;
+                    const synced = prev.map(s => {
+                        if (s.conversationId && serverMap.has(s.conversationId)) {
+                            const serverData = serverMap.get(s.conversationId)!;
+                            // Si le nom en BDD est différent du nom local, on synchronise
+                            if (s.name !== serverData.name) {
+                                changed = true;
+                                return { ...s, name: serverData.name };
+                            }
+                        }
+                        return s;
+                    }).filter(s => {
+                        // Purge des orphelins (conversation supprimée en BDD ou ancien système)
+                        if (s.conversationId) return serverMap.has(s.conversationId);
+                        return s.messages.length === 0;
+                    });
+
+                    if (synced.length !== prev.length) changed = true;
+                    return changed ? synced : prev;
+                });
+            })
+            .catch(console.error);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Save to local storage on change
     useEffect(() => {
@@ -200,43 +234,33 @@ const Review: React.FC = () => {
             return s;
         }));
 
-        // Generate AI response
-        const lang = language === 'fr' ? 'français' : 'english';
-        
-        // Build Conversation context
-        // we use the directly updated message array
-        const allMessages = [...targetSession.messages, userMessage];
-        const conversationHistory = allMessages.map(m => (m.role === 'user' ? 'Étudiant: ' : 'Professeur: ') + m.content).join('\n\n');
-        
+        // Generate AI response — envoyer seulement le message brut + sujet + langue
         let contextText = t('Anatomie humaine en général', 'General human anatomy');
         if (targetSession.elements.length > 0) {
             contextText = targetSession.elements.map(e => `- ${e.name} (${e.type})`).join('\n');
         }
 
-        const prompt = language === 'fr' 
-            ? `Agis comme un professeur d'anatomie expert et bienveillant. Langue: français.
-Sujet(s) abordé(s) dans cette discussion:
-${contextText}
-
-Historique de la conversation:
-${conversationHistory}
-
-Donne ta réponse la plus pertinente, claire et structurée possible. Utilise la syntaxe Markdown avec des titres, du texte en gras, et surtout des listes à puces (tiret "-") pour que les explications et les sous-éléments soient beaux, bien indentés et aérés. N'inclus PAS de balise JSON.`
-            : `Act as an expert and benevolent anatomy professor. Language: English.
-Subject(s) discussed in this conversation:
-${contextText}
-
-Conversation history:
-${conversationHistory}
-
-Give your answer as relevant, clear, and structured as possible. Use Markdown syntax with headings, bold text, and especially bulleted lists (dash "-") so that the explanations and sub-elements are beautiful, well-indented, and airy. Do NOT include any JSON tags.`;
+        const userInput = language === 'fr'
+            ? `Agis comme un professeur d'anatomie expert et bienveillant. Langue: français.\nSujet(s) abordé(s) dans cette discussion:\n${contextText}\n\nQuestion de l'étudiant: ${msg}\n\nRéponds en Markdown clair avec titres, texte en gras et listes à puces. N'inclus PAS de balise JSON.`
+            : `Act as an expert anatomy professor. Language: English.\nSubject(s):\n${contextText}\n\nStudent question: ${msg}\n\nReply in clear Markdown with headings, bold, and bullet lists. Do NOT include JSON tags.`;
 
         try {
-             const response = await aiService.generate('phi3:latest', prompt, undefined, 'explain');
-             const aiMessage: Message = { role: 'ai', content: response };
+             // ── Créer la conversation en BDD avec le bon nom si elle n'existe pas encore ──
+             let conversationId = targetSession.conversationId;
+             if (!conversationId) {
+                 const conv = await aiService.createConversation(targetSession.name);
+                 conversationId = conv.id;
+                 // Sauvegarder le conversationId dans la session locale immédiatement
+                 setSessions(prev => prev.map(s =>
+                     s.id === targetSession!.id ? { ...s, conversationId } : s
+                 ));
+             }
+
+             const response = await aiService.generate('phi3:latest', userInput, undefined, 'explain', conversationId);
+             const aiMessage: Message = { role: 'ai', content: response.response };
              setSessions(prev => prev.map(s => {
                  if (s.id === targetSession!.id) {
-                     return { ...s, messages: [...s.messages, aiMessage] };
+                     return { ...s, conversationId: response.conversation_id ?? conversationId, messages: [...s.messages, aiMessage] };
                  }
                  return s;
              }));
@@ -256,11 +280,21 @@ Give your answer as relevant, clear, and structured as possible. Use Markdown sy
 
     const handleRename = (id: string, newName: string) => {
         if (!newName.trim()) return;
+        const session = sessions.find(s => s.id === id);
+        // Sync with backend if the conversation exists in DB
+        if (session?.conversationId) {
+            aiService.renameConversation(session.conversationId, newName).catch(console.error);
+        }
         setSessions(prev => prev.map(s => s.id === id ? { ...s, name: newName } : s));
         setEditingSessionId(null);
     };
 
     const deleteSession = (id: string) => {
+        const session = sessions.find(s => s.id === id);
+        // Sync with backend if the conversation exists in DB
+        if (session?.conversationId) {
+            aiService.deleteConversation(session.conversationId).catch(console.error);
+        }
         setSessions(prev => prev.filter(s => s.id !== id));
         if (currentSessionId === id) startNewChat();
     }

@@ -63,7 +63,31 @@ class User extends Authenticatable
      */
     public function masteries(): HasMany
     {
-        return $this->hasMany(UserMastery::class);
+        return $this->hasMany(UserMastery::class, 'student_id');
+    }
+
+    /**
+     * RELATION : Un enseignant peut créer plusieurs Labs.
+     */
+    public function labs(): HasMany
+    {
+        return $this->hasMany(Lab::class, 'teacher_id');
+    }
+
+    /**
+     * RELATION : Un enseignant peut créer plusieurs SharedViews.
+     */
+    public function sharedViews(): HasMany
+    {
+        return $this->hasMany(SharedView::class, 'teacher_id');
+    }
+
+    /**
+     * RELATION : Un étudiant a plusieurs messages de chat IA.
+     */
+    public function chats(): HasMany
+    {
+        return $this->hasMany(Chat::class, 'student_id');
     }
 
     /**

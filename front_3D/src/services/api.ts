@@ -84,3 +84,14 @@ export const userService = {
         body: JSON.stringify({ password, _method: 'DELETE' }),
     }),
 };
+
+export const anatomyService = {
+    /** Récupère TOUTE la hiérarchie pour le mapper 3D */
+    getAll: () => apiCall('/anatomy/all'),
+    /** Récupère les racines de la hiérarchie (Skeletal System, etc.) */
+    getRoots: () => apiCall('/anatomy/roots'),
+    /** Récupère un sous-arbre complet à partir d'un nom de node */
+    getSubtree: (name: string) => apiCall(`/anatomy/subtree/${encodeURIComponent(name)}`),
+    /** Recherche des structures anatomiques */
+    search: (query: string) => apiCall(`/anatomy/search?q=${encodeURIComponent(query)}`),
+};
