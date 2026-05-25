@@ -94,9 +94,10 @@ const TestPage: React.FC = () => {
   const [mobileOpen,           setMobileOpen]          = useState(false);
   const [showPassword,         setShowPassword]        = useState(false);
   const [showConfirmPassword,  setShowConfirmPassword] = useState(false);
-  const [formData,             setFormData]            = useState({ firstname:'', lastname:'', email:'', password:'', confirmPassword:'', profile:'student' });
+  const [formData,             setFormData]            = useState({ firstname:'', lastname:'', email:'', password:'', confirmPassword:'', profile:'student', code:'' });
   const [error,                setError]               = useState<string | null>(null);
   const [sent,                 setSent]                = useState(false);
+  const [step,                 setStep]                = useState(1);
   const headerRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -144,28 +145,78 @@ const TestPage: React.FC = () => {
     setFormData(p => ({ ...p, [name]: value }));
   };
 
+  const handleCodeChange = (index: number, value: string) => {
+    const digit = value.replace(/\D/g, '').slice(-1);
+    let newCode = (formData.code || '').split('');
+    while(newCode.length < 6) newCode.push('');
+    newCode[index] = digit;
+    
+    // Si on a tapé un truc vide mais qu'avant y'avait qqch, on l'enlève
+    if (!digit && value === '') newCode[index] = '';
+
+    const stringCode = newCode.join('').slice(0, 6);
+    setFormData(p => ({ ...p, code: stringCode }));
+
+    if (digit && index < 5) {
+      setTimeout(() => document.getElementById(`otp-${index + 1}`)?.focus(), 10);
+    }
+  };
+
+  const handleCodeKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !(formData.code || '')[index] && index > 0) {
+      document.getElementById(`otp-${index - 1}`)?.focus();
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const paste = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (paste) {
+      setFormData(p => ({ ...p, code: paste }));
+      setTimeout(() => document.getElementById(`otp-${Math.min(paste.length - 1, 5)}`)?.focus(), 10);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (formData.password !== formData.confirmPassword) {
-      setError(language === 'fr' ? "Les mots de passe ne correspondent pas." : "Passwords do not match.");
-      return;
-    }
-    try {
-      const resp = await authService.register({
-        firstname: formData.firstname,
-        lastname: formData.lastname,
-        email: formData.email,
-        password: formData.password,
-        password_confirmation: formData.confirmPassword,
-        role: formData.profile === 'professor' ? 'teacher' : 'student'
-      });
-      if (resp?.token) localStorage.setItem('token', resp.token);
-      if (resp?.data)  localStorage.setItem('user', JSON.stringify(resp.data));
-      setSent(true);
-      setTimeout(() => navigate('/dash'), 1500);
-    } catch (err: any) {
-      setError(err.message || (language === 'fr' ? "Erreur lors de l'inscription." : "Error during registration."));
+
+    if (step === 1) {
+      if (formData.password !== formData.confirmPassword) {
+        setError(language === 'fr' ? "Les mots de passe ne correspondent pas." : "Passwords do not match.");
+        return;
+      }
+      try {
+        await authService.sendRegistrationCode({
+          firstname: formData.firstname,
+          lastname: formData.lastname,
+          email: formData.email,
+          password: formData.password,
+          password_confirmation: formData.confirmPassword
+        });
+        setStep(2);
+        setError(null);
+      } catch (err: any) {
+        setError(err.message || (language === 'fr' ? "Erreur lors de l'envoi du code." : "Error while sending the code."));
+      }
+    } else {
+      try {
+        const resp = await authService.register({
+          firstname: formData.firstname,
+          lastname: formData.lastname,
+          email: formData.email,
+          password: formData.password,
+          password_confirmation: formData.confirmPassword,
+          role: formData.profile === 'professor' ? 'teacher' : 'student',
+          code: formData.code
+        });
+        if (resp?.token) localStorage.setItem('token', resp.token);
+        if (resp?.data)  localStorage.setItem('user', JSON.stringify(resp.data));
+        setSent(true);
+        setTimeout(() => navigate('/dash'), 1500);
+      } catch (err: any) {
+        setError(err.message || (language === 'fr' ? "Erreur lors de l'inscription." : "Error during registration."));
+      }
     }
   };
 
@@ -401,48 +452,102 @@ const TestPage: React.FC = () => {
                 {error && <div style={{ padding: '12px', background: 'rgba(255,0,0,.15)', border: '1px solid rgba(255,0,0,.3)', borderRadius: 12, color: '#ffb3b3', fontSize: 13, marginBottom: 20 }}>✕ {error}</div>}
                 {sent && <div style={{ padding: '14px 20px', background: 'rgba(5,108,242,.2)', border: '1px solid rgba(5,108,242,.4)', borderRadius: 12, color: '#9DC7FF', fontSize: 14, marginBottom: 20 }}>✓ {language === 'fr' ? "Inscription réussie !" : "Registration successful!"}</div>}
                 <form className="form-container" onSubmit={handleSubmit}>
-                  <div className="top-fields">
-                    <p><label htmlFor="ct-fname">{language === 'fr' ? "Prénom" : "First name"}</label><input id="ct-fname" name="firstname" type="text" placeholder="Ex: Koffi" value={formData.firstname} onChange={handleField} required /></p>
-                    <p><label htmlFor="ct-lname">{language === 'fr' ? "Nom" : "Last name"}</label><input id="ct-lname" name="lastname" type="text" placeholder="Ex: SOGLO" value={formData.lastname} onChange={handleField} required /></p>
-                    <p style={{ gridColumn: '1 / -1' }}><label htmlFor="ct-email">Email</label><input id="ct-email" name="email" type="email" placeholder="votre@email.com" value={formData.email} onChange={handleField} required /></p>
-                    <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                      <p><label htmlFor="ct-pass">{language === 'fr' ? "Mot de passe" : "Password"}</label>
-                        <div className="password-input-wrapper">
-                          <input id="ct-pass" name="password" type={showPassword ? "text" : "password"} placeholder="••••••••" value={formData.password} onChange={handleField} required />
-                          <span className="password-toggle" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeClosed /> : <EyeOpen />}</span>
+                  {step === 1 ? (
+                    <>
+                      <div className="top-fields">
+                        <p><label htmlFor="ct-fname">{language === 'fr' ? "Prénom" : "First name"}</label><input id="ct-fname" name="firstname" type="text" placeholder="Ex: Koffi" value={formData.firstname} onChange={handleField} required /></p>
+                        <p><label htmlFor="ct-lname">{language === 'fr' ? "Nom" : "Last name"}</label><input id="ct-lname" name="lastname" type="text" placeholder="Ex: SOGLO" value={formData.lastname} onChange={handleField} required /></p>
+                        <p style={{ gridColumn: '1 / -1' }}><label htmlFor="ct-email">Email</label><input id="ct-email" name="email" type="email" placeholder="votre@email.com" value={formData.email} onChange={handleField} required /></p>
+                        <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                          <div><label htmlFor="ct-pass">{language === 'fr' ? "Mot de passe" : "Password"}</label>
+                            <div className="password-input-wrapper">
+                              <input id="ct-pass" name="password" type={showPassword ? "text" : "password"} placeholder="••••••••" value={formData.password} onChange={handleField} required />
+                              <span className="password-toggle" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeClosed /> : <EyeOpen />}</span>
+                            </div>
+                          </div>
+                          <div><label htmlFor="ct-conf">{language === 'fr' ? "Confirmation" : "Confirmation"}</label>
+                            <div className="password-input-wrapper">
+                              <input id="ct-conf" name="confirmPassword" type={showConfirmPassword ? "text" : "password"} placeholder="••••••••" value={formData.confirmPassword} onChange={handleField} required />
+                              <span className="password-toggle" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>{showConfirmPassword ? <EyeClosed /> : <EyeOpen />}</span>
+                            </div>
+                          </div>
                         </div>
-                      </p>
-                      <p><label htmlFor="ct-conf">{language === 'fr' ? "Confirmation" : "Confirmation"}</label>
-                        <div className="password-input-wrapper">
-                          <input id="ct-conf" name="confirmPassword" type={showConfirmPassword ? "text" : "password"} placeholder="••••••••" value={formData.confirmPassword} onChange={handleField} required />
-                          <span className="password-toggle" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>{showConfirmPassword ? <EyeClosed /> : <EyeOpen />}</span>
+                        <div style={{ gridColumn: '1 / -1', marginTop: '16px' }}>
+                          <label style={{ fontSize: '11px', fontWeight: '800', color: 'rgba(255,255,255,.5)', marginBottom: '12px', display: 'block', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                            {language === 'fr' ? "QUEL PROFIL VOUS CORRESPOND ?" : "WHICH PROFILE FITS YOU?"}
+                          </label>
+                          <div className="profile-selection-group">
+                            <label className="profile-radio-label">
+                              <input type="radio" name="profile" value="student" checked={formData.profile === 'student'} onChange={handleField} />
+                              <span className="radio-checkmark"></span>
+                              {language === 'fr' ? "Étudiant" : "Student"}
+                            </label>
+                            <label className="profile-radio-label">
+                              <input type="radio" name="profile" value="professor" checked={formData.profile === 'professor'} onChange={handleField} />
+                              <span className="radio-checkmark"></span>
+                              {language === 'fr' ? "Professeur" : "Professor"}
+                            </label>
+                          </div>
                         </div>
-                      </p>
-                    </div>
-                    <div style={{ gridColumn: '1 / -1', marginTop: '16px' }}>
-                      <label style={{ fontSize: '11px', fontWeight: '800', color: 'rgba(255,255,255,.5)', marginBottom: '12px', display: 'block', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                        {language === 'fr' ? "QUEL PROFIL VOUS CORRESPOND ?" : "WHICH PROFILE FITS YOU?"}
-                      </label>
-                      <div className="profile-selection-group">
-                        <label className="profile-radio-label">
-                          <input type="radio" name="profile" value="student" checked={formData.profile === 'student'} onChange={handleField} />
-                          <span className="radio-checkmark"></span>
-                          {language === 'fr' ? "Étudiant" : "Student"}
-                        </label>
-                        <label className="profile-radio-label">
-                          <input type="radio" name="profile" value="professor" checked={formData.profile === 'professor'} onChange={handleField} />
-                          <span className="radio-checkmark"></span>
-                          {language === 'fr' ? "Professeur" : "Professor"}
-                        </label>
                       </div>
-                    </div>
-                  </div>
-                  <div className="middle-fields" style={{ marginTop: '24px' }}>
-                    <p id="form-agree">
-                      <span className="description-medium">{language === 'fr' ? "En cliquant sur Démarrer maintenant, vous accédez à l'expérience complète Anatomy 3D." : "By clicking Start now, you access the full Anatomy 3D experience."}</span>
-                      <button type="submit" className="custom-button blue large arrows-button-blue" style={{ width: '100%', justifyContent: 'center' }}>{language === 'fr' ? "Démarrer maintenant" : "Start now"} <ArrowLg /></button>
-                    </p>
-                  </div>
+                      <div className="middle-fields" style={{ marginTop: '24px' }}>
+                        <p id="form-agree">
+                          <span className="description-medium">{language === 'fr' ? "Un code de vérification vous sera envoyé par email." : "A verification code will be sent to your email."}</span>
+                          <button type="submit" className="custom-button blue large arrows-button-blue" style={{ width: '100%', justifyContent: 'center' }}>{language === 'fr' ? "Continuer" : "Continue"} <ArrowLg /></button>
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="top-fields">
+                        <div style={{ gridColumn: '1 / -1', textAlign: 'center', color: '#fff', marginBottom: '20px' }}>
+                          {language === 'fr' ? "Veuillez entrer le code à 6 chiffres envoyé à :" : "Please enter the 6-digit code sent to:"}<br />
+                          <strong>{formData.email}</strong>
+                        </div>
+                        <div style={{ gridColumn: '1 / -1' }}>
+                          <label htmlFor="ct-code" style={{ textAlign: 'center', width: '100%', display: 'block', marginBottom: '10px' }}>
+                            {language === 'fr' ? "Code de vérification" : "Verification Code"}
+                          </label>
+                          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                            {[0, 1, 2, 3, 4, 5].map(idx => (
+                              <input
+                                key={idx}
+                                id={`otp-${idx}`}
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                maxLength={2}
+                                value={(formData.code || '')[idx] || ''}
+                                onChange={(e) => handleCodeChange(idx, e.target.value)}
+                                onKeyDown={(e) => handleCodeKeyDown(idx, e)}
+                                onPaste={idx === 0 ? handlePaste : undefined}
+                                required
+                                style={{
+                                  width: '45px',
+                                  height: '55px',
+                                  textAlign: 'center',
+                                  fontSize: '24px',
+                                  fontWeight: 'bold',
+                                  borderRadius: '8px',
+                                  border: '1px solid rgba(255,255,255,0.3)',
+                                  background: 'rgba(255,255,255,0.05)',
+                                  color: '#fff',
+                                  outline: 'none',
+                                  transition: 'border-color 0.2s'
+                                }}
+                                onFocus={(e) => e.target.style.borderColor = '#056CF2'}
+                                onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.3)'}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="middle-fields" style={{ marginTop: '24px', display: 'flex', flexDirection: 'row', gap: '12px', flexWrap: 'nowrap' }}>
+                        <button type="button" onClick={() => setStep(1)} className="custom-button outline large" style={{ flex: '1', justifyContent: 'center', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.05)' }}>{language === 'fr' ? "Retour" : "Back"}</button>
+                        <button type="submit" className="custom-button blue large arrows-button-blue" style={{ flex: '2', justifyContent: 'center' }}>{language === 'fr' ? "Valider & Démarrer" : "Verify & Start"} <ArrowLg /></button>
+                      </div>
+                    </>
+                  )}
                 </form>
               </>
             ) : (

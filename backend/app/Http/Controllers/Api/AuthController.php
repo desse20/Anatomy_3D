@@ -11,6 +11,9 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\VerificationCodeMail;
 
 class AuthController extends Controller
 {
@@ -24,8 +27,48 @@ class AuthController extends Controller
         return (new AuthResource($user))->additional(['token' => $token]);
     }
 
+    public function sendRegistrationCode(RegisterRequest $request)
+    {
+        // On génère un code à 6 chiffres
+        $code = rand(100000, 999999);
+
+        // On sauvegarde le code dans le cache avec l'email, valide 15 minutes
+        Cache::put('registration_code_' . $request->email, $code, now()->addMinutes(15));
+        
+        // On sauvegarde temporairement les données pour éviter de tout redemander ? 
+        // Pas nécessaire si on renvoie tout depuis le front
+        
+        try {
+            Mail::to($request->email)->send(new VerificationCodeMail($code));
+        } catch (\Exception $e) {
+            // Pour le dev local si l'email ne passe pas, on peut se renvoyer le code
+            return response()->json([
+                'message' => __('messages.auth.email_send_error'),
+                'error' => $e->getMessage()
+            ], 500);
+        }
+
+        return response()->json(['message' => __('messages.auth.code_sent')]);
+    }
+
     public function register(RegisterRequest $request)
     {
+        $request->validate(
+            ['code' => 'required|numeric'],
+            [
+                'code.required' => __('messages.auth.code_required'),
+                'code.numeric' => __('messages.auth.code_numeric')
+            ]
+        );
+
+        $cachedCode = Cache::get('registration_code_' . $request->email);
+
+        if (!$cachedCode || $cachedCode != $request->code) {
+            return response()->json([
+                'message' => __('messages.auth.code_invalid')
+            ], 400);
+        }
+
         $user = User::create([
             'firstname' => strtoupper($request->firstname),
             'lastname' => $request->lastname,
@@ -33,6 +76,9 @@ class AuthController extends Controller
             'password' => Hash::make($request->password),
             'role' => 'student', // Toujours étudiant à l'inscription publique (sécurité)
         ]);
+
+        // On supprime le code du cache
+        Cache::forget('registration_code_' . $request->email);
 
         $token = $user->generateSimpleToken();
         

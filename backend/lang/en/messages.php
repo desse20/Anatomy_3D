@@ -54,5 +54,10 @@ return [
         'role_invalid' => 'The selected role is invalid.',
         'unauthenticated' => 'Unauthenticated.',
         'access_denied' => 'Access denied. You do not have the required permissions.',
+        'code_required' => 'The verification code is required.',
+        'code_numeric' => 'The verification code must be a number.',
+        'code_sent' => 'Code sent successfully.',
+        'code_invalid' => 'The verification code is invalid or has expired.',
+        'email_send_error' => 'Error while sending the email.',
     ]
 ];

@@ -62,6 +62,10 @@ export const authService = {
         method: 'POST',
         body: JSON.stringify(userData),
     }),
+    sendRegistrationCode: (userData: any) => apiCall('/auth/register/send-code', {
+        method: 'POST',
+        body: JSON.stringify(userData),
+    }),
     logout: () => apiCall('/auth/logout', { method: 'POST' }),
     me: () => apiCall('/auth/me', { method: 'GET' }),
 };
