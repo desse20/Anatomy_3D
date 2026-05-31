@@ -2,17 +2,35 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { anatomyService } from '../services/api';
+import { apiCall } from '../services/api';
 import '../styles/anatomy-viewer.css';
 
+interface AnatomyItem {
+  id: number;
+  name: string;
+  three_js_name: string;
+  parent_id?: number | null;
+  type: string;
+  description?: string;
+}
+
+interface ExtendedMesh extends THREE.Mesh {
+  userData: {
+    info?: AnatomyItem;
+    [key: string]: any;
+  };
+}
+
+type NameToMeshMap = Map<string, ExtendedMesh>;
+
 interface AnatomyViewerProps {
-  jsonDataPath?: string;
+  assetId?: string | number;
   modelPath?: string;
 }
 
 const AnatomyViewer: React.FC<AnatomyViewerProps> = ({ 
-  jsonDataPath = './z_anatomy_hierarchy_Copie.json',
-  modelPath = 'Squelette_complet.glb'
+  assetId,
+  modelPath: initialModelPath
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const labelRef = useRef<HTMLDivElement>(null);
@@ -219,9 +237,31 @@ const AnatomyViewer: React.FC<AnatomyViewerProps> = ({
       setError(null);
 
       // ── RÉCUPÉRATION DE TOUTE LA HIÉRARCHIE VIA L'API ──
-      console.log("Chargement de l'atlas complet via l'API...");
-      const rawData: AnatomyItem[] = await anatomyService.getAll();
+      console.log("Chargement de l'atlas spécifié via l'API, Asset ID:", assetId);
       
+      let endpoint = '/anatomy/all';
+      if (assetId) endpoint = `/anatomy/all?asset_3d_id=${assetId}`;
+      
+      const rawData: AnatomyItem[] = await apiCall(endpoint);
+      
+      // Récupérer aussi l'URL du GLB si on a un assetId
+      let finalModelPath = initialModelPath || 'Squelette_complet.glb';
+      if (assetId) {
+          try {
+              const assetInfo = await apiCall(`models-manager/${assetId}`);
+              if (assetInfo.url_glb) {
+                  finalModelPath = assetInfo.url_glb;
+                  // Si l'URL est relative (contient Assets_3D), on passe par notre route de secours
+                  if (finalModelPath.includes('Assets_3D/')) {
+                      const filename = finalModelPath.split('/').pop();
+                      finalModelPath = `${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/models-manager/files/${filename}`;
+                  }
+              }
+          } catch(e) {
+              console.warn("Impossible de récupérer les infos de l'asset, utilisation du défaut");
+          }
+      }
+
       if (!Array.isArray(rawData)) {
           console.error("Format de données invalide reçu de l'API (attendu: Array):", rawData);
           throw new Error("L'API n'a pas renvoyé l'atlas complet.");
@@ -234,7 +274,7 @@ const AnatomyViewer: React.FC<AnatomyViewerProps> = ({
       // Load GLB model
       const loader = new GLTFLoader();
       const gltf = await new Promise<any>((resolve, reject) => {
-        loader.load(modelPath, resolve, undefined, reject);
+        loader.load(finalModelPath, resolve, undefined, reject);
       });
       const model = gltf.scene;
       modelRef.current = model;
@@ -387,7 +427,7 @@ const AnatomyViewer: React.FC<AnatomyViewerProps> = ({
         const rows = document.querySelectorAll('.item-row');
         let matchedRow: Element | null = null;
         
-        for (const row of rows) {
+        for (const row of Array.from(rows)) {
           const spanElem = row.querySelector('span:last-child');
           if (spanElem && spanElem.textContent === info.name) {
             matchedRow = row;

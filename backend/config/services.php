@@ -35,4 +35,30 @@ return [
         ],
     ],
 
+    'huggingface' => [
+        'api_base' => env('HF_API_BASE', 'https://router.huggingface.co/v1'),
+        /** Durée (secondes) de mémorisation du dernier token HF ayant réussi */
+        'token_cache_ttl' => (int) env('HF_TOKEN_CACHE_TTL', 300),
+        'tokens' => array_values(array_filter(array_unique(array_map(
+            fn ($key) => env($key),
+            ['HF_TOKEN', 'HF_TOKEN_1', 'HF_TOKEN_2', 'HF_TOKEN_3', 'HF_TOKEN_4']
+        )))),
+        /** Modèles activés sur le router HF (402 = crédits épuisés, pas modèle inconnu) */
+        'cloud_models' => [
+            'deepseek-ai/DeepSeek-V4-Flash',
+            'meta-llama/Llama-3.1-8B-Instruct',
+            'meta-llama/Meta-Llama-3-8B-Instruct',
+            'Qwen/Qwen2.5-7B-Instruct',
+        ],
+    ],
+
+    'ollama' => [
+        'binary' => env('OLLAMA_BIN', '/usr/local/bin/ollama'),
+        'home' => env('OLLAMA_HOME', '/home/bellox'),
+        'fallback_models' => ['phi3:latest', 'tinyllama:latest', 'llama3:latest'],
+        'timeout_explain' => (int) env('OLLAMA_TIMEOUT_EXPLAIN', 90),
+        'timeout_quiz' => (int) env('OLLAMA_TIMEOUT_QUIZ', 60),
+        'max_prompt_chars' => (int) env('OLLAMA_MAX_PROMPT_CHARS', 2800),
+    ],
+
 ];

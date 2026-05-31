@@ -7,6 +7,7 @@ return new class extends Migration {
     public function up(): void {
         Schema::create('assets_3d', function (Blueprint $table) {
             $table->uuid('id')->primary();
+            $table->string('name');
             $table->string('url_glb');
             $table->integer('version_cache')->default(1);
             $table->foreignUuid('admin_id')->constrained('users')->cascadeOnDelete();

@@ -431,16 +431,24 @@
     }
 
     .dash-main {
-        padding: 24px 20px;
-        padding-top: 20px; /* Reduced since float btn is gone */
+        padding: 16px 16px;
+        padding-top: 16px;
         padding-bottom: 90px; /* Bottom Nav space */
     }
 
     .dash-main h1 {
-        font-size: 22px;
+        font-size: 20px;
     }
 
     .mobile-bottom-nav {
         display: flex;
+    }
+
+    .header-user-widget {
+        display: none !important;
+    }
+
+    .dash-top-header {
+        margin-bottom: 16px !important;
     }
 }

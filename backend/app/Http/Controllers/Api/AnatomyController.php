@@ -12,11 +12,16 @@ class AnatomyController extends Controller
      * GET /api/anatomy/all
      * Retourne TOUTE la hiérarchie (léger) pour le viewer 3D
      */
-    public function all()
+    public function all(Request $request)
     {
         try {
-            $objects = AnatomicalObject::select('id', 'name', 'parent_id', 'mesh', 'description')
-                ->get()
+            $query = AnatomicalObject::select('id', 'name', 'parent_id', 'mesh', 'description');
+            
+            if ($request->has('asset_3d_id')) {
+                $query->where('asset_3d_id', $request->asset_3d_id);
+            }
+
+            $objects = $query->get()
                 ->map(function($obj) {
                     return [
                         'id' => $obj->id,

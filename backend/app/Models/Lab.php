@@ -11,7 +11,7 @@ class Lab extends Model
 {
     use HasUuids;
 
-    public $timestamps = false;
+    public $timestamps = true;
 
     protected $fillable = [
         'teacher_id',
@@ -19,25 +19,16 @@ class Lab extends Model
         'description',
     ];
 
-    /**
-     * Relation : Un lab appartient à un enseignant.
-     */
     public function teacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'teacher_id');
     }
 
-    /**
-     * Relation : Un lab peut être associé à plusieurs SharedViews via la table pivot.
-     */
     public function labSharedViews(): HasMany
     {
         return $this->hasMany(LabSharedView::class, 'lab_id');
     }
 
-    /**
-     * Relation : SharedViews appartenant à ce lab (via pivot).
-     */
     public function sharedViews()
     {
         return $this->belongsToMany(
@@ -46,5 +37,15 @@ class Lab extends Model
             'lab_id',
             'shared_view_id'
         );
+    }
+
+    public function participants()
+    {
+        return $this->belongsToMany(
+            User::class,
+            'lab_participants',
+            'lab_id',
+            'user_id'
+        )->withPivot('joined_at');
     }
 }

@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import '../styles/auth.css';
 import { authService } from '../services/api';
 
 const Login: React.FC = () => {
-    const navigate = useNavigate();
     const { language, setLanguage } = useLanguage();
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
@@ -37,8 +36,10 @@ const Login: React.FC = () => {
                 localStorage.setItem('user', JSON.stringify(pureUserData));
             }
 
-            navigate('/dash');
-            window.location.reload(); // Pour forcer la mise à jour des Guards et du Layout App
+            // Redirection vers la page prévue ou le dashboard par défaut
+            const from = localStorage.getItem('intended_url') || '/dash';
+            localStorage.removeItem('intended_url');
+            window.location.href = from;
         } catch (err: any) {
             setError(err.message || (language === 'fr' ? 'Identifiants incorrects' : 'Invalid credentials'));
         } finally {

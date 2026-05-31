@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Copy, Pencil, Trash2, MessageSquare, Plus, Send, Menu, X } from 'lucide-react';
 import App from '../components/layouts/App';
 import { apiCall } from '../services/api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { aiService } from '../services/ai';
+import { formatChatContent, getCopyText } from '../utils/chatMessageFormat';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -31,10 +33,17 @@ const Review: React.FC = () => {
     const { language } = useLanguage();
     const t = (fr: string, en: string) => language === 'fr' ? fr : en;
 
-    const [sessions, setSessions] = useState<Session[]>(() => {
-        const local = localStorage.getItem('review_sessions');
-        return local ? JSON.parse(local) : [];
-    });
+    const loadSessions = (): Session[] => {
+        const stored = localStorage.getItem('chat_sessions') || localStorage.getItem('review_sessions');
+        if (!stored) return [];
+        try {
+            return JSON.parse(stored);
+        } catch {
+            return [];
+        }
+    };
+
+    const [sessions, setSessions] = useState<Session[]>(loadSessions);
     
     const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
     const [selectedElements, setSelectedElements] = useState<AnatNode[]>([]);
@@ -91,7 +100,7 @@ const Review: React.FC = () => {
 
     // Save to local storage on change
     useEffect(() => {
-        localStorage.setItem('review_sessions', JSON.stringify(sessions));
+        localStorage.setItem('chat_sessions', JSON.stringify(sessions));
     }, [sessions]);
 
     // Scroll chat on new message
@@ -130,7 +139,21 @@ const Review: React.FC = () => {
     const activeElements = activeSession ? activeSession.elements : selectedElements;
 
     const startNewChat = () => {
-        setCurrentSessionId(null);
+        const newSession: Session = {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+            name: t('Nouveau message', 'New message'),
+            elements: [],
+            messages: [],
+            updatedAt: Date.now(),
+            createdAt: Date.now(),
+        };
+        setSessions(prev => {
+            const kept = prev.filter(s =>
+                s.conversationId || s.messages.length > 0 || s.elements.length > 0
+            );
+            return [newSession, ...kept];
+        });
+        setCurrentSessionId(newSession.id);
         setSelectedElements([]);
         setChatInput('');
         setIsSearchOpen(false);
@@ -299,8 +322,20 @@ const Review: React.FC = () => {
         if (currentSessionId === id) startNewChat();
     }
 
+    const renderMessageBody = (msg: Message) => {
+        if (msg.role === 'user') {
+            return <div className="user-text">{msg.content}</div>;
+        }
+        const display = formatChatContent(msg.content, language === 'fr' ? 'fr' : 'en');
+        return (
+            <div className="review-markdown">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{display}</ReactMarkdown>
+            </div>
+        );
+    };
+
     return (
-        <App breadcrumb={t('Révisions', 'Review')}>
+        <App breadcrumb={t('Chat', 'Chat')}>
             <div className="gpt-layout">
                 {/* SIDEBAR SESSIONS */}
                 <aside className={`gpt-sidebar ${isSidebarOpen ? 'open' : 'closed'}`}>
@@ -310,15 +345,15 @@ const Review: React.FC = () => {
                     </div>
                     
                     <button className="new-chat-btn" onClick={startNewChat}>
-                        <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-                        {t('Nouvelle discussion', 'New chat')}
+                        <Plus size={18} strokeWidth={2.5} />
+                        {t('Nouveau message', 'New message')}
                     </button>
 
                     <div className="sessions-list">
                         {sessions.sort((a,b) => b.updatedAt - a.updatedAt).map(s => (
                             <div key={s.id} className={`session-item ${currentSessionId === s.id ? 'active' : ''}`}>
                                 <div className="session-item-main" onClick={() => { setCurrentSessionId(s.id); setIsSidebarOpen(false); }}>
-                                    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                    <MessageSquare size={16} strokeWidth={2} />
                                     
                                     {editingSessionId === s.id ? (
                                         <input 
@@ -335,11 +370,11 @@ const Review: React.FC = () => {
                                     )}
                                 </div>
                                 <div className="session-actions">
-                                    <button onClick={(e) => { e.stopPropagation(); setEditingTitle(s.name); setEditingSessionId(s.id); }}>
-                                        <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                                    <button type="button" className="icon-action-btn" title={t('Renommer', 'Rename')} aria-label={t('Renommer', 'Rename')} onClick={(e) => { e.stopPropagation(); setEditingTitle(s.name); setEditingSessionId(s.id); }}>
+                                        <Pencil size={15} strokeWidth={2} />
                                     </button>
-                                    <button onClick={(e) => { e.stopPropagation(); deleteSession(s.id); }}>
-                                        <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                    <button type="button" className="icon-action-btn danger" title={t('Supprimer', 'Delete')} aria-label={t('Supprimer', 'Delete')} onClick={(e) => { e.stopPropagation(); deleteSession(s.id); }}>
+                                        <Trash2 size={15} strokeWidth={2} />
                                     </button>
                                 </div>
                             </div>
@@ -353,7 +388,7 @@ const Review: React.FC = () => {
                     {/* Header: Selected Subjects */}
                     <div className="gpt-header">
                         <button className="sidebar-toggle" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
-                            <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                            <Menu size={20} strokeWidth={2} />
                         </button>
                         <div className="element-tags" style={{ flex: 1 }}>
                             {activeElements.map(el => (
@@ -388,21 +423,26 @@ const Review: React.FC = () => {
                                 {activeSession.messages.map((msg, i) => (
                                     <div key={i} className={`gpt-message ${msg.role}`}>
                                         <div className="gpt-bubble">
-                                            {msg.role === 'user' ? (
-                                                <div className="user-text">{msg.content}</div>
-                                            ) : (
-                                                <div className="review-markdown">
-                                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
-                                                </div>
-                                            )}
-                                            
+                                            {renderMessageBody(msg)}
                                             <div className="message-actions-bottom">
-                                                <button onClick={() => navigator.clipboard.writeText(msg.content)} title={t('Copier', 'Copy')}>
-                                                    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M8 10h9v9H8zm-3 3v9h9V13H5z"/><path d="M16 10V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h5"/></svg>
+                                                <button
+                                                    type="button"
+                                                    className="msg-action-btn"
+                                                    onClick={() => navigator.clipboard.writeText(getCopyText(msg.content))}
+                                                    title={t('Copier', 'Copy')}
+                                                >
+                                                    <Copy size={14} strokeWidth={2} />
+                                                    <span>{t('Copier', 'Copy')}</span>
                                                 </button>
                                                 {msg.role === 'user' && (
-                                                    <button onClick={() => { setChatInput(msg.content); scrollToBottom(); }} title={t('Modifier', 'Edit')}>
-                                                        <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                                    <button
+                                                        type="button"
+                                                        className="msg-action-btn"
+                                                        onClick={() => { setChatInput(msg.content); scrollToBottom(); }}
+                                                        title={t('Modifier', 'Edit')}
+                                                    >
+                                                        <Pencil size={14} strokeWidth={2} />
+                                                        <span>{t('Modifier', 'Edit')}</span>
                                                     </button>
                                                 )}
                                             </div>
@@ -431,8 +471,8 @@ const Review: React.FC = () => {
                         <form className="gpt-input-box" onSubmit={handleChatSubmit}>
                             
                             <div className="plus-btn-container">
-                                <button type="button" className={`plus-btn ${isSearchOpen ? 'active' : ''}`} onClick={() => setIsSearchOpen(!isSearchOpen)} title="Choisir un élément">
-                                    <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                                <button type="button" className={`plus-btn ${isSearchOpen ? 'active' : ''}`} onClick={() => setIsSearchOpen(!isSearchOpen)} title={t('Ajouter un élément', 'Add element')}>
+                                    <Plus size={22} strokeWidth={2} />
                                 </button>
                                 
                                 <AnimatePresence>
@@ -480,8 +520,8 @@ const Review: React.FC = () => {
                                 disabled={isChatting}
                             />
                             
-                            <button type="submit" className="send-btn" disabled={isChatting || !chatInput.trim()}>
-                                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                            <button type="submit" className="send-btn" disabled={isChatting || !chatInput.trim()} title={t('Envoyer', 'Send')}>
+                                <Send size={18} strokeWidth={2.5} />
                             </button>
                         </form>
                     </div>
@@ -645,16 +685,34 @@ const Review: React.FC = () => {
                 }
                 
                 .session-actions {
-                    display: none; align-items: center; gap: 4px;
+                    display: none; align-items: center; gap: 4px; flex-shrink: 0;
                 }
-                .session-item:hover .session-actions, .session-item.active .session-actions {
+                .session-item:hover .session-actions,
+                .session-item.active .session-actions {
                     display: flex;
                 }
-                .session-actions button {
-                    background: none; border: none; color: var(--dash-text-muted);
-                    cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center;
+                .icon-action-btn {
+                    background: var(--dash-bg);
+                    border: 1px solid var(--dash-border);
+                    color: var(--dash-text-muted);
+                    cursor: pointer;
+                    padding: 6px;
+                    border-radius: 8px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: 0.2s;
                 }
-                .session-actions button:hover { color: #0ea5e9; }
+                .icon-action-btn:hover {
+                    color: #0ea5e9;
+                    border-color: rgba(14, 165, 233, 0.45);
+                    background: color-mix(in srgb, #0ea5e9 10%, var(--dash-bg));
+                }
+                .icon-action-btn.danger:hover {
+                    color: #f87171;
+                    border-color: rgba(248, 113, 113, 0.45);
+                    background: color-mix(in srgb, #f87171 10%, var(--dash-bg));
+                }
 
                 /* Main */
                 .gpt-main {
@@ -709,22 +767,32 @@ const Review: React.FC = () => {
                     position: relative;
                 }
                 .message-actions-bottom {
-                    display: flex; gap: 12px; margin-top: 12px;
-                    padding-top: 8px; border-top: 1px solid rgba(0,0,0,0.05);
+                    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px;
+                    padding-top: 10px; border-top: 1px solid var(--dash-border);
                 }
-                .message-actions-bottom button {
-                    background: color-mix(in srgb, var(--dash-text) 5%, transparent); 
-                    border: none; color: var(--dash-text-muted); 
-                    padding: 4px 10px; border-radius: 6px;
-                    display: flex; align-items: center; cursor: pointer; transition: 0.2s;
+                .msg-action-btn {
+                    background: var(--dash-bg);
+                    border: 1px solid var(--dash-border);
+                    color: var(--dash-text-muted);
+                    padding: 6px 10px;
+                    border-radius: 8px;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    cursor: pointer;
+                    font-size: 12px;
+                    font-weight: 600;
+                    transition: 0.2s;
                 }
-                .message-actions-bottom button:hover { 
-                    background: #0ea5e920; color: #0ea5e9; 
+                .msg-action-btn:hover {
+                    background: color-mix(in srgb, #0ea5e9 12%, var(--dash-bg));
+                    color: #0ea5e9;
+                    border-color: rgba(14, 165, 233, 0.4);
                 }
                 
                 @media (max-width: 800px) {
                     .message-actions-bottom { margin-top: 16px; }
-                    .message-actions-bottom button { padding: 6px 12px; background: color-mix(in srgb, var(--dash-text) 8%, transparent); }
+                    .msg-action-btn { padding: 8px 12px; }
                 }
                 .gpt-message.user .gpt-bubble {
                     background: color-mix(in srgb, #0ea5e9 12%, var(--dash-card-bg));

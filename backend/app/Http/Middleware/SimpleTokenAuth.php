@@ -16,7 +16,9 @@ class SimpleTokenAuth
             return $next($request);
         }
 
-        $token = $request->bearerToken();
+        $token = $request->bearerToken() ?: $request->query('token');
+        
+        error_log("SIMPLE_AUTH: Attempting auth for " . $request->fullUrl() . " | has_token: " . ($token ? 'YES' : 'NO'));
 
         if (!$token) {
             return response()->json(['message' => 'Unauthenticated.'], 401);

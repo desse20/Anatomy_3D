@@ -8,9 +8,9 @@ return new class extends Migration {
         Schema::create('labs', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('teacher_id')->constrained('users')->cascadeOnDelete();
-            $table->string('name');
+            $table->string('name')->unique();
             $table->text('description')->nullable();
-            $table->timestamp('created_at')->nullable();
+            $table->timestamps();
         });
     }
 

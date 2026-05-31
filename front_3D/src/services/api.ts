@@ -1,5 +1,5 @@
 // front_3D/src/services/api.ts
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://10.85.3.181:8000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export const apiCall = async (endpoint: string, options: RequestInit = {}) => {
     const token = localStorage.getItem('token');

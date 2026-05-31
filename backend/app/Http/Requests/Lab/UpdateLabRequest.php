@@ -14,7 +14,7 @@ class UpdateLabRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name'        => ['sometimes', 'required', 'string', 'max:255'],
+            'name'        => ['sometimes', 'required', 'string', 'max:255', 'unique:labs,name,'.$this->lab->id],
             'description' => ['nullable', 'string', 'max:2000'],
         ];
     }
@@ -22,9 +22,10 @@ class UpdateLabRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'name.required' => __('messages.lab.name_required'),
-            'name.string'   => __('messages.lab.name_string'),
-            'name.max'      => __('messages.lab.name_max'),
+            'name.required' => 'Le nom de la salle est obligatoire.',
+            'name.unique'   => 'Une autre salle porte déjà ce nom.',
+            'name.string'   => 'Le nom doit être une chaîne de caractères.',
+            'name.max'      => 'Le nom est trop long.',
         ];
     }
 }

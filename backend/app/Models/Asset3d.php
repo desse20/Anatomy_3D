@@ -14,6 +14,7 @@ class Asset3d extends Model
     protected $table = 'assets_3d';
 
     protected $fillable = [
+        'name',
         'url_glb',
         'version_cache',
         'admin_id'

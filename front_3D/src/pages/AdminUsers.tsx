@@ -1,0 +1,317 @@
+import React, { useState, useEffect } from 'react';
+import { Search, Filter, Plus, Edit2, Trash2, X, Shield, BookOpen, GraduationCap } from 'lucide-react';
+import Swal from 'sweetalert2';
+import App from '../components/layouts/App';
+import { apiCall } from '../services/api';
+import { getSwalTheme } from '../services/swalTheme';
+
+const RoleSelector = ({ value, onChange, disabledRoles, isLocked }: { value: string, onChange: (r: string) => void, disabledRoles: string[], isLocked: boolean }) => (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+        {[
+            { id: 'student', label: 'Étudiant', icon: <GraduationCap size={16} />, color: '#10b981', bg: '#34d39915', border: '#34d39930' },
+            { id: 'teacher', label: 'Professeur', icon: <BookOpen size={16} />, color: '#f59e0b', bg: '#fbbf2415', border: '#fbbf2430' },
+            { id: 'admin', label: 'Admin', icon: <Shield size={16} />, color: '#f87171', bg: '#f8717115', border: '#f8717130' }
+        ].map(role => {
+            const isSelected = value === role.id;
+            const isDisabled = isLocked || disabledRoles.includes(role.id);
+            return (
+                <div 
+                    key={role.id}
+                    onClick={() => !isDisabled && onChange(role.id)}
+                    style={{
+                        padding: '12px',
+                        borderRadius: '8px',
+                        border: `2px solid ${isSelected ? role.color : 'var(--dash-border)'}`,
+                        background: isSelected ? role.bg : 'var(--dash-bg)',
+                        color: isSelected ? role.color : 'var(--dash-text-muted)',
+                        textAlign: 'center',
+                        fontWeight: 600,
+                        fontSize: '12px',
+                        textTransform: 'uppercase',
+                        cursor: isDisabled ? 'not-allowed' : 'pointer',
+                        opacity: isDisabled && !isSelected ? 0.4 : 1,
+                        transition: '0.2s',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '6px',
+                        boxShadow: isSelected ? `0 0 10px ${role.bg}` : 'none'
+                    }}
+                >
+                    {role.icon}
+                    {role.label}
+                </div>
+            );
+        })}
+    </div>
+);
+
+const AdminUsers: React.FC = () => {
+    const [users, setUsers] = useState<any[]>([]);
+    const [search, setSearch] = useState('');
+    const [roleFilter, setRoleFilter] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+    const currentLoggedUser = (() => {
+        try { return JSON.parse(localStorage.getItem('user') || '{}'); }
+        catch { return {}; }
+    })();
+    
+    const [isAddingUser, setIsAddingUser] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [currentUser, setCurrentUser] = useState<any>(null);
+
+    const [formData, setFormData] = useState({
+        firstname: '',
+        lastname: '',
+        email: 'compte@gmail.com',
+        password: '',
+        role: 'student'
+    });
+
+    const generateSecurePassword = () => {
+        const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+        const numbers = '0123456789';
+        const symbols = '!@#$%^&*()_+~`|}{[]:;?><,./-=';
+        const allChars = uppercase + lowercase + numbers + symbols;
+        let password = '';
+        password += uppercase[Math.floor(Math.random() * uppercase.length)];
+        password += lowercase[Math.floor(Math.random() * lowercase.length)];
+        password += numbers[Math.floor(Math.random() * numbers.length)];
+        password += symbols[Math.floor(Math.random() * symbols.length)];
+        for (let i = password.length; i < 12; i++) password += allChars[Math.floor(Math.random() * allChars.length)];
+        return password.split('').sort(() => 0.5 - Math.random()).join('');
+    };
+
+    const fetchUsers = async () => {
+        setLoading(true);
+        try {
+            const params = new URLSearchParams();
+            if (search) params.append('search', search);
+            if (roleFilter) params.append('role', roleFilter);
+            const url = `users${params.toString() ? '?' + params.toString() : ''}`;
+            const res = await apiCall(url);
+            const usersList = Array.isArray(res) ? res : (res.data || []);
+            setUsers(usersList);
+            setSelectedIds([]);
+        } catch (e) { console.error(e); }
+        setLoading(false);
+    };
+
+    useEffect(() => {
+        const delayDebounceFn = setTimeout(() => { fetchUsers(); }, 300);
+        return () => clearTimeout(delayDebounceFn);
+    }, [search, roleFilter]);
+
+    const handleCreateWrapper = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            await apiCall('users', { method: 'POST', body: JSON.stringify(formData) });
+            setIsAddingUser(false);
+            fetchUsers();
+            Swal.fire({ icon: 'success', title: 'Utilisateur créé', timer: 1500, showConfirmButton: false, ...getSwalTheme() });
+        } catch (e: any) { Swal.fire({ title: 'Erreur', text: e.message || "Erreur de création.", icon: 'error', ...getSwalTheme() }); }
+    };
+
+    const handleEditWrapper = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            const data = { ...formData };
+            if (!data.password) delete (data as any).password;
+            await apiCall(`users/${currentUser.id}`, { method: 'POST', body: JSON.stringify({ ...data, _method: 'PUT' }) });
+            setIsEditModalOpen(false);
+            fetchUsers();
+            Swal.fire({ icon: 'success', title: 'Mis à jour', timer: 1000, showConfirmButton: false, ...getSwalTheme() });
+        } catch (e: any) { Swal.fire({ title: 'Erreur', text: e.message || "Erreur de modification.", icon: 'error', ...getSwalTheme() }); }
+    };
+
+    const handleDelete = async (user: any) => {
+        const { value: adminPassword } = await Swal.fire({
+            title: 'Confirmer la suppression',
+            text: `Êtes-vous sûr de vouloir supprimer "${user.firstname} ${user.lastname}" ? Cette action est irréversible.`,
+            icon: 'warning',
+            input: 'password',
+            inputPlaceholder: 'Entrez votre mot de passe admin',
+            showCancelButton: true,
+            confirmButtonColor: '#f43f5e',
+            confirmButtonText: 'Supprimer définitivement',
+            cancelButtonText: 'Annuler',
+            ...getSwalTheme()
+        });
+
+        if (adminPassword) {
+            try {
+                await apiCall(`users/${user.id}`, { method: 'POST', body: JSON.stringify({ password: adminPassword, _method: 'DELETE' }) });
+                fetchUsers();
+                Swal.fire({ icon: 'success', title: 'Utilisateur supprimé', timer: 1000, showConfirmButton: false, ...getSwalTheme() });
+            } catch (e: any) { Swal.fire({ title: 'Erreur', text: e.message || 'Mot de passe incorrect ou erreur serveur.', icon: 'error', ...getSwalTheme() }); }
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        const { value: adminPassword } = await Swal.fire({
+            title: 'Suppression groupée',
+            text: `Voulez-vous supprimer les ${selectedIds.length} utilisateurs sélectionnés ? Cette action est irréversible.`,
+            icon: 'warning',
+            input: 'password',
+            inputPlaceholder: 'Entrez votre mot de passe admin',
+            showCancelButton: true,
+            confirmButtonColor: '#f43f5e',
+            confirmButtonText: 'Tout supprimer',
+            cancelButtonText: 'Annuler',
+            ...getSwalTheme()
+        });
+
+        if (adminPassword) {
+            try {
+                await apiCall('users/bulk-delete', { method: 'POST', body: JSON.stringify({ password: adminPassword, ids: selectedIds }) });
+                fetchUsers();
+                Swal.fire({ icon: 'success', title: 'Sélection supprimée', timer: 1500, showConfirmButton: false, ...getSwalTheme() });
+            } catch (e: any) { Swal.fire({ title: 'Erreur', text: e.message || 'Erreur lors de la suppression.', icon: 'error', ...getSwalTheme() }); }
+        }
+    };
+
+    const toggleSelectAll = () => {
+        const deletableUsers = users.filter(u => u.role !== 'admin' && u.id !== currentLoggedUser.id);
+        if (selectedIds.length === deletableUsers.length) setSelectedIds([]);
+        else setSelectedIds(deletableUsers.map(u => u.id));
+    };
+
+    const toggleSelectOne = (id: string) => {
+        setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    };
+
+    return (
+        <App breadcrumb="Administration" title="Gestion des Utilisateurs">
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+                <div>
+                    {selectedIds.length > 0 && (
+                        <button onClick={handleBulkDelete} style={{ background: '#f43f5e', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(244, 63, 94, 0.2)' }}>
+                            <Trash2 size={18} /> Supprimer la sélection ({selectedIds.length})
+                        </button>
+                    )}
+                </div>
+                <button 
+                    onClick={() => { setIsAddingUser(!isAddingUser); setIsEditModalOpen(false); if(!isAddingUser) setFormData({firstname:'', lastname:'', email:'compte@gmail.com', password:generateSecurePassword(), role:'student'}); }}
+                    style={{ background: isAddingUser ? 'var(--dash-border)' : '#0ea5e9', color: isAddingUser ? 'var(--dash-text)' : '#fff', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                >
+                    {isAddingUser ? <X size={18}/> : <Plus size={18}/>} {isAddingUser ? "Annuler l'ajout" : "Ajouter un Utilisateur"}
+                </button>
+            </div>
+
+            {isAddingUser && (
+                <div style={{ background: 'var(--dash-bg)', border: '1px solid #0ea5e950', borderRadius: '16px', padding: '24px', marginBottom: '32px', boxShadow: '0 10px 25px -5px rgba(14, 165, 233, 0.1)' }}>
+                    <h3 style={{ margin: '0 0 20px 0', fontSize: '18px', color: '#0ea5e9', display: 'flex', alignItems: 'center', gap: '8px' }}><Plus size={20}/> Créer un compte</h3>
+                    <form onSubmit={handleCreateWrapper}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                            <div><label style={{display:'block',fontSize:'12px',fontWeight:600,color:'var(--dash-text-muted)',marginBottom:'6px'}}>Prénom</label>
+                            <input type="text" required value={formData.firstname} onChange={(e)=>setFormData({...formData, firstname:e.target.value})} style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid var(--dash-border)',background:'rgba(0,0,0,0.02)',color:'var(--dash-text)',outline:'none'}}/></div>
+                            <div><label style={{display:'block',fontSize:'12px',fontWeight:600,color:'var(--dash-text-muted)',marginBottom:'6px'}}>Nom</label>
+                            <input type="text" required value={formData.lastname} onChange={(e)=>setFormData({...formData, lastname:e.target.value})} style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid var(--dash-border)',background:'rgba(0,0,0,0.02)',color:'var(--dash-text)',outline:'none'}}/></div>
+                        </div>
+                        <div style={{marginBottom:'16px'}}><label style={{display:'block',fontSize:'12px',fontWeight:600,color:'var(--dash-text-muted)',marginBottom:'6px'}}>Email</label>
+                        <input type="email" required value={formData.email} onChange={(e)=>setFormData({...formData, email:e.target.value})} style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid var(--dash-border)',background:'rgba(0,0,0,0.02)',color:'var(--dash-text)',outline:'none'}}/></div>
+                        <div style={{marginBottom:'16px'}}><label style={{display:'block',fontSize:'12px',fontWeight:600,color:'var(--dash-text-muted)',marginBottom:'8px'}}>Rôle de l'utilisateur</label>
+                        <RoleSelector value={formData.role} onChange={(r)=>setFormData({...formData, role:r})} disabledRoles={[]} isLocked={false}/></div>
+                        <div style={{marginBottom:'24px'}}><label style={{display:'block',fontSize:'12px',fontWeight:600,color:'var(--dash-text-muted)',marginBottom:'6px'}}>Mot de passe initial</label>
+                        <div style={{display:'flex',gap:'8px'}}><input type="text" required value={formData.password} onChange={(e)=>setFormData({...formData, password:e.target.value})} style={{flex:1,padding:'10px',borderRadius:'8px',border:'1px solid var(--dash-border)',background:'rgba(0,0,0,0.02)',color:'var(--dash-text)',outline:'none',fontFamily:'monospace'}}/>
+                        <button type="button" onClick={()=>setFormData({...formData, password:generateSecurePassword()})} style={{padding:'0 16px',background:'var(--dash-bg)',border:'1px solid var(--dash-border)',borderRadius:'8px',cursor:'pointer'}}>Générer</button></div></div>
+                        <div style={{display:'flex',justifyContent:'flex-end',gap:'12px'}}>
+                            <button type="button" onClick={()=>setIsAddingUser(false)} style={{padding:'10px 20px',borderRadius:'8px',border:'1px solid var(--dash-border)',background:'transparent',color:'var(--dash-text)',cursor:'pointer'}}>Annuler</button>
+                            <button type="submit" style={{padding:'10px 24px',borderRadius:'8px',border:'none',background:'#0ea5e9',color:'#fff',fontWeight:600,cursor:'pointer'}}>Créer l'utilisateur</button>
+                        </div>
+                    </form>
+                </div>
+            )}
+
+            <div style={{ background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+                <div style={{ padding: '20px', borderBottom: '1px solid var(--dash-border)', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <div style={{ flex: 1, display: 'flex', position: 'relative' }}>
+                        <Search size={18} style={{ position: 'absolute', left: '16px', top: '11px', color: 'var(--dash-text-muted)' }} />
+                        <input type="text" placeholder="Rechercher..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ width: '100%', padding: '10px 16px 10px 44px', borderRadius: '8px', border: '1px solid var(--dash-border)', background: 'transparent', color: 'var(--dash-text)', outline: 'none' }} />
+                    </div>
+                    <Filter size={18} color="var(--dash-text-muted)" />
+                    <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text)', outline: 'none' }}>
+                        <option value="">Tous les rôles</option>
+                        <option value="student">Étudiants</option>
+                        <option value="teacher">Professeurs</option>
+                        <option value="admin">Administrateurs</option>
+                    </select>
+                </div>
+
+                <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                        <thead>
+                            <tr style={{ background: 'rgba(0,0,0,0.02)', borderBottom: '1px solid var(--dash-border)' }}>
+                                <th style={{ padding: '16px 20px', width: '40px' }}>
+                                    <input type="checkbox" onChange={toggleSelectAll} checked={users.length > 0 && users.some(u => u.role !== 'admin' && u.id !== currentLoggedUser.id) && selectedIds.length === users.filter(u => u.role !== 'admin' && u.id !== currentLoggedUser.id).length} style={{width:'14px',height:'14px',accentColor:'#0ea5e9'}}/>
+                                </th>
+                                <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>Utilisateur</th>
+                                <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>Rôle</th>
+                                <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>Email</th>
+                                <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {loading ? (
+                                <tr><td colSpan={5} style={{ padding: '40px', textAlign: 'center' }}>Chargement...</td></tr>
+                            ) : users.length === 0 ? (
+                                <tr><td colSpan={5} style={{ padding: '40px', textAlign: 'center' }}>Aucun utilisateur.</td></tr>
+                            ) : (
+                                users.map(u => {
+                                    const isProtected = u.role === 'admin' || u.id === currentLoggedUser.id;
+                                    return (
+                                        <tr key={u.id} style={{ borderBottom: '1px solid var(--dash-border)', background: selectedIds.includes(u.id) ? 'rgba(14, 165, 233, 0.03)' : 'transparent' }}>
+                                            <td style={{ padding: '16px 20px' }}>
+                                                {!isProtected && <input type="checkbox" checked={selectedIds.includes(u.id)} onChange={() => toggleSelectOne(u.id)} style={{width:'14px',height:'14px',accentColor:'#0ea5e9'}}/>}
+                                            </td>
+                                            <td style={{ padding: '16px 20px' }}>
+                                                <div style={{ fontWeight: 600 }}>{u.firstname} {u.lastname}</div>
+                                            </td>
+                                            <td style={{ padding: '16px 20px' }}>
+                                                <span style={{ padding: '4px 10px', borderRadius: '100px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', background: u.role === 'admin' ? '#f8717115' : u.role === 'teacher' ? '#fbbf2415' : '#34d39915', color: u.role === 'admin' ? '#f87171' : u.role === 'teacher' ? '#f59e0b' : '#10b981' }}>{u.role}</span>
+                                            </td>
+                                            <td style={{ padding: '16px 20px', color: 'var(--dash-text-muted)' }}>{u.email}</td>
+                                            <td style={{ padding: '16px 20px', textAlign: 'right' }}>
+                                                {!isProtected ? (
+                                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                                        <button onClick={() => {setCurrentUser(u); setFormData({firstname:u.firstname, lastname:u.lastname, email:u.email, password:'', role:u.role}); setIsEditModalOpen(true);}} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6366f1' }}><Edit2 size={16} /></button>
+                                                        <button onClick={() => handleDelete(u)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f43f5e' }}><Trash2 size={16} /></button>
+                                                    </div>
+                                                ) : <span style={{fontSize:'11px',color:'var(--dash-text-muted)',fontStyle:'italic'}}>Protégé</span>}
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {isEditModalOpen && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+                    <div style={{ background: 'var(--dash-bg)', width: '100%', maxWidth: '500px', borderRadius: '16px', border: '1px solid var(--dash-border)', padding: '24px' }}>
+                        <h3 style={{ margin: '0 0 20px 0' }}>Modifier l'utilisateur</h3>
+                        <form onSubmit={handleEditWrapper}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                                <input type="text" value={formData.firstname} onChange={(e)=>setFormData({...formData, firstname:e.target.value})} style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid var(--dash-border)',background:'rgba(0,0,0,0.02)',color:'var(--dash-text)'}}/>
+                                <input type="text" value={formData.lastname} onChange={(e)=>setFormData({...formData, lastname:e.target.value})} style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid var(--dash-border)',background:'rgba(0,0,0,0.02)',color:'var(--dash-text)'}}/>
+                            </div>
+                            <input type="email" value={formData.email} onChange={(e)=>setFormData({...formData, email:e.target.value})} style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid var(--dash-border)',marginBottom:'16px',background:'rgba(0,0,0,0.02)',color:'var(--dash-text)'}}/>
+                            <div style={{marginBottom:'24px'}}><RoleSelector value={formData.role} onChange={(r)=>setFormData({...formData, role:r})} disabledRoles={currentUser?.role === 'teacher' ? ['student'] : []} isLocked={currentUser?.role === 'admin'}/></div>
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                                <button type="button" onClick={() => setIsEditModalOpen(false)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid var(--dash-border)', background: 'transparent', color: 'var(--dash-text)' }}>Annuler</button>
+                                <button type="submit" style={{ flex: 1, padding: '12px', borderRadius: '8px', border: 'none', background: '#0ea5e9', color: '#fff', fontWeight: 600 }}>Enregistrer</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+        </App>
+    ); 
+};
+
+export default AdminUsers;

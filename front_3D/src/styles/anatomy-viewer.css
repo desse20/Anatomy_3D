@@ -3,8 +3,10 @@
 /* Main layout */
 .anatomy-viewer {
   display: flex;
-  height: 100vh;
-  font-family: Arial, sans-serif;
+  height: 100%;
+  font-family: inherit;
+  background: var(--dash-bg);
+  color: var(--dash-text-main);
 }
 
 /* Canvas container */
@@ -30,21 +32,24 @@
 /* Hierarchy panel */
 .hierarchy-panel {
   width: 300px;
-  background-color: #f5f5f5;
-  border-left: 1px solid #ddd;
+  background-color: var(--dash-sidebar-bg);
+  border-right: 1px solid var(--dash-border);
   overflow: auto;
 }
 
 .hierarchy-header {
   padding: 15px;
-  border-bottom: 1px solid #ddd;
-  background-color: #e8e8e8;
+  border-bottom: 1px solid var(--dash-border);
+  background-color: var(--dash-accent-hover);
 }
 
 .hierarchy-header h3 {
   margin: 0;
-  font-size: 16px;
-  color: #333;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--dash-text-main);
 }
 
 /* Hierarchy tree styles */
@@ -65,18 +70,21 @@
 .item-row {
   display: flex;
   align-items: center;
-  padding: 5px 8px;
+  padding: 8px 12px;
   cursor: pointer;
-  border-radius: 3px;
-  transition: background-color 0.2s;
+  border-radius: 8px;
+  transition: all 0.2s;
+  color: var(--dash-text-main);
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .item-row:hover {
-  background-color: #e0e0e0;
+  background-color: var(--dash-accent-hover);
 }
 
 .item-row.selected-item {
-  background-color: #007acc;
+  background-color: var(--dash-primary);
   color: white;
 }
 
@@ -97,7 +105,7 @@
 }
 
 .eye-btn:hover {
-  background-color: rgba(0, 122, 204, 0.1);
+  background-color: var(--dash-accent-hover);
 }
 
 .item-row.selected-item .eye-btn:hover {
@@ -135,32 +143,35 @@
 /* Description panel */
 .description-panel {
   width: 350px;
-  background-color: #f9f9f9;
-  border-left: 1px solid #ddd;
+  background-color: var(--dash-bg);
+  border-left: 1px solid var(--dash-border);
   overflow: auto;
 }
 
 .description-header {
   padding: 15px;
-  border-bottom: 1px solid #ddd;
-  background-color: #e8e8e8;
+  border-bottom: 1px solid var(--dash-border);
+  background-color: var(--dash-accent-hover);
 }
 
 .description-header h3 {
   margin: 0;
-  font-size: 16px;
-  color: #333;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--dash-text-main);
 }
 
 #desc-text {
-  padding: 15px;
+  padding: 20px;
   font-size: 14px;
-  line-height: 1.5;
-  color: #333;
+  line-height: 1.6;
+  color: var(--dash-text-main);
 }
 
 #desc-text strong {
-  color: #007acc;
+  color: var(--dash-primary);
   font-size: 16px;
   display: block;
   margin-bottom: 10px;

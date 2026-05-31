@@ -52,7 +52,17 @@ class UserController extends Controller
 
     public function update(UpdateUserRequest $request, User $user)
     {
-        $user->update($request->validated());
+        $data = $request->validated();
+
+        if ($user->role === 'admin' && isset($data['role']) && $data['role'] !== 'admin') {
+            return response()->json(['message' => 'Impossible de modifier le rôle d\'un administrateur.'], 403);
+        }
+
+        if ($user->role === 'teacher' && isset($data['role']) && $data['role'] === 'student') {
+            return response()->json(['message' => 'Impossible de rétrograder un professeur au statut d\'étudiant.'], 403);
+        }
+
+        $user->update($data);
 
         return new UserResource($user);
     }
@@ -78,13 +88,36 @@ class UserController extends Controller
         ]);
     }
 
+    public function bulkDestroy(Request $request)
+    {
+        $request->validate([
+            'password' => ['required', 'string'],
+            'ids' => ['required', 'array'],
+        ]);
+
+        if (!\Hash::check($request->password, auth()->user()->password)) {
+            return response()->json([
+                'message' => 'Mot de passe incorrect.',
+                'errors' => ['password' => ['Mot de passe incorrect.']]
+            ], 422);
+        }
+
+        $ids = $request->ids;
+        // On ne se supprime pas soi-même
+        $count = User::whereIn('id', $ids)
+                    ->where('id', '!=', auth()->id())
+                    ->delete();
+
+        return response()->json(['message' => "$count utilisateur(s) supprimé(s)."]);
+    }
+
     public function destroy(Request $request, User $user)
     {
         $request->validate([
             'password' => ['required', 'string'],
         ]);
 
-        if (!\Hash::check($request->password, $user->password)) {
+        if (!\Hash::check($request->password, auth()->user()->password)) {
             return response()->json([
                 'message' => __('auth.failed'),
                 'errors' => ['password' => [__('auth.password') . ' ' . __('validation.invalid')]]
@@ -100,6 +133,11 @@ class UserController extends Controller
     {
         $user = $request->user();
         $data = $request->validated();
+
+        // Les utilisateurs ne peuvent pas modifier leur propre rôle via leur profil !
+        if (isset($data['role'])) {
+            unset($data['role']);
+        }
 
         if (isset($data['firstname'])) {
             $data['firstname'] = strtoupper($data['firstname']);
