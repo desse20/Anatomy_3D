@@ -94,7 +94,9 @@ const AtlasModelSelection: React.FC = () => {
                 {assets.length === 0 && (
                     <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px', color: 'var(--dash-text-muted)' }}>
                         <Info size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
-                        <p>Aucun modèle n'est disponible pour le moment.</p>
+                        <p style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>En mode Maintenance pour le moment</p>
+                        <p style={{ fontSize: '14px', marginBottom: '4px' }}>Patientez quelques instants</p>
+                        <p style={{ fontSize: '14px' }}>ou contactez-nous via le support</p>
                     </div>
                 )}
             </div>

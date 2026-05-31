@@ -76,7 +76,12 @@ const TeacherDashboard: React.FC = () => {
         setLoading(false);
     };
 
-    useEffect(() => { fetchLabs(); }, []);
+    useEffect(() => {
+        fetchLabs();
+        // Poll pour mettre à jour le nombre de participants en temps réel
+        const interval = setInterval(fetchLabs, 15000); // Rafraîchir toutes les 15 secondes
+        return () => clearInterval(interval);
+    }, []);
 
     const handleCreateLab = async (e: React.FormEvent) => {
         e.preventDefault();

@@ -258,7 +258,7 @@ class Asset3dController extends Controller
                         if (in_array(strtolower($node['name']), ['scene', 'root', 'camera', 'sun', 'lamp'])) continue;
                         
                         $objects[] = [
-                            'id' => (int)$index + time(), // ID temporaire
+                            'id' => count($objects) + 1, // ID séquentiel simple (1, 2, 3...)
                             'name' => str_replace(['_', '.'], ' ', $node['name']),
                             'three_js_name' => $node['name'],
                             'mesh' => $node['name'],
@@ -424,14 +424,44 @@ class Asset3dController extends Controller
         // Si le JSON est enveloppé dans une clé "objects"
         if (isset($json['objects'])) $json = $json['objects'];
 
+        // Normaliser : si le JSON est un objet {id: {...}} plutôt qu'un tableau [{id, ...}]
+        // (cas où le front envoie un objet JS indexé par ID)
+        if (!empty($json) && !isset(array_values($json)[0]['id'])) {
+            $normalized = [];
+            foreach ($json as $id => $item) {
+                $item['id'] = $id;
+                $normalized[] = $item;
+            }
+            $json = $normalized;
+        }
+
         return DB::transaction(function() use ($json, $asset) {
             $count = 0;
+            
+            // Désactiver les vérifications de clés étrangères (comme dans le seeder)
+            DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+            
+            // Dernier ID global en base (pas seulement pour cet asset)
+            // pour garantir l'unicité et éviter les collisions
+            $lastId = AnatomicalObject::max('id') ?? 0;
+            
             foreach ($json as $obj) {
+                if (!isset($obj['id'])) {
+                    continue;
+                }
+
+                // Nouvel ID = dernier ID de la base + ID du JSON (petit entier séquentiel)
+                $newId = $lastId + (int)$obj['id'];
+                // Nouveau parent_id = dernier ID de la base + parent_id du JSON
+                $newParentId = (isset($obj['parent_id']) && $obj['parent_id'] !== null)
+                    ? ($lastId + (int)$obj['parent_id'])
+                    : null;
+
                 AnatomicalObject::updateOrCreate(
-                    ['id' => $obj['id'] ?? (int)round(microtime(true) * 1000)],
+                    ['id' => $newId],
                     [
+                        'parent_id'     => $newParentId,
                         'asset_3d_id'   => $asset->id,
-                        'parent_id'     => $obj['parent_id'] ?? null,
                         'name'          => $obj['name'] ?? 'Objet sans nom',
                         'three_js_name' => $obj['three_js_name'] ?? ($obj['name'] ?? 'Object'),
                         'mesh'          => $obj['mesh'] ?? ($obj['three_js_name'] ?? null),
@@ -440,6 +470,9 @@ class Asset3dController extends Controller
                 );
                 $count++;
             }
+
+            // Réactiver les vérifications de clés étrangères
+            DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
             return response()->json([
                 'message' => "$count objets importés avec succès",
@@ -503,10 +536,37 @@ class Asset3dController extends Controller
                 ]);
 
                 // Créer les AnatomicalObjects associés
+                // Désactiver les vérifications de clés étrangères (comme dans le seeder)
+                DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+                
+                // Dernier ID global en base pour garantir l'unicité
+                $lastId = AnatomicalObject::max('id') ?? 0;
+
+                // Normaliser si le JSON est un objet {id: {...}} plûtot qu'un tableau [{id,...}]
+                if (!empty($objects) && !isset(array_values($objects)[0]['id'])) {
+                    $normalized = [];
+                    foreach ($objects as $id => $item) {
+                        $item['id'] = $id;
+                        $normalized[] = $item;
+                    }
+                    $objects = $normalized;
+                }
+                
                 foreach ($objects as $obj) {
+                    if (!isset($obj['id'])) {
+                        continue;
+                    }
+
+                    // Nouvel ID = dernier ID global + ID séquentiel du JSON
+                    $newId = $lastId + (int)$obj['id'];
+                    // Nouveau parent_id = dernier ID global + parent_id du JSON
+                    $newParentId = (isset($obj['parent_id']) && $obj['parent_id'] !== null)
+                        ? ($lastId + (int)$obj['parent_id'])
+                        : null;
+
                     AnatomicalObject::create([
-                        'id'            => $obj['id'] ?? (int)round(microtime(true) * 1000),
-                        'parent_id'     => $obj['parent_id'] ?? null,
+                        'id'            => $newId,
+                        'parent_id'     => $newParentId,
                         'asset_3d_id'   => $asset->id,
                         'name'          => $obj['name'] ?? 'Inconnu',
                         'three_js_name' => $obj['three_js_name'] ?? ($obj['name'] ?? 'Object'),
@@ -514,6 +574,9 @@ class Asset3dController extends Controller
                         'description'   => $obj['description'] ?? null,
                     ]);
                 }
+
+                // Réactiver les vérifications de clés étrangères
+                DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
                 return response()->json([
                     'status'  => 'success',

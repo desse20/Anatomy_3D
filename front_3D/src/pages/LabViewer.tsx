@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
     Presentation, User, Calendar, ExternalLink, X,
-    Loader2, Plus, Trash2, Users, Eye, EyeOff, BookOpen
+    Loader2, Plus, Trash2, Users, Eye, EyeOff
 } from 'lucide-react';
 import App from '../components/layouts/App';
 import { apiCall } from '../services/api';
@@ -65,6 +65,9 @@ const LabViewer: React.FC = () => {
     useEffect(() => {
         fetchLab();
         fetchMyViews();
+        // Poll pour mettre à jour les participants en temps réel
+        const interval = setInterval(fetchLab, 10000); // Rafraîchir toutes les 10 secondes
+        return () => clearInterval(interval);
     }, [id]);
 
     const handleAddView = async (e: React.FormEvent) => {
@@ -250,27 +253,49 @@ const LabViewer: React.FC = () => {
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                 {lab.participants && lab.participants.length > 0 ? (
-                                    lab.participants.map((p: any) => (
-                                        <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <div style={{ 
-                                                width: '36px', height: '36px', borderRadius: '50%', 
-                                                background: p.role === 'student' ? 'rgba(52, 211, 153, 0.1)' : 'rgba(14, 165, 233, 0.1)', 
-                                                color: p.role === 'student' ? '#34d399' : '#0ea5e9',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                                                fontSize: '11px', fontWeight: 800, flexShrink: 0 
-                                            }}>
-                                                {p.firstname?.[0]?.toUpperCase()}{p.lastname?.[0]?.toUpperCase()}
-                                            </div>
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dash-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                    {p.firstname} {p.lastname}
+                                    lab.participants.map((p: any) => {
+                                        // Debug pour voir les données disponibles
+                                        console.log('Participant data:', p);
+                                        
+                                        // Essayer plusieurs champs possibles pour la date de rejoindre
+                                        const joinDate = p.joined_at ? new Date(p.joined_at) : 
+                                                         p.participated_at ? new Date(p.participated_at) :
+                                                         p.enrolled_at ? new Date(p.enrolled_at) :
+                                                         p.pivot?.joined_at ? new Date(p.pivot.joined_at) :
+                                                         p.pivot?.participated_at ? new Date(p.pivot.participated_at) :
+                                                         p.pivot?.enrolled_at ? new Date(p.pivot.enrolled_at) :
+                                                         p.pivot?.created_at ? new Date(p.pivot.created_at) :
+                                                         p.created_at ? new Date(p.created_at) : null;
+                                        const joinTime = joinDate ? joinDate.toLocaleTimeString(language === 'fr' ? 'fr-FR' : 'en-US', { hour: '2-digit', minute: '2-digit' }) : '';
+                                        const joinDateStr = joinDate ? joinDate.toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+                                        
+                                        return (
+                                            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                <div style={{ 
+                                                    width: '36px', height: '36px', borderRadius: '50%', 
+                                                    background: p.role === 'student' ? 'rgba(52, 211, 153, 0.1)' : 'rgba(14, 165, 233, 0.1)', 
+                                                    color: p.role === 'student' ? '#34d399' : '#0ea5e9',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                                                    fontSize: '11px', fontWeight: 800, flexShrink: 0 
+                                                }}>
+                                                    {p.firstname?.[0]?.toUpperCase()}{p.lastname?.[0]?.toUpperCase()}
                                                 </div>
-                                                <div style={{ fontSize: '10px', color: 'var(--dash-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                                    {p.role}
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dash-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                        {p.firstname} {p.lastname}
+                                                    </div>
+                                                    <div style={{ fontSize: '10px', color: 'var(--dash-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                        {p.role}
+                                                    </div>
+                                                    {joinDate && (
+                                                        <div style={{ fontSize: '10px', color: 'var(--dash-text-muted)', marginTop: '2px' }}>
+                                                            {joinDateStr} {joinTime}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
-                                        </div>
-                                    ))
+                                        );
+                                    })
                                 ) : (
                                     <div style={{ fontSize: '13px', color: 'var(--dash-text-muted)', textAlign: 'center', padding: '20px 0' }}>
                                         {t('Aucun participant', 'No participants')}
