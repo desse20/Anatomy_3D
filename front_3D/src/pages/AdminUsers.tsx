@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Plus, Edit2, Trash2, X, Shield, BookOpen, GraduationCap } from 'lucide-react';
+import { Search, Filter, Plus, Edit2, Trash2, X, Shield, BookOpen, GraduationCap, FileSpreadsheet, FileText } from 'lucide-react';
 import Swal from 'sweetalert2';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import App from '../components/layouts/App';
 import { apiCall } from '../services/api';
 import { getSwalTheme } from '../services/swalTheme';
@@ -183,15 +186,103 @@ const AdminUsers: React.FC = () => {
         setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
     };
 
+    // ── EXPORTS ──────────────────────────────────────────────────────────────
+    const getRoleLabel = (role: string) =>
+        role === 'admin' ? 'Administrateur' : role === 'teacher' ? 'Professeur' : 'Étudiant';
+
+    const exportExcel = () => {
+        const rows = users.map((u, i) => ({
+            '#': i + 1,
+            'Prénom': u.firstname,
+            'Nom': u.lastname,
+            'Email': u.email,
+            'Rôle': getRoleLabel(u.role),
+            'Créé le': u.created_at ? new Date(u.created_at).toLocaleDateString('fr-FR') : '—',
+        }));
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Utilisateurs');
+        // Largeurs de colonnes
+        ws['!cols'] = [{ wch: 5 }, { wch: 18 }, { wch: 18 }, { wch: 30 }, { wch: 16 }, { wch: 14 }];
+        XLSX.writeFile(wb, `utilisateurs_${new Date().toISOString().slice(0,10)}.xlsx`);
+    };
+
+    const exportPdf = () => {
+        const doc = new jsPDF({ orientation: 'landscape' });
+        const today = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+
+        // En-tête
+        doc.setFillColor(14, 165, 233);
+        doc.rect(0, 0, 297, 18, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(13);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Liste des Utilisateurs — Anatomy 3D', 14, 12);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Généré le ${today}  •  ${users.length} utilisateur(s)`, 148, 12, { align: 'center' });
+
+        autoTable(doc, {
+            startY: 22,
+            head: [['#', 'Prénom', 'Nom', 'Email', 'Rôle', 'Créé le']],
+            body: users.map((u, i) => [
+                i + 1,
+                u.firstname,
+                u.lastname,
+                u.email,
+                getRoleLabel(u.role),
+                u.created_at ? new Date(u.created_at).toLocaleDateString('fr-FR') : '—',
+            ]),
+            styles: { fontSize: 9, cellPadding: 4 },
+            headStyles: { fillColor: [14, 165, 233], textColor: 255, fontStyle: 'bold' },
+            alternateRowStyles: { fillColor: [245, 250, 255] },
+            columnStyles: {
+                0: { halign: 'center', cellWidth: 10 },
+                4: { halign: 'center', cellWidth: 28 },
+                5: { halign: 'center', cellWidth: 28 },
+            },
+        });
+
+        // Pied de page
+        const pageCount = (doc as any).internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(150);
+            doc.text(`Page ${i} / ${pageCount}`, 290, 205, { align: 'right' });
+        }
+
+        doc.save(`utilisateurs_${new Date().toISOString().slice(0,10)}.pdf`);
+    };
+
     return (
         <App breadcrumb="Administration" title="Gestion des Utilisateurs">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
-                <div>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
                     {selectedIds.length > 0 && (
                         <button onClick={handleBulkDelete} style={{ background: '#f43f5e', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(244, 63, 94, 0.2)' }}>
                             <Trash2 size={18} /> Supprimer la sélection ({selectedIds.length})
                         </button>
                     )}
+                    {/* ── Boutons Export ── */}
+                    <button
+                        id="btn-export-excel"
+                        onClick={exportExcel}
+                        disabled={users.length === 0}
+                        title="Télécharger la liste en Excel"
+                        style={{ background: '#16a34a', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', cursor: users.length === 0 ? 'not-allowed' : 'pointer', opacity: users.length === 0 ? 0.5 : 1, boxShadow: '0 4px 12px rgba(22,163,74,0.2)', transition: '0.2s' }}
+                    >
+                        <FileSpreadsheet size={17} /> Excel
+                    </button>
+                    <button
+                        id="btn-export-pdf"
+                        onClick={exportPdf}
+                        disabled={users.length === 0}
+                        title="Télécharger la liste en PDF"
+                        style={{ background: '#dc2626', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', cursor: users.length === 0 ? 'not-allowed' : 'pointer', opacity: users.length === 0 ? 0.5 : 1, boxShadow: '0 4px 12px rgba(220,38,38,0.2)', transition: '0.2s' }}
+                    >
+                        <FileText size={17} /> PDF
+                    </button>
                 </div>
                 <button 
                     onClick={() => { setIsAddingUser(!isAddingUser); setIsEditModalOpen(false); if(!isAddingUser) setFormData({firstname:'', lastname:'', email:'compte@gmail.com', password:generateSecurePassword(), role:'student'}); }}
