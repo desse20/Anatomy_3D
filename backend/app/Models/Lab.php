@@ -14,14 +14,14 @@ class Lab extends Model
     public $timestamps = true;
 
     protected $fillable = [
-        'teacher_id',
+        'user_id',
         'name',
         'description',
     ];
 
     public function teacher(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'teacher_id');
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     public function labSharedViews(): HasMany

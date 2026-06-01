@@ -7,7 +7,7 @@ return new class extends Migration {
     public function up(): void {
         Schema::create('user_mastery', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignUuid('student_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignUuid('user_id')->constrained('users')->cascadeOnDelete();
             $table->integer('anatomical_object_id');
             $table->foreign('anatomical_object_id')->references('id')->on('anatomical_objects')->cascadeOnDelete();
             $table->integer('success_count')->default(0);

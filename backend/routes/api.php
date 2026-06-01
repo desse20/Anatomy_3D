@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\AiController;
 use App\Http\Controllers\Api\AnatomyController;
 use App\Http\Controllers\Api\MasteryController;
+use App\Http\Controllers\Api\QuizController;
 use App\Http\Controllers\Api\ConversationController;
 use App\Http\Controllers\Api\LabController;
 
@@ -64,6 +65,10 @@ Route::prefix('anatomy')->middleware(['simple_auth'])->group(function () {
 Route::prefix('mastery')->middleware(['simple_auth'])->group(function () {
     Route::get('stats',    [MasteryController::class, 'stats']);
     Route::post('record',  [MasteryController::class, 'record']);
+});
+
+Route::prefix('quiz')->middleware(['simple_auth'])->group(function () {
+    Route::get('next-topic', [QuizController::class, 'nextTopic']);
 });
 
 use App\Http\Controllers\Api\Asset3dController;

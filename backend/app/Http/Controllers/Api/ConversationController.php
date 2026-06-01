@@ -14,7 +14,7 @@ class ConversationController extends Controller
      */
     public function index()
     {
-        $conversations = Conversation::where('student_id', auth()->id())
+        $conversations = Conversation::where('user_id', auth()->id())
             ->withCount('chats')
             ->orderByDesc('created_at')
             ->get(['id', 'name', 'created_at', 'updated_at']);
@@ -33,7 +33,7 @@ class ConversationController extends Controller
         ]);
 
         $conversation = Conversation::create([
-            'student_id' => auth()->id(),
+            'user_id' => auth()->id(),
             'name' => $validated['name'] ?? 'Nouvelle discussion',
         ]);
 
@@ -47,7 +47,7 @@ class ConversationController extends Controller
     public function update(Request $request, string $id)
     {
         $conversation = Conversation::where('id', $id)
-            ->where('student_id', auth()->id())
+            ->where('user_id', auth()->id())
             ->firstOrFail();
 
         $validated = $request->validate([
@@ -66,7 +66,7 @@ class ConversationController extends Controller
     public function destroy(string $id)
     {
         $conversation = Conversation::where('id', $id)
-            ->where('student_id', auth()->id())
+            ->where('user_id', auth()->id())
             ->firstOrFail();
 
         $conversation->delete();
@@ -81,7 +81,7 @@ class ConversationController extends Controller
     public function messages(string $id)
     {
         $conversation = Conversation::where('id', $id)
-            ->where('student_id', auth()->id())
+            ->where('user_id', auth()->id())
             ->firstOrFail();
 
         $chats = $conversation->chats()

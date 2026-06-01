@@ -7,7 +7,7 @@ return new class extends Migration {
     public function up(): void {
         Schema::create('labs', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignUuid('teacher_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignUuid('user_id')->constrained('users')->cascadeOnDelete();
             $table->string('name')->unique();
             $table->text('description')->nullable();
             $table->timestamps();

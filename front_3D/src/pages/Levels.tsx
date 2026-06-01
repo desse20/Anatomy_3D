@@ -16,6 +16,7 @@ interface NotionStat {
     mastery_level: number;
     last_review?: string;
     next_review?: string;
+    net_score?: number;
 }
 
 interface MasteryStats {
@@ -23,8 +24,12 @@ interface MasteryStats {
     global_score: number;
     total_attempts: number;
     total_notions: number;
-    weak_notions: NotionStat[];
-    strong_notions: NotionStat[];
+    not_started: NotionStat[];
+    en_cours: NotionStat[];
+    maitrisees: NotionStat[];
+    totalement_maitrisees: NotionStat[];
+    cultivees: NotionStat[];
+    due_notions: NotionStat[];
     mastery_levels: MasteryLevel[];
 }
 
@@ -69,6 +74,7 @@ const MasteryBar: React.FC<{ notion: NotionStat; variant: 'weak' | 'strong' }> =
     const pct   = total > 0 ? Math.round((notion.success / total) * 100) : 0;
     const meta  = LEVEL_META[Math.min(notion.mastery_level, 5)];
     const barColor = variant === 'weak' ? '#f87171' : '#34d399';
+    const netScore = notion.net_score ?? notion.success - notion.failure;
     return (
         <div className="lv-notion-row">
             <div className="lv-notion-header">
@@ -89,7 +95,15 @@ const MasteryBar: React.FC<{ notion: NotionStat; variant: 'weak' | 'strong' }> =
             <div className="lv-notion-stats">
                 <span style={{ color: '#34d399' }}>✓ {notion.success}</span>
                 <span style={{ color: '#f87171' }}>✗ {notion.failure}</span>
-                <span style={{ color: 'var(--dash-text-muted)' }}>{pct}%</span>
+                <span style={{ color: netScore >= 5 ? '#34d399' : 'var(--dash-text-muted)' }}>∑ {netScore}</span>
+                <span style={{ color: 'var(--dash-text-muted)', fontSize: '10px' }}>
+                    {`Lvl ${notion.mastery_level}/5`}
+                </span>
+                {notion.next_review && (
+                    <span style={{ color: 'var(--dash-text-muted)', fontSize: '10px', fontStyle: 'italic', marginLeft: 'auto' }}>
+                        {notion.next_review}
+                    </span>
+                )}
             </div>
         </div>
     );
@@ -99,7 +113,7 @@ const Levels: React.FC = () => {
     const { language } = useLanguage();
     const [stats, setStats] = useState<MasteryStats | null>(null);
     const [loading, setLoading] = useState(true);
-    const [tab, setTab] = useState<'weak' | 'strong'>('weak');
+    const [tab, setTab] = useState<'en_cours' | 'maitrisees' | 'totalement' | 'cultivees'>('en_cours');
 
     useEffect(() => {
         apiCall('mastery/stats')
@@ -112,8 +126,12 @@ const Levels: React.FC = () => {
                     global_score: 0,
                     total_attempts: 0,
                     total_notions: 0,
-                    weak_notions: [],
-                    strong_notions: [],
+                    not_started: [],
+                    en_cours: [],
+                    maitrisees: [],
+                    totalement_maitrisees: [],
+                    cultivees: [],
+                    due_notions: [],
                     mastery_levels: [],
                 });
             })
@@ -215,26 +233,40 @@ const Levels: React.FC = () => {
                                 <h3 className="lv-card-title">{t('Analyse des notions', 'Notion Analysis')}</h3>
                                 <div className="lv-tabs">
                                     <button
-                                        className={`lv-tab ${tab === 'weak' ? 'active' : ''}`}
-                                        style={{ '--tab-color': '#f87171' } as any}
-                                        onClick={() => setTab('weak')}
+                                        className={`lv-tab ${tab === 'en_cours' ? 'active' : ''}`}
+                                        style={{ '--tab-color': '#f97316' } as any}
+                                        onClick={() => setTab('en_cours')}
                                     >
-                                        ⚠ {t('À travailler', 'To improve')}
+                                        ⚡ {t('En cours (∑ ≤ 0)', 'In Progress (∑ ≤ 0)')}
                                     </button>
                                     <button
-                                        className={`lv-tab ${tab === 'strong' ? 'active' : ''}`}
-                                        style={{ '--tab-color': '#34d399' } as any}
-                                        onClick={() => setTab('strong')}
+                                        className={`lv-tab ${tab === 'maitrisees' ? 'active' : ''}`}
+                                        style={{ '--tab-color': '#22d3ee' } as any}
+                                        onClick={() => setTab('maitrisees')}
                                     >
-                                        ✓ {t('Maîtrisées', 'Mastered')}
+                                        ✓ {t('Maîtrisées (∑ 1-4)', 'Mastered (∑ 1-4)')}
+                                    </button>
+                                    <button
+                                        className={`lv-tab ${tab === 'totalement' ? 'active' : ''}`}
+                                        style={{ '--tab-color': '#34d399' } as any}
+                                        onClick={() => setTab('totalement')}
+                                    >
+                                        ★ {t('Total. (∑ ≥ 5)', 'Total (∑ ≥ 5)')}
+                                    </button>
+                                    <button
+                                        className={`lv-tab ${tab === 'cultivees' ? 'active' : ''}`}
+                                        style={{ '--tab-color': '#a78bfa' } as any}
+                                        onClick={() => setTab('cultivees')}
+                                    >
+                                        🤖 {t('Cultivées', 'Cultivated')}
                                     </button>
                                 </div>
                             </div>
 
                             <div className="lv-notions-list">
-                                {tab === 'weak' && (
-                                    stats.weak_notions.length > 0
-                                        ? stats.weak_notions.map((n, i) => (
+                                {tab === 'en_cours' && (
+                                    stats.en_cours.length > 0
+                                        ? stats.en_cours.map((n, i) => (
                                             <motion.div
                                                 key={n.name}
                                                 initial={{ opacity: 0, x: -10 }}
@@ -244,11 +276,11 @@ const Levels: React.FC = () => {
                                                 <MasteryBar notion={n} variant="weak"/>
                                             </motion.div>
                                         ))
-                                        : <p className="lv-empty-tab">{t('Aucune notion en difficulté — bravo !', 'No struggling notions — well done!')}</p>
+                                        : <p className="lv-empty-tab">{t('Aucune notion en cours — faites un quiz !', 'No notions in progress — take a quiz!')}</p>
                                 )}
-                                {tab === 'strong' && (
-                                    stats.strong_notions.length > 0
-                                        ? stats.strong_notions.map((n, i) => (
+                                {tab === 'maitrisees' && (
+                                    stats.maitrisees.length > 0
+                                        ? stats.maitrisees.map((n, i) => (
                                             <motion.div
                                                 key={n.name}
                                                 initial={{ opacity: 0, x: -10 }}
@@ -258,7 +290,35 @@ const Levels: React.FC = () => {
                                                 <MasteryBar notion={n} variant="strong"/>
                                             </motion.div>
                                         ))
-                                        : <p className="lv-empty-tab">{t('Faites des quiz pour débloquer vos succès !', 'Take quizzes to unlock your successes!')}</p>
+                                        : <p className="lv-empty-tab">{t('Aucune notion maîtrisée — continuez !', 'No mastered notions — keep going!')}</p>
+                                )}
+                                {tab === 'totalement' && (
+                                    stats.totalement_maitrisees.length > 0
+                                        ? stats.totalement_maitrisees.map((n, i) => (
+                                            <motion.div
+                                                key={n.name}
+                                                initial={{ opacity: 0, x: -10 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                transition={{ delay: i * 0.05 }}
+                                            >
+                                                <MasteryBar notion={n} variant="strong"/>
+                                            </motion.div>
+                                        ))
+                                        : <p className="lv-empty-tab">{t('Atteignez ∑ ≥ 5 pour voir cette section.', 'Reach ∑ ≥ 5 to see this section.')}</p>
+                                )}
+                                {tab === 'cultivees' && (
+                                    stats.cultivees.length > 0
+                                        ? stats.cultivees.map((n, i) => (
+                                            <motion.div
+                                                key={n.name}
+                                                initial={{ opacity: 0, x: -10 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                transition={{ delay: i * 0.05 }}
+                                            >
+                                                <MasteryBar notion={n} variant="strong"/>
+                                            </motion.div>
+                                        ))
+                                        : <p className="lv-empty-tab">{t('Atteignez ∑ ≥ 5 avec ≤ 2 échecs.', 'Reach ∑ ≥ 5 with ≤ 2 failures.')}</p>
                                 )}
                             </div>
                         </motion.div>

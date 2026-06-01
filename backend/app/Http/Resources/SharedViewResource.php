@@ -11,7 +11,7 @@ class SharedViewResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'teacher_id' => $this->teacher_id,
+            'user_id' => $this->user_id,
             'asset_3d_id' => $this->asset_3d_id,
             'share_token' => $this->share_token,
             'camera_position' => $this->camera_position,

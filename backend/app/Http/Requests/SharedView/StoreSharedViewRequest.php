@@ -15,7 +15,7 @@ class StoreSharedViewRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'teacher_id' => ['required', 'uuid', 'exists:users,id'],
+            'user_id' => ['required', 'uuid', 'exists:users,id'],
             'asset_3d_id' => ['required', 'uuid', 'exists:assets_3d,id'],
             'share_token' => ['required', 'string', 'max:255', 'unique:shared_views,share_token'],
             'camera_position' => ['required', 'array'],
@@ -34,9 +34,9 @@ class StoreSharedViewRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'teacher_id.required' => __('messages.shared_view.teacher_id_required'),
-            'teacher_id.uuid' => __('messages.shared_view.teacher_id_uuid'),
-            'teacher_id.exists' => __('messages.shared_view.teacher_id_exists'),
+            'user_id.required' => __('messages.shared_view.user_id_required'),
+            'user_id.uuid' => __('messages.shared_view.user_id_uuid'),
+            'user_id.exists' => __('messages.shared_view.user_id_exists'),
             'asset_3d_id.required' => __('messages.shared_view.asset_3d_id_required'),
             'asset_3d_id.uuid' => __('messages.shared_view.asset_3d_id_uuid'),
             'asset_3d_id.exists' => __('messages.shared_view.asset_3d_id_exists'),

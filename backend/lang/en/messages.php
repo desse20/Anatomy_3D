@@ -24,9 +24,9 @@ return [
         'admin_id_exists' => 'The specified administrator does not exist.',
     ],
     'shared_view' => [
-        'teacher_id_required' => 'The teacher ID is required.',
-        'teacher_id_uuid' => 'The teacher ID must be a valid UUID.',
-        'teacher_id_exists' => 'The specified teacher does not exist.',
+        'user_id_required' => 'The user ID is required.',
+        'user_id_uuid' => 'The user ID must be a valid UUID.',
+        'user_id_exists' => 'The specified user does not exist.',
         'asset_3d_id_required' => 'The 3D asset ID is required.',
         'asset_3d_id_uuid' => 'The 3D asset ID must be a valid UUID.',
         'asset_3d_id_exists' => 'The specified 3D asset does not exist.',

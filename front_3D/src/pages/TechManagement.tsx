@@ -105,7 +105,8 @@ const TechManagement: React.FC = () => {
                                     return (
                                         <tr key={idx} style={{ borderBottom: '1px solid var(--dash-border)', transition: 'background 0.2s' }}>
                                             <td style={{ padding: '20px 16px' }}>
-                                                <code style={{ background: 'rgba(0,0,0,0.04)', padding: '4px 8px', borderRadius: '6px', fontSize: '13px', fontWeight: 600, color: '#6366f1' }}>{table.name}</code>
+                                                <div style={{ fontWeight: 700, fontSize: '14px' }}>{table.label_fr || table.name}</div>
+                                                <code style={{ background: 'rgba(0,0,0,0.04)', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', color: 'var(--dash-text-muted)' }}>{table.name}</code>
                                             </td>
                                             <td style={{ padding: '20px 16px', fontWeight: 600 }}>{table.rows.toLocaleString()}</td>
                                             <td style={{ padding: '20px 16px', textAlign: 'right', fontWeight: 700 }}>{table.size} MB</td>

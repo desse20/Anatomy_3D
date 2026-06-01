@@ -11,11 +11,11 @@ class Conversation extends Model
 {
     use HasUuids;
 
-    protected $fillable = ['student_id', 'name'];
+    protected $fillable = ['user_id', 'name'];
 
     public function student(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'student_id');
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     public function chats(): HasMany

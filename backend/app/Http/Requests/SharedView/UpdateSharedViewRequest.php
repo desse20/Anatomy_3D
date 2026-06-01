@@ -17,7 +17,7 @@ class UpdateSharedViewRequest extends FormRequest
         $sharedView = $this->route('shared_view');
 
         return [
-            'teacher_id' => ['sometimes', 'uuid', 'exists:users,id'],
+            'user_id' => ['sometimes', 'uuid', 'exists:users,id'],
             'asset_3d_id' => ['sometimes', 'uuid', 'exists:assets_3d,id'],
             'share_token' => ['sometimes', 'string', 'max:255', Rule::unique('shared_views')->ignore($sharedView->id)],
             'camera_position' => ['sometimes', 'array'],
@@ -36,8 +36,8 @@ class UpdateSharedViewRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'teacher_id.uuid' => __('messages.shared_view.teacher_id_uuid'),
-            'teacher_id.exists' => __('messages.shared_view.teacher_id_exists'),
+            'user_id.uuid' => __('messages.shared_view.user_id_uuid'),
+            'user_id.exists' => __('messages.shared_view.user_id_exists'),
             'asset_3d_id.uuid' => __('messages.shared_view.asset_3d_id_uuid'),
             'asset_3d_id.exists' => __('messages.shared_view.asset_3d_id_exists'),
             'share_token.unique' => __('messages.shared_view.token_unique'),

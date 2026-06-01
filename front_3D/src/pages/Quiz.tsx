@@ -12,6 +12,7 @@ import {
 import Layout from '../components/layouts/App';
 import { aiService } from '../services/ai';
 import { useLanguage } from '../contexts/LanguageContext';
+import { apiCall } from '../services/api';
 import '../styles/quiz.css';
 
 const ArrowLg = () => (
@@ -68,16 +69,23 @@ const Quiz: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
 
-    // Paramètres de révision ciblée venant de Review.tsx
+    // Paramètres de révision ciblée venant de Review.tsx ou Dashboard
     const navState = (location.state as any) ?? {};
     const targetSystem: string | null = navState.system ?? null;
     const [targetSystemLabel, setTargetSystemLabel] = useState<string | null>(targetSystem);
+    // Resync quand on navigue vers /quiz avec un nouvel état (Dashboard → Quiz)
+    useEffect(() => {
+        if (navState.system) {
+            setTargetSystemLabel(navState.system);
+        }
+    }, [location.state]);
 
     const [step, setStep] = useState(1);
     const [quizType, setQuizType] = useState<string | null>(navState.quizType ?? null);
     const [questionCount, setQuestionCount] = useState<number>(navState.questionCount ?? 10);
     const [isReviewMode, setIsReviewMode] = useState(false);
     const [masterQuestions, setMasterQuestions] = useState<Question[]>([]);
+    const [topicLoading, setTopicLoading] = useState(false);
 
     // Si on arrive depuis Review.tsx avec un système ciblé, on saute directement à l'étape 4
     useEffect(() => {
@@ -95,6 +103,10 @@ const Quiz: React.FC = () => {
         if (matchedType) {
             setQuizType(matchedType);
             setStep(2);
+        }
+        // Auto-pick a topic if none provided
+        if (!navState.system) {
+            fetchNextTopic();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -117,7 +129,7 @@ const Quiz: React.FC = () => {
         else format = 'STRICT OPEN QUESTION: NO options array. NO numeric index. correctAnswer MUST BE A STRING (the name of the structure). [{text, correctAnswer:string, explanation}]';
 
         const scope = system
-            ? `FOCUS EXCLUSIVELY on the "${system}" anatomical system and its sub-structures.`
+            ? `FOCUS EXCLUSIVELY on the DIRECT ANATOMICAL SUB-STRUCTURES of "${system}". Each question must test knowledge about ONE specific sub-structure (not about "${system}" itself).`
             : 'Cover diverse anatomy topics.';
 
         return `CRITICAL: OUTPUT MUST BE A VALID JSON ARRAY ONLY. NO COMMENTS. NO EXPLANATIONS OUTSIDE JSON.
@@ -163,6 +175,21 @@ const Quiz: React.FC = () => {
         } catch (err: any) {
             setError(language === 'fr' ? `Erreur: ${err.message || 'IA Indisponible'}` : `Error: ${err.message || 'AI Unavailable'}`);
         } finally { setIsLoading(false); }
+    };
+
+    // Pioche un objet parent non étudié via l'API
+    const fetchNextTopic = async () => {
+        setTopicLoading(true);
+        try {
+            const res = await apiCall('quiz/next-topic');
+            if (res?.name) {
+                setTargetSystemLabel(res.name);
+            }
+        } catch (e) {
+            console.warn('Auto-pick topic failed, user will choose manually', e);
+        } finally {
+            setTopicLoading(false);
+        }
     };
 
     const handleStart = async () => {
@@ -302,17 +329,18 @@ const Quiz: React.FC = () => {
             setResults({ correct: score, total: finalSet.length });
             setStep(5);
             
-            // Sync Mastery - désactivé temporairement à cause d'erreur backend
-            // finalSet.forEach(q => {
-            //     const subjectName = targetSystemLabel || 'Sujet Général';
-            //     apiCall('mastery/record', {
-            //         method: 'POST',
-            //         body: JSON.stringify({
-            //             anatomical_object_name: subjectName,
-            //             is_correct: !!q.isCorrect
-            //         })
-            //     }).catch(e => console.error("Mastery track error", e));
-            // });
+            // Sync Mastery — envoie chaque réponse au backend
+            if (targetSystemLabel) {
+                finalSet.forEach(q => {
+                    apiCall('mastery/record', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            anatomical_object_name: targetSystemLabel,
+                            is_correct: !!q.isCorrect
+                        })
+                    }).catch(e => console.error("Mastery track error", e));
+                });
+            }
 
             const typeLabel = types.find(t => t.id === quizType)?.label || '';
             navigate(`/quiz/#${slugify(typeLabel)}/result`, { replace: true });
@@ -433,8 +461,22 @@ const Quiz: React.FC = () => {
                     {step === 1 && (
                         <motion.div key="step1" variants={pageVariants} initial="initial" animate="animate" exit="exit" className="quiz-fullscreen-section">
                             <div className="quiz-header-text">
-                                <h1>{language === 'fr' ? "Paramétrez votre évaluation" : "Configure your evaluation"}</h1>
-                                <p>{language === 'fr' ? "Choisissez le format de test généré sur-mesure par notre IA en fonction de votre cursus." : "Choose the test format custom-generated by our AI based on your curriculum."}</p>
+                                <h1>
+                                    {topicLoading
+                                        ? (language === 'fr' ? 'Sélection du sujet…' : 'Selecting topic…')
+                                        : targetSystemLabel
+                                        ? (language === 'fr' ? `Quiz sur : ${targetSystemLabel}` : `Quiz on: ${targetSystemLabel}`)
+                                        : (language === 'fr' ? "Paramétrez votre évaluation" : "Configure your evaluation")
+                                    }
+                                </h1>
+                                <p>
+                                    {topicLoading
+                                        ? (language === 'fr' ? 'Recherche d\'un sujet anatomique non étudié…' : 'Searching for an unstudied anatomical topic…')
+                                        : targetSystemLabel
+                                        ? (language === 'fr' ? `Questions exclusivement sur les sous-structures de "${targetSystemLabel}" — choisis le format ci-dessous.` : `Questions exclusively on sub-structures of "${targetSystemLabel}" — choose the format below.`)
+                                        : (language === 'fr' ? "Choisissez le format de test généré sur-mesure par notre IA en fonction de votre cursus." : "Choose the test format custom-generated by our AI based on your curriculum.")
+                                    }
+                                </p>
                             </div>
                             <div className="quiz-step-layout">
                                 <div className="quiz-cards-grid">
@@ -486,7 +528,10 @@ const Quiz: React.FC = () => {
                                     {selectedType?.label}
                                 </h1>
                                 <p className="qz-config-sub">
-                                    {language === 'fr' ? 'Configuration de l’examen' : 'Examination settings'}
+                                    {targetSystemLabel
+                                        ? (language === 'fr' ? `Objet : ${targetSystemLabel}` : `Subject: ${targetSystemLabel}`)
+                                        : (language === 'fr' ? 'Configuration de l\'examen' : 'Examination settings')
+                                    }
                                 </p>
 
                                 {/* Question count slider */}
@@ -540,9 +585,14 @@ const Quiz: React.FC = () => {
                                         {language === 'fr' ? 'Génération IA en cours…' : 'AI generation in progress…'}
                                     </h2>
                                     <p className="qz-state-sub">
-                                        {language === 'fr'
-                                            ? 'Analyse des structures anatomiques et création de cas cliniques.'
-                                            : 'Analyzing anatomical structures and building clinical cases.'}
+                                        {targetSystemLabel
+                                            ? (language === 'fr'
+                                                ? `Questions exclusives sur "${targetSystemLabel}" — analyse anatomique en cours.`
+                                                : `Exclusive questions on "${targetSystemLabel}" — anatomical analysis in progress.`)
+                                            : (language === 'fr'
+                                                ? 'Analyse des structures anatomiques et création de cas cliniques.'
+                                                : 'Analyzing anatomical structures and building clinical cases.')
+                                        }
                                     </p>
                                 </div>
                             ) : error ? (
@@ -563,6 +613,9 @@ const Quiz: React.FC = () => {
                                         <span className="qz-q-counter">
                                             {language === 'fr' ? 'Question' : 'Question'} {currentIdx + 1} / {questions.length}
                                         </span>
+                                        {targetSystemLabel && (
+                                            <span className="qz-target-badge">{targetSystemLabel}</span>
+                                        )}
                                         <div className="qz-progress-track">
                                             <div
                                                 className="qz-progress-fill"

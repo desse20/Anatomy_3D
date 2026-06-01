@@ -10,10 +10,12 @@ class UserMastery extends Model
 {
     use HasUuids;
 
-    protected $table = 'user_mastery'; // Précisé car le pluriel automatique peut différer
+    protected $table = 'user_mastery';
+
+    public $timestamps = false;
 
     protected $fillable = [
-        'student_id',
+        'user_id',
         'anatomical_object_id',
         'success_count',
         'failure_count',
@@ -30,7 +32,7 @@ class UserMastery extends Model
 
     public function student(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'student_id');
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     public function anatomicalObject(): BelongsTo

@@ -63,7 +63,7 @@ class User extends Authenticatable
      */
     public function masteries(): HasMany
     {
-        return $this->hasMany(UserMastery::class, 'student_id');
+        return $this->hasMany(UserMastery::class, 'user_id');
     }
 
     /**
@@ -71,7 +71,7 @@ class User extends Authenticatable
      */
     public function labs(): HasMany
     {
-        return $this->hasMany(Lab::class, 'teacher_id');
+        return $this->hasMany(Lab::class, 'user_id');
     }
 
     /**
@@ -79,7 +79,7 @@ class User extends Authenticatable
      */
     public function sharedViews(): HasMany
     {
-        return $this->hasMany(SharedView::class, 'teacher_id');
+        return $this->hasMany(SharedView::class, 'user_id');
     }
 
     /**
@@ -87,7 +87,7 @@ class User extends Authenticatable
      */
     public function chats(): HasMany
     {
-        return $this->hasMany(Chat::class, 'student_id');
+        return $this->hasMany(Chat::class, 'user_id');
     }
 
     /**

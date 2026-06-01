@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Calendar, AlertTriangle, CheckCircle, Activity, Database } from 'lucide-react';
 import App from '../components/layouts/App';
@@ -408,15 +408,14 @@ const DonutChart: React.FC<{ roleCounts: any, t: any }> = ({ roleCounts, t }) =>
         </div>
     );
 };
-const MiniCalendar = ({ language, upcomingCount }: { language: string, upcomingCount: number }) => {
+const MiniCalendar = ({ language, dueDays }: { language: string, dueDays: number[] }) => {
     const today = new Date();
     const year = today.getFullYear();
     const month = today.getMonth();
     
-    // Calculate days in month and starting day offset
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     let firstDayIndex = new Date(year, month, 1).getDay() - 1; 
-    if (firstDayIndex === -1) firstDayIndex = 6; // Start week on Monday
+    if (firstDayIndex === -1) firstDayIndex = 6;
     
     const daysArray = [];
     for (let i = 0; i < firstDayIndex; i++) daysArray.push(null);
@@ -440,8 +439,7 @@ const MiniCalendar = ({ language, upcomingCount }: { language: string, upcomingC
                 {daysArray.map((day, i) => {
                     if (!day) return <div key={i} className="mc-day empty" />;
                     const isToday = day === today.getDate();
-                    // Just pseudo-randomly highlight upcoming days if we have weak notions to review
-                    const hasReview = upcomingCount > 0 && (day === today.getDate() + 1 || day === today.getDate() + 3);
+                    const hasReview = dueDays.includes(day);
                     return (
                         <div key={i} className={`mc-day ${isToday ? 'today' : ''} ${hasReview ? 'has-review' : ''}`}>
                             <span>{day}</span>
@@ -518,10 +516,10 @@ const Dashboard: React.FC = () => {
 
         if (role === 'admin') {
             promises.push(apiCall('/system/stats?range=30').catch(() => null));
-            promises.push(apiCall('labs').catch(() => ({ created: [] })));
+            promises.push(apiCall('labs').catch(() => ({ data: [] })));
             promises.push(apiCall('mastery/stats').catch(() => null));
         } else if (role === 'teacher') {
-            promises.push(apiCall('labs').catch(() => ({ created: [] })));
+            promises.push(apiCall('labs').catch(() => ({ data: [] })));
             promises.push(apiCall('mastery/stats').catch(() => null));
         } else {
             promises.push(apiCall('mastery/stats').catch(() => null));
@@ -557,17 +555,34 @@ const Dashboard: React.FC = () => {
 
     const t = (fr: string, en: string) => language === 'fr' ? fr : en;
 
-    const renderNotionsList = (list: any[], emptyMsg: string, isWeak: boolean) => (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', maxHeight: '180px', paddingRight: '8px' }}>
+    const navigate = useNavigate();
+
+    const renderNotionsList = (list: any[], emptyMsg: string) => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', maxHeight: '260px', paddingRight: '8px' }}>
             {list.length === 0 ? (
                 <p style={{ color: 'var(--dash-text-muted)', fontSize: '14px', margin: 'auto', paddingTop: '40px' }}>{emptyMsg}</p>
             ) : (
-                list.slice(0, 4).map((n, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--dash-bg)', borderRadius: '10px', border: '1px solid var(--dash-border)' }}>
-                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dash-text)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.name}</span>
-                        <div style={{ display: 'flex', gap: '8px', fontSize: '12px', fontWeight: 700 }}>
-                            <span style={{ color: '#34d399' }}>✓ {n.success}</span>
-                            {isWeak && <span style={{ color: '#f87171' }}>✗ {n.failure}</span>}
+                list.slice(0, 8).map((n, i) => (
+                    <div
+                        key={i}
+                        onClick={() => navigate('/quiz', { state: { system: n.name } })}
+                        style={{ display: 'flex', flexDirection: 'column', padding: '10px 14px', background: 'var(--dash-bg)', borderRadius: '10px', border: '1px solid var(--dash-border)', gap: '4px', cursor: 'pointer', transition: 'background 0.15s' }}
+                        onMouseOver={e => e.currentTarget.style.background = 'var(--dash-accent-hover)'}
+                        onMouseOut={e => e.currentTarget.style.background = 'var(--dash-bg)'}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dash-text)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.name}</span>
+                            <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '10px', background: n.mastery_level >= 3 ? 'rgba(52,211,153,0.15)' : 'rgba(248,113,113,0.15)', color: n.mastery_level >= 3 ? '#34d399' : '#f87171' }}>Lvl {n.mastery_level}/5</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', gap: '10px', fontSize: '12px', fontWeight: 700 }}>
+                                <span style={{ color: '#34d399' }}>✓ {n.success}</span>
+                                {(n.failure > 0) && <span style={{ color: '#f87171' }}>✗ {n.failure}</span>}
+                                <span style={{ color: n.net_score >= 5 ? '#34d399' : '#94a3b8' }}>∑ {n.net_score ?? n.success - n.failure}</span>
+                            </div>
+                            {n.next_review && (
+                                <span style={{ fontSize: '10px', color: 'var(--dash-text-muted)', fontStyle: 'italic' }}>{n.next_review}</span>
+                            )}
                         </div>
                     </div>
                 ))
@@ -575,12 +590,71 @@ const Dashboard: React.FC = () => {
         </div>
     );
 
+    const renderNotionsListCultivees = (list: any[], emptyMsg: string) => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', maxHeight: '260px', paddingRight: '8px' }}>
+            {list.length === 0 ? (
+                <p style={{ color: 'var(--dash-text-muted)', fontSize: '14px', margin: 'auto', paddingTop: '40px' }}>{emptyMsg}</p>
+            ) : (
+                list.slice(0, 8).map((n, i) => (
+                    <div
+                        key={i}
+                        onClick={() => navigate('/chat', { state: { system: n.name } })}
+                        style={{ display: 'flex', flexDirection: 'column', padding: '10px 14px', background: 'var(--dash-bg)', borderRadius: '10px', border: '1px solid var(--dash-border)', gap: '4px', cursor: 'pointer', transition: 'background 0.15s' }}
+                        onMouseOver={e => e.currentTarget.style.background = 'var(--dash-accent-hover)'}
+                        onMouseOut={e => e.currentTarget.style.background = 'var(--dash-bg)'}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '13px', fontWeight: 600, color: '#a78bfa', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.name}</span>
+                            <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '10px', background: 'rgba(167,139,250,0.15)', color: '#a78bfa' }}>🤖 Chat</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', gap: '10px', fontSize: '12px', fontWeight: 700 }}>
+                                <span style={{ color: '#34d399' }}>✓ {n.success}</span>
+                                {(n.failure > 0) && <span style={{ color: '#f87171' }}>✗ {n.failure}</span>}
+                                <span style={{ color: '#34d399' }}>∑ {n.net_score}</span>
+                            </div>
+                            {n.next_review && (
+                                <span style={{ fontSize: '10px', color: 'var(--dash-text-muted)', fontStyle: 'italic' }}>{n.next_review}</span>
+                            )}
+                        </div>
+                    </div>
+                ))
+            )}
+        </div>
+    );
+
+    // Collect due review days from ALL items with next_review_ts
+    const dueReviewDays: number[] = React.useMemo(() => {
+        if (!stats) return [];
+        const days = new Set<number>();
+        const now = new Date();
+        const month = now.getMonth();
+        const year = now.getFullYear();
+        const allItems = [
+            ...(stats.due_notions || []),
+            ...(stats.en_cours || []),
+            ...(stats.maitrisees || []),
+            ...(stats.totalement_maitrisees || []),
+            ...(stats.cultivees || []),
+        ];
+        allItems.forEach((n: any) => {
+            if (n.next_review_ts) {
+                const d = new Date(n.next_review_ts * 1000);
+                // Only future dates (next review, not overdue)
+                if (d > now && d.getMonth() === month && d.getFullYear() === year) {
+                    days.add(d.getDate());
+                }
+            }
+        });
+        return Array.from(days);
+    }, [stats]);
+
     // Compute global mastery mapped onto actual anatomy roots
     const computeRadarData = () => {
         if (!roots.length || !stats) return [];
         
         const knownLevels: Record<string, number> = {};
-        [...(stats.weak_notions || []), ...(stats.strong_notions || [])].forEach((n: any) => {
+        [...(stats.learning_notions || []), ...(stats.mastered_notions || []), ...(stats.due_notions || []), ...(stats.not_started || [])].forEach((n: any) => {
             knownLevels[n.name.toLowerCase()] = n.mastery_level || 0;
         });
 
@@ -612,7 +686,7 @@ const Dashboard: React.FC = () => {
         <App breadcrumb={
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                 <span>{t('Tableau de bord', 'Dashboard')}</span>
-                {!loading && (isStudent || isTeacher) && (
+                {!loading && (
                     <div className="competence-bar-container" style={{ display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '250px', marginLeft: 'auto' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
                             <span>{t('Compétence globale', 'Global Competence')}</span>
@@ -666,7 +740,7 @@ const Dashboard: React.FC = () => {
                                             <div style={{ color: 'var(--dash-text-muted)', marginBottom: '6px', fontWeight: 700, textTransform: 'uppercase' }}>{t('Top Tables', 'Top Tables')}</div>
                                             {adminStats?.top_tables?.slice(0, 3).map((tt: any, idx: number) => (
                                                 <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--dash-border)', opacity: 0.8 }}>
-                                                    <span style={{ fontWeight: 600 }}>{tt.name}</span>
+                                                    <span style={{ fontWeight: 600 }}>{tt.label_fr || tt.name}</span>
                                                     <span style={{ color: 'var(--dash-text-muted)' }}>{tt.rows} {t('lignes', 'rows')}</span>
                                                 </div>
                                             ))}
@@ -776,7 +850,7 @@ const Dashboard: React.FC = () => {
                                             <h3>{t('Mes Salles de Cours', 'My Labs')}</h3>
                                         </div>
                                         <div className="card-content">
-                                            <div style={{ fontSize: '32px', fontWeight: 800, margin: '10px 0' }}>{teacherStats?.created?.length || 0}</div>
+                                            <div style={{ fontSize: '32px', fontWeight: 800, margin: '10px 0' }}>{teacherStats?.data?.length || 0}</div>
                                             <div style={{ fontSize: '13px', color: 'var(--dash-text-muted)' }}>{t('Salles virtuelles actives', 'Active virtual labs')}</div>
                                             <Link to="/labs" className="mini-btn mt-auto">{t('Gérer mes salles', 'Manage my labs')} →</Link>
                                         </div>
@@ -788,7 +862,7 @@ const Dashboard: React.FC = () => {
                                             <h3>{t('Vues Partagées', 'Shared Views')}</h3>
                                         </div>
                                         <div className="card-content">
-                                            <div style={{ fontSize: '32px', fontWeight: 800, margin: '10px 0' }}>{teacherStats?.created?.reduce((acc: number, l: any) => acc + (l.shared_views?.length || 0), 0) || 0}</div>
+                                            <div style={{ fontSize: '32px', fontWeight: 800, margin: '10px 0' }}>{teacherStats?.data?.reduce((acc: number, l: any) => acc + (l.shared_views?.length || 0), 0) || 0}</div>
                                             <div style={{ fontSize: '13px', color: 'var(--dash-text-muted)' }}>{t('Points d\'intérêt partagés', 'Shared points of interest')}</div>
                                             <Link to="/my-views" className="mini-btn mt-auto" style={{ background: 'rgba(52, 211, 153, 0.1)', color: '#34d399' }}>{t('Catalogue de vues', 'Views Catalog')} →</Link>
                                         </div>
@@ -800,7 +874,7 @@ const Dashboard: React.FC = () => {
                                             <h3>{t('Participation', 'Engagement')}</h3>
                                         </div>
                                         <div className="card-content">
-                                            <div style={{ fontSize: '32px', fontWeight: 800, margin: '10px 0' }}>{teacherStats?.created?.reduce((acc: number, l: any) => acc + (l.total_participants || 0), 0) || 0}</div>
+                                            <div style={{ fontSize: '32px', fontWeight: 800, margin: '10px 0' }}>{teacherStats?.data?.reduce((acc: number, l: any) => acc + (l.total_participants || 0), 0) || 0}</div>
                                             <div style={{ fontSize: '13px', color: 'var(--dash-text-muted)' }}>{t('Étudiants ont rejoint vos salles', 'Students joined your labs')}</div>
                                             <p style={{ marginTop: 'auto', fontSize: '12px', fontStyle: 'italic', color: 'var(--dash-text-muted)' }}>{t('Les statistiques sont mises à jour en temps réel.', 'Stats are updated in real-time.')}</p>
                                         </div>
@@ -832,24 +906,10 @@ const Dashboard: React.FC = () => {
                                                 <h3>{t('Calendrier de révisions', 'Review Calendar')}</h3>
                                             </div>
                                             <div className="card-content">
-                                                <MiniCalendar language={language} upcomingCount={stats?.weak_notions?.length || 0} />
-                                                {stats && stats.weak_notions.length > 0 && (
+                                                <MiniCalendar language={language} dueDays={dueReviewDays} />
+                                                {stats && (stats.due_notions?.length > 0 || stats.en_cours?.length > 0) && (
                                                     <Link to="/quiz" className="mini-btn mt-auto">{t('Lancer un Quiz', 'Start Quiz')} →</Link>
                                                 )}
-                                            </div>
-                                        </div>
-
-                                        <div className="dash-card custom-card">
-                                            <div className="card-header">
-                                                <span className="card-icon" style={{ background: '#6366f120', color: '#6366f1' }}>
-                                                    <Activity size={20} strokeWidth={2.5}/>
-                                                </span>
-                                                <h3>{t('Mes Sessions', 'My Sessions')}</h3>
-                                            </div>
-                                            <div className="card-content">
-                                                <div style={{ fontSize: '32px', fontWeight: 800, margin: '10px 0' }}>{stats?.labs_joined_count || 0}</div>
-                                                <div style={{ fontSize: '13px', color: 'var(--dash-text-muted)' }}>{t('Laboratoires et salles rejoints', 'Labs and rooms joined')}</div>
-                                                <Link to="/labs" className="mini-btn mt-auto" style={{ background: 'rgba(99, 102, 241, 0.1)', color: '#6366f1' }}>{t('Accéder aux cours', 'Access Courses')} →</Link>
                                             </div>
                                         </div>
 
@@ -858,10 +918,34 @@ const Dashboard: React.FC = () => {
                                                 <span className="card-icon" style={{ background: '#f8717120', color: '#f87171' }}>
                                                     <AlertTriangle size={20} strokeWidth={2.5}/>
                                                 </span>
-                                                <h3>{t('À améliorer', 'Needs Improvement')}</h3>
+                                                <h3>{t('Prochaines révisions', 'Upcoming Reviews')}</h3>
                                             </div>
                                             <div className="card-content">
-                                                {renderNotionsList(stats ? stats.weak_notions : [], t('Aucune lacune détectée.', 'No weak spots detected.'), true)}
+                                                {renderNotionsList(stats?.due_notions || [], t('Aucune révision due.', 'No reviews due.'))}
+                                            </div>
+                                        </div>
+
+                                        <div className="dash-card custom-card">
+                                            <div className="card-header">
+                                                <span className="card-icon" style={{ background: '#f9731620', color: '#f97316' }}>
+                                                    <Activity size={20} strokeWidth={2.5}/>
+                                                </span>
+                                                <h3>{t('En cours (∑ ≤ 0)', 'In Progress (∑ ≤ 0)')}</h3>
+                                            </div>
+                                            <div className="card-content">
+                                                {renderNotionsList(stats?.en_cours || [], t('Commencez un quiz !', 'Start a quiz!'))}
+                                            </div>
+                                        </div>
+
+                                        <div className="dash-card custom-card">
+                                            <div className="card-header">
+                                                <span className="card-icon" style={{ background: '#22d3ee20', color: '#22d3ee' }}>
+                                                    <CheckCircle size={20} strokeWidth={2.5}/>
+                                                </span>
+                                                <h3>{t('Maîtrisées (∑ 1-4)', 'Mastered (∑ 1-4)')}</h3>
+                                            </div>
+                                            <div className="card-content">
+                                                {renderNotionsList(stats?.maitrisees || [], t('Encore aucune.', 'None yet.'))}
                                             </div>
                                         </div>
 
@@ -870,10 +954,22 @@ const Dashboard: React.FC = () => {
                                                 <span className="card-icon" style={{ background: '#34d39920', color: '#34d399' }}>
                                                     <CheckCircle size={20} strokeWidth={2.5}/>
                                                 </span>
-                                                <h3>{t('Notions maîtrisées', 'Mastered Notions')}</h3>
+                                                <h3>{t('Total. maîtrisées (∑ ≥ 5)', 'Totally Mastered (∑ ≥ 5)')}</h3>
                                             </div>
                                             <div className="card-content">
-                                                {renderNotionsList(stats ? stats.strong_notions : [], t('Acquérez de l\'expérience pour la voir ici.', 'Gain experience to see it here.'), false)}
+                                                {renderNotionsList(stats?.totalement_maitrisees || [], t('Encore aucun score ≥ 5.', 'No score ≥ 5 yet.'))}
+                                            </div>
+                                        </div>
+
+                                        <div className="dash-card custom-card">
+                                            <div className="card-header">
+                                                <span className="card-icon" style={{ background: '#a78bfa20', color: '#a78bfa' }}>
+                                                    <Activity size={20} strokeWidth={2.5}/>
+                                                </span>
+                                                <h3>{t('Cultivées (∑ ≥ 5, peu d\'échecs)', 'Cultivated (∑ ≥ 5, few fails)')}</h3>
+                                            </div>
+                                            <div className="card-content">
+                                                {renderNotionsListCultivees(stats?.cultivees || [], t('Atteignez ∑ ≥ 5 avec ≤ 2 échecs.', 'Reach ∑ ≥ 5 with ≤ 2 failures.'))}
                                             </div>
                                         </div>
                                     </div>
@@ -1109,17 +1205,17 @@ const Dashboard: React.FC = () => {
                 .student-overview-row {
                     grid-column: 1 / -1;
                     display: grid;
-                    grid-template-columns: repeat(4, 1fr);
-                    gap: 20px;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 16px;
                     width: 100%;
                 }
                 .student-overview-row .dash-card {
                     min-width: 0;
+                    min-height: 220px;
+                    padding: 16px;
                 }
-                @media (max-width: 1200px) {
-                    .student-overview-row {
-                        grid-template-columns: repeat(2, 1fr);
-                    }
+                .student-overview-row .card-content {
+                    overflow: hidden;
                 }
                 @media (max-width: 640px) {
                     .student-overview-row {

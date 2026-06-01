@@ -7,7 +7,7 @@ return new class extends Migration {
     public function up(): void {
         Schema::create('shared_views', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignUuid('teacher_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignUuid('user_id')->constrained('users')->cascadeOnDelete();
             $table->enum('status', ['visible', 'hidden'])->default('hidden');
             $table->json('camera_position');
             $table->json('camera_target');

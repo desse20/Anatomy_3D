@@ -8,6 +8,25 @@ use Illuminate\Support\Facades\DB;
 
 class BaseDonneesController extends Controller
 {
+    private array $systemTables = [
+        'cache', 'cache_locks', 'failed_jobs', 'job_batches',
+        'jobs', 'migrations', 'password_reset_tokens', 'sessions',
+    ];
+
+    private array $frenchLabels = [
+        'anatomical_objects' => 'Structures anatomiques',
+        'assets_3d'          => 'Modèles 3D',
+        'chats'              => 'Discussions IA',
+        'consultation_logs'  => 'Journal des consultations',
+        'conversations'      => 'Conversations',
+        'lab_participants'   => 'Participants aux laboratoires',
+        'lab_shared_views'   => 'Vues partagées des labos',
+        'labs'               => 'Laboratoires',
+        'shared_views'       => 'Vues partagées',
+        'user_mastery'       => 'Maîtrise utilisateur',
+        'users'              => 'Utilisateurs',
+    ];
+
     public function stats(Request $request)
     {
         try {
@@ -43,14 +62,21 @@ class BaseDonneesController extends Controller
                 }
             }
 
+            // Filtrer les tables système — ne garder que les tables métier
+            $businessTables = array_filter($tables, fn($t) => isset($this->frenchLabels[$t->name]));
+
             // Tables détaillées pour la page /tech
             $detailedTables = array_map(function($t) {
                 return [
-                    'name' => $t->name,
-                    'rows' => $t->rows,
-                    'size' => round($t->size_mb ?? 0, 2)
+                    'name'      => $t->name,
+                    'label_fr'  => $this->frenchLabels[$t->name] ?? $t->name,
+                    'rows'      => $t->rows,
+                    'size'      => round($t->size_mb ?? 0, 2),
                 ];
-            }, $tables);
+            }, $businessTables);
+
+            // Trier par taille décroissante
+            usort($detailedTables, fn($a, $b) => $b['size'] <=> $a['size']);
 
             // Top 3 pour le dashboard
             $topTables = collect($detailedTables)->take(3)->values();

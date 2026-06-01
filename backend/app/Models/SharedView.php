@@ -14,7 +14,7 @@ class SharedView extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'teacher_id',
+        'user_id',
         'status',
         'camera_position',
         'camera_target',
@@ -36,7 +36,7 @@ class SharedView extends Model
      */
     public function teacher(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'teacher_id');
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     /**

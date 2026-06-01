@@ -279,13 +279,13 @@ class AiController extends Controller
         // --- Résoudre la conversation ---
         if ($conversationId) {
             $conversation = Conversation::where('id', $conversationId)
-                ->where('student_id', $studentId)
+                ->where('user_id', $studentId)
                 ->first();
         }
         // Si pas trouvée ou pas fournie, en créer une nouvelle
         if (empty($conversation)) {
             $conversation = Conversation::create([
-                'student_id' => $studentId,
+                'user_id' => $studentId,
                 'name'       => $boneName 
                     ? __('messages.conversation.bone_discussion', ['name' => $boneName]) 
                     : __('messages.conversation.default_name'),
@@ -471,7 +471,7 @@ class AiController extends Controller
         }
 
         // Anti-répétition pour le quiz : on lit les outputs des 10 derniers chats de l'étudiant
-        $chats = Chat::whereHas('conversation', fn($q) => $q->where('student_id', auth()->id()))
+        $chats = Chat::whereHas('conversation', fn($q) => $q->where('user_id', auth()->id()))
                      ->orderBy('created_at', 'desc')
                      ->limit(10)
                      ->get(['output']);
@@ -496,7 +496,7 @@ class AiController extends Controller
      */
     public function history(\Illuminate\Http\Request $request)
     {
-        $query = Chat::where('student_id', auth()->id())
+        $query = Chat::where('user_id', auth()->id())
                      ->orderBy('created_at', 'asc');
 
         if ($request->filled('group')) {
