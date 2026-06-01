@@ -589,6 +589,128 @@ class Asset3dController extends Controller
     }
 
     /**
+     * GET /api/models-manager/{asset}/offline-package
+     * Télécharge un ZIP autonome pour consultation hors-ligne.
+     * Le GLB est encodé en base64 et chargé via <script> (seule méthode
+     * fiable depuis file:// dans Chrome — XHR et fetch y sont bloqués).
+     */
+    public function offlinePackage(Asset3d $asset)
+    {
+        try {
+            $objects = $asset->anatomicalObjects()
+                ->orderBy('id')
+                ->get(['id', 'parent_id', 'name', 'three_js_name', 'description']);
+
+            $glbPath = $asset->url_glb;
+            if (!$glbPath || !Storage::disk('local')->exists($glbPath)) {
+                return response()->json(['error' => 'Fichier GLB introuvable pour cet asset'], 404);
+            }
+
+            // Bundle Three.js non-module
+            $threeBundle = $this->generateThreeBundle();
+
+            // GLB encodé en base64 pour chargement via <script> (pas de XHR/fetch)
+            $glbFullPath = Storage::disk('local')->path($glbPath);
+            $glbBase64 = base64_encode(file_get_contents($glbFullPath));
+            $glbJs = "// GLB model (base64)\nvar GLB_BASE64 = " . json_encode($glbBase64) . ";\n";
+
+            // Hiérarchie encodée pour inline safe
+            $hierarchyJson = json_encode(
+                $objects->toArray(),
+                JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+            );
+
+            $html = view('offline-viewer', [
+                'name'          => $asset->name,
+                'lang'          => request()->input('lang', app()->getLocale()),
+                'hierarchyJson' => $hierarchyJson,
+            ])->render();
+
+            $zipPath = tempnam(sys_get_temp_dir(), 'offline_') . '.zip';
+            $zip = new \ZipArchive();
+            if ($zip->open($zipPath, \ZipArchive::CREATE) !== true) {
+                throw new \Exception("Impossible de créer l'archive ZIP");
+            }
+
+            $zip->addFromString('index.html', $html);
+            $zip->addFromString('three-bundle.js', $threeBundle);
+            $zip->addFromString('model.glb.js', $glbJs);
+            $zip->addFromString('hierarchy.json', json_encode(
+                $objects->toArray(),
+                JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE
+            ));
+
+            $zip->close();
+
+            return response()->download($zipPath, $asset->name . '_offline.zip')
+                ->deleteFileAfterSend(true);
+
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Génère un bundle JavaScript non-module contenant Three.js + OrbitControls + GLTFLoader.
+     * Compatible file:// dans tous les navigateurs (pas d'ES modules, pas de fetch).
+     */
+    private function generateThreeBundle(): string
+    {
+        $threeDir = resource_path('three-offline');
+
+        // === Three.js core (CommonJS build transformé en IIFE) ===
+        $cjsCode = file_get_contents($threeDir . '/three.cjs');
+        $bundle = "// Three.js offline bundle (non-module)\n";
+        $bundle .= "var THREE = {};\n";
+        $bundle .= "(function(exports) {\n";
+        $bundle .= $cjsCode . "\n";
+        $bundle .= "})(THREE);\n\n";
+
+        // === Extraire les imports des deux fichiers et les fusionner ===
+        // (évite les conflits "const déjà déclaré" quand OrbitControls et GLTFLoader
+        //  importent les mêmes noms depuis 'three')
+        $orbitCode = file_get_contents($threeDir . '/addons/controls/OrbitControls.js');
+        $gltfCode = file_get_contents($threeDir . '/addons/loaders/GLTFLoader.js');
+
+        // Collecter tous les noms importés depuis 'three'
+        $allImports = [];
+        foreach ([$orbitCode, $gltfCode] as $code) {
+            if (preg_match('/import\s*\{([^}]+)\}\s*from\s*\'three\';/s', $code, $m)) {
+                $names = array_map('trim', explode(',', $m[1]));
+                $allImports = array_merge($allImports, $names);
+            }
+        }
+        $allImports = array_unique($allImports);
+        $importsStr = implode(",\n\t", $allImports);
+
+        // Supprimer les lignes d'import 'three' des deux fichiers
+        $orbitCode = preg_replace('/import\s*\{[^}]+\}\s*from\s*\'three\';\n?/s', '', $orbitCode);
+        $orbitCode = preg_replace('/\nexport\s*\{([^}]+)\};/s', '', $orbitCode);
+
+        $gltfCode = preg_replace('/import\s*\{[^}]+\}\s*from\s*\'three\';\n?/s', '', $gltfCode);
+        // Supprimer les imports relatifs (BufferGeometryUtils, SkeletonUtils)
+        $gltfCode = preg_replace('/import\s*\{[^}]+\}\s*from\s*\'[^\']+\';\n?/s', '', $gltfCode);
+        $gltfCode = preg_replace('/\nexport\s*\{([^}]+)\};/s', '', $gltfCode);
+
+        // === Écrire le bundle avec un seul const des imports partagés ===
+        $bundle .= "// Shared imports from THREE\n";
+        $bundle .= "const {\n\t" . $importsStr . "\n} = THREE;\n\n";
+        $bundle .= "// OrbitControls\n" . $orbitCode . "\n\n";
+        $bundle .= "// GLTFLoader\n" . $gltfCode . "\n\n";
+
+        // Stubs pour les utilitaires addon manquants
+        $bundle .= "// Stubs for missing addon utils\n";
+        $bundle .= "function toTrianglesDrawMode(geometry, drawMode) {\n";
+        $bundle .= "  return geometry;\n";
+        $bundle .= "}\n";
+        $bundle .= "function clone(obj) {\n";
+        $bundle .= "  return obj.clone();\n";
+        $bundle .= "}\n";
+
+        return $bundle;
+    }
+
+    /**
      * Supprime un dossier et tout son contenu récursivement.
      */
     private function rmdirRecursive($dir) {

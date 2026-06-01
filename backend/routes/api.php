@@ -74,6 +74,7 @@ Route::prefix('models-manager')->group(function () {
     Route::get('',               [Asset3dController::class, 'index']);
     Route::get('{asset}',        [Asset3dController::class, 'show']);
     Route::get('{asset}/objects-paginated', [Asset3dController::class, 'getObjectsPaginated']);
+    Route::get('{asset}/offline-package',   [Asset3dController::class, 'offlinePackage']);
     Route::put('{asset}',        [Asset3dController::class, 'update']);
     Route::delete('{asset}',     [Asset3dController::class, 'destroy']);
     Route::post('{asset}/objects', [Asset3dController::class, 'addObject']);

@@ -26,11 +26,15 @@ type NameToMeshMap = Map<string, ExtendedMesh>;
 interface AnatomyViewerProps {
   assetId?: string | number;
   modelPath?: string;
+  initialAnatomicalData?: AnatomyItem[];
+  isOffline?: boolean;
 }
 
 const AnatomyViewer: React.FC<AnatomyViewerProps> = ({ 
   assetId,
-  modelPath: initialModelPath
+  modelPath: initialModelPath,
+  initialAnatomicalData,
+  isOffline
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const labelRef = useRef<HTMLDivElement>(null);
@@ -236,39 +240,48 @@ const AnatomyViewer: React.FC<AnatomyViewerProps> = ({
       setIsLoading(true);
       setError(null);
 
-      // ── RÉCUPÉRATION DE TOUTE LA HIÉRARCHIE VIA L'API ──
-      console.log("Chargement de l'atlas spécifié via l'API, Asset ID:", assetId);
-      
-      let endpoint = '/anatomy/all';
-      if (assetId) endpoint = `/anatomy/all?asset_3d_id=${assetId}`;
-      
-      const rawData: AnatomyItem[] = await apiCall(endpoint);
-      
-      // Récupérer aussi l'URL du GLB si on a un assetId
+      let cleanedData: AnatomyItem[] = [];
       let finalModelPath = initialModelPath || 'Squelette_complet.glb';
-      if (assetId) {
-          try {
-              const assetInfo = await apiCall(`models-manager/${assetId}`);
-              if (assetInfo.url_glb) {
-                  finalModelPath = assetInfo.url_glb;
-                  // Si l'URL est relative (contient Assets_3D), on passe par notre route de secours
-                  if (finalModelPath.includes('Assets_3D/')) {
-                      const filename = finalModelPath.split('/').pop();
-                      finalModelPath = `${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/models-manager/files/${filename}`;
-                  }
-              }
-          } catch(e) {
-              console.warn("Impossible de récupérer les infos de l'asset, utilisation du défaut");
-          }
+
+      if (initialAnatomicalData && initialAnatomicalData.length > 0) {
+        // ── DONNÉES FOURNIES EN CACHE (mode hors-ligne) ──
+        console.log("Utilisation des données en cache, Asset ID:", assetId);
+        cleanedData = initialAnatomicalData;
+      } else {
+        // ── RÉCUPÉRATION DE TOUTE LA HIÉRARCHIE VIA L'API ──
+        console.log("Chargement de l'atlas spécifié via l'API, Asset ID:", assetId);
+        
+        let endpoint = '/anatomy/all';
+        if (assetId) endpoint = `/anatomy/all?asset_3d_id=${assetId}`;
+        
+        const rawData: AnatomyItem[] = await apiCall(endpoint);
+        
+        // Récupérer aussi l'URL du GLB si on a un assetId
+        if (assetId && !initialModelPath) {
+            try {
+                const assetInfo = await apiCall(`models-manager/${assetId}`);
+                if (assetInfo.url_glb) {
+                    finalModelPath = assetInfo.url_glb;
+                    // Si l'URL est relative (contient Assets_3D), on passe par notre route de secours
+                    if (finalModelPath.includes('Assets_3D/')) {
+                        const filename = finalModelPath.split('/').pop();
+                        finalModelPath = `${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/models-manager/files/${filename}`;
+                    }
+                }
+            } catch(e) {
+                console.warn("Impossible de récupérer les infos de l'asset, utilisation du défaut");
+            }
+        }
+
+        if (!Array.isArray(rawData)) {
+            console.error("Format de données invalide reçu de l'API (attendu: Array):", rawData);
+            throw new Error("L'API n'a pas renvoyé l'atlas complet.");
+        }
+
+        console.log(`Données API reçues : ${rawData.length} entrées`);
+        cleanedData = rawData;
       }
 
-      if (!Array.isArray(rawData)) {
-          console.error("Format de données invalide reçu de l'API (attendu: Array):", rawData);
-          throw new Error("L'API n'a pas renvoyé l'atlas complet.");
-      }
-
-      console.log(`Données API reçues : ${rawData.length} entrées`);
-      const cleanedData = rawData;
       setAnatomicalData(cleanedData);
 
       // Load GLB model

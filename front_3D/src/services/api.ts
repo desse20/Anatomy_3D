@@ -85,6 +85,41 @@ export const userService = {
     }),
 };
 
+export const fetchBlob = async (endpoint: string): Promise<Blob> => {
+    const token = localStorage.getItem('token');
+    const fullUrl = `${API_BASE_URL.replace(/\/$/, '')}/${endpoint.replace(/^\//, '')}`;
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const response = await fetch(fullUrl, { headers });
+    if (!response.ok) throw new Error(`Download failed: ${response.statusText}`);
+    return response.blob();
+};
+
+export const downloadWithProgress = (endpoint: string, onProgress: (pct: number) => void): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+        const token = localStorage.getItem('token');
+        const fullUrl = `${API_BASE_URL.replace(/\/$/, '')}/${endpoint.replace(/^\//, '')}`;
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', fullUrl);
+        if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        xhr.responseType = 'blob';
+        xhr.onprogress = (e) => {
+            if (e.lengthComputable) {
+                onProgress(Math.round((e.loaded / e.total) * 100));
+            }
+        };
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                resolve(xhr.response);
+            } else {
+                reject(new Error(`Download failed: ${xhr.status}`));
+            }
+        };
+        xhr.onerror = () => reject(new Error('Network error during download'));
+        xhr.send();
+    });
+};
+
 export const anatomyService = {
     /** Récupère TOUTE la hiérarchie pour le mapper 3D */
     getAll: () => apiCall('/anatomy/all'),
