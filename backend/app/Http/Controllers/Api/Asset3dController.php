@@ -56,10 +56,9 @@ class Asset3dController extends Controller
                             if (strtolower($f->getExtension()) === 'json') $jsonFileFound = $f->getPathname();
                         }
                     }
-
                     if (!$glbFileFound) {
                         $this->rmdirRecursive($extractPath);
-                        throw new \Exception("Aucun fichier .glb trouvé dans l'archive ZIP.");
+                        throw new \Exception(__('messages.asset_3d.no_glb'));
                     }
 
                     // Si on a trouvé un JSON dans le ZIP, on l'utilise
@@ -71,7 +70,7 @@ class Asset3dController extends Controller
                     $finalFilename = 'model_' . time() . '.glb';
                     $finalPath = 'Assets_3D/' . $finalFilename;
                     if (!Storage::disk('local')->put($finalPath, fopen($glbFileFound, 'r'))) {
-                        throw new \Exception("Échec de l'écriture du fichier GLB sur le disque local.");
+                        throw new \Exception(__('messages.asset_3d.write_error'));
                     }
                     
                     // Nettoyage complet du dossier temporaire
@@ -85,7 +84,7 @@ class Asset3dController extends Controller
                         'count'     => count($objects),
                     ]);
                 } else {
-                    throw new \Exception("Impossible d'ouvrir l'archive ZIP.");
+                    throw new \Exception(__('messages.asset_3d.zip_error'));
                 }
             }
 
@@ -106,7 +105,7 @@ class Asset3dController extends Controller
             }
 
             if (!Storage::disk('local')->putFileAs('Assets_3D', $file, $finalFilename)) {
-                throw new \Exception("Échec du téléversement du fichier sur le disque local.");
+                throw new \Exception(__('messages.asset_3d.write_error'));
             }
 
             return response()->json([
@@ -161,7 +160,7 @@ class Asset3dController extends Controller
             $filename = $request->input('filename');
 
             if (!$filename || !Storage::disk('local')->exists($filename)) {
-                throw new \Exception("Le fichier $filename est introuvable.");
+                throw new \Exception(__('messages.asset_3d.not_found', ['filename' => $filename]));
             }
 
             $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
@@ -184,7 +183,7 @@ class Asset3dController extends Controller
                         if (str_ends_with(strtolower($f), '.glb')) $glbFile = $f;
                         if (str_ends_with(strtolower($f), '.json')) $jsonFile = $f;
                     }
-                    if (!$glbFile) throw new \Exception("Pas de .glb dans le ZIP.");
+                    if (!$glbFile) throw new \Exception(__('messages.asset_3d.no_glb'));
 
                     $objects = [];
                     if ($jsonFile) {
@@ -368,19 +367,19 @@ class Asset3dController extends Controller
     {
         $asset->anatomicalObjects()->delete();
         $asset->delete();
-        return response()->json(['message' => 'Modèle supprimé avec succès']);
+        return response()->json(['message' => __('messages.asset_3d.deleted')]);
     }
 
     public function updateObject(Request $request, AnatomicalObject $object)
     {
         $object->update($request->only(['name', 'three_js_name', 'mesh', 'description', 'parent_id']));
-        return response()->json(['message' => 'Objet mis à jour', 'object' => $object]);
+        return response()->json(['message' => __('messages.asset_3d.object_updated'), 'object' => $object]);
     }
 
     public function destroyObject(AnatomicalObject $object)
     {
         $object->delete();
-        return response()->json(['message' => 'Objet supprimé']);
+        return response()->json(['message' => __('messages.asset_3d.object_deleted')]);
     }
 
     public function addObject(Request $request, Asset3d $asset)
@@ -393,7 +392,7 @@ class Asset3dController extends Controller
         }
         
         $object = $asset->anatomicalObjects()->create($data);
-        return response()->json(['message' => 'Objet ajouté', 'object' => $object]);
+        return response()->json(['message' => __('messages.asset_3d.object_added'), 'object' => $object]);
     }
 
     /**
@@ -414,7 +413,7 @@ class Asset3dController extends Controller
         }
 
         if (!$json) {
-            return response()->json(['error' => 'Aucune donnée JSON valide fournie'], 422);
+            return response()->json(['error' => __('messages.asset_3d.no_json')], 422);
         }
 
         if ($request->input('preview')) {
@@ -475,7 +474,7 @@ class Asset3dController extends Controller
             DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
             return response()->json([
-                'message' => "$count objets importés avec succès",
+                'message' => __('messages.asset_3d.import_success', ['count' => $count]),
                 'count'   => $count
             ]);
         });
@@ -510,7 +509,7 @@ class Asset3dController extends Controller
             $user    = $request->user();
 
             if (!$tmpPath || !Storage::disk('local')->exists($tmpPath)) {
-                throw new \Exception("Le fichier temporaire est introuvable.");
+                throw new \Exception(__('messages.asset_3d.not_found', ['filename' => 'temp']));
             }
 
             return DB::transaction(function () use ($tmpPath, $objects, $user, $request) {

@@ -94,7 +94,7 @@ class AiController extends Controller
             return $body;
         }
 
-        return mb_substr($body, 0, $max) . "\n\n[…contexte tronqué pour le modèle local]";
+        return mb_substr($body, 0, $max) . "\n\n" . __('messages.ai.truncated_context');
     }
 
     /**
@@ -286,7 +286,9 @@ class AiController extends Controller
         if (empty($conversation)) {
             $conversation = Conversation::create([
                 'student_id' => $studentId,
-                'name'       => $boneName ? 'Discussion : ' . $boneName : 'Nouvelle discussion',
+                'name'       => $boneName 
+                    ? __('messages.conversation.bone_discussion', ['name' => $boneName]) 
+                    : __('messages.conversation.default_name'),
             ]);
         }
 
@@ -313,7 +315,7 @@ class AiController extends Controller
         if ($isExplanation) {
             $historyBlock   = $sessionHistory ? "\n\nHistorique de la conversation:\n$sessionHistory" : '';
             $enrichedPrompt = "CONTEXTE ANATOMIQUE DE LA BASE DE DONNÉES:\n$context\n\nRequête de l'utilisateur: " . $userInput . $historyBlock;
-            $systemPrompt   = "Tu es un professeur d'anatomie expert. Utilise si possible le contexte fourni pour construire ton explication. Fournis des explications complètes et détaillées en markdown.";
+            $systemPrompt   = __('messages.ai.system_prompt_expert');
             $maxTokens = 2000;
         } else {
             $history     = $this->getHistory();
@@ -322,7 +324,7 @@ class AiController extends Controller
             $enrichedPrompt = "ANATOMY CONTEXT:\n$context\n" .
                               "AVOID REPEATING: $historyList\n\n" .
                               $userInput;
-            $systemPrompt   = "Tu es un serveur de données JSON strict. INTERDICTION de parler. INTERDICTION d'ajouter des commentaires // ou des explications. Réponds UNIQUEMENT avec un tableau JSON [{}]. Structure: text, options(array), correctAnswer(int), explanation.";
+            $systemPrompt   = __('messages.ai.system_prompt_quiz');
             $maxTokens = 600;
         }
 
@@ -385,13 +387,13 @@ class AiController extends Controller
 
                 $desc = mb_substr(strip_tags($fallbackObj->description ?? ''), 0, 900);
                 if ($isExplanation) {
-                    $simulatedResponse = "⚠️ **Mode hors-ligne** — réponse générée depuis la base de données.\n\n"
+                    $simulatedResponse = __('messages.ai.emergency_mode') . "\n\n"
                         . "## " . $fallbackObj->name . "\n\n"
                         . $desc . (strlen($fallbackObj->description ?? '') > 900 ? '…' : '');
                 } else {
                     $simulatedResponse = json_encode([
                         [
-                            "text" => "Le système est actuellement hors-ligne. (Généré depuis la DB) Voici des informations sur : " . $fallbackObj->name . ". Est-ce correct ?",
+                            "text" => __('messages.ai.offline_quiz_text', ['name' => $fallbackObj->name]),
                             "options" => ["Vrai", "Faux", "N/A", "Inutile"],
                             "correctAnswer" => 0,
                             "explanation" => mb_substr($fallbackObj->description, 0, 200) . "...",
@@ -411,7 +413,7 @@ class AiController extends Controller
             Log::error("❌ DATABASE FALLBACK ERROR: " . $e->getMessage()); 
         }
 
-        return response()->json(['error' => 'All AI systems failed.'], 500);
+        return response()->json(['error' => __('messages.ai.error_all_failed')], 500);
     }
 
     private function getAnatomyChunk($specificBone = null)
@@ -448,7 +450,7 @@ class AiController extends Controller
             }
 
             if (!$item) {
-                return "No database anatomy context available.";
+                return __('messages.ai.no_context');
             }
 
             $name = $item->name ?? 'Unknown';

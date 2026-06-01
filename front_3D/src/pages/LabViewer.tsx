@@ -147,7 +147,7 @@ const LabViewer: React.FC = () => {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap', color: 'var(--dash-text-muted)', fontSize: '13px', paddingBottom: '10px', borderBottom: '1px solid var(--dash-border)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#fbbf24', fontWeight: 700 }}>
                                 <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#fbbf24', boxShadow: '0 0 8px #fbbf24' }}></div>
-                                Session Live
+                                {t('Session Live', 'Live Session')}
                             </div>
                             <span style={{ opacity: 0.3 }}>|</span>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -196,7 +196,7 @@ const LabViewer: React.FC = () => {
                                             {myViews
                                                 .filter(v => !sharedViews.find((sv: any) => sv.id === v.id))
                                                 .map((v: any) => (
-                                                    <option key={v.id} value={v.id}>{v.teacher_note || `Vue #${v.id.substring(0, 8)}`}</option>
+                                                    <option key={v.id} value={v.id}>{v.teacher_note || t(`Vue #${v.id.substring(0, 8)}`, `View #${v.id.substring(0, 8)}`)}</option>
                                                 ))
                                             }
                                         </select>
@@ -224,7 +224,7 @@ const LabViewer: React.FC = () => {
                                             )}
                                         </div>
                                         <div style={{ padding: '16px' }}>
-                                            <h4 style={{ margin: '0 0 6px 0', fontSize: '15px' }}>{view.teacher_note || `Vue 3D #${view.id.substring(0, 8)}`}</h4>
+                                            <h4 style={{ margin: '0 0 6px 0', fontSize: '15px' }}>{view.teacher_note || t(`Vue 3D #${view.id.substring(0, 8)}`, `3D View #${view.id.substring(0, 8)}`)}</h4>
                                             <p style={{ fontSize: '12px', color: 'var(--dash-text-muted)', margin: '0 0 14px 0' }}>{view.status === 'visible' ? t('Visible', 'Visible') : t('Masquée', 'Hidden')}</p>
                                             <button
                                                 disabled={view.status === 'hidden' && !isOwner}

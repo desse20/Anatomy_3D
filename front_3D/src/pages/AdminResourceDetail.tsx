@@ -4,11 +4,15 @@ import { Box, ArrowLeft, Plus, Edit2, Trash2, Save, X, Info, Eye, Loader2 } from
 import App from '../components/layouts/App';
 import { apiCall } from '../services/api';
 import Swal from 'sweetalert2';
+import { useLanguage } from '../contexts/LanguageContext';
 
 /**
  * Composant isolé pour le renommage — évite de re-render le tableau entier pendant la frappe
  */
 const ModelNameSection: React.FC<{ asset: any, onRenamed: () => void }> = ({ asset, onRenamed }) => {
+    const { language } = useLanguage();
+    const t = (fr: string, en: string) => language === 'fr' ? fr : en;
+
     const [isEditing, setIsEditing] = useState(false);
     const [newName, setNewName] = useState(asset.name);
 
@@ -24,9 +28,9 @@ const ModelNameSection: React.FC<{ asset: any, onRenamed: () => void }> = ({ ass
             });
             setIsEditing(false);
             onRenamed();
-            Swal.fire('Succès', 'Modèle renommé', 'success');
+            Swal.fire(t('Succès', 'Success'), t('Modèle renommé', 'Model renamed'), 'success');
         } catch (e) {
-            Swal.fire('Erreur', 'Impossible de renommer', 'error');
+            Swal.fire(t('Erreur', 'Error'), t('Impossible de renommer', 'Unable to rename'), 'error');
         }
     };
 
@@ -69,6 +73,9 @@ const ModelNameSection: React.FC<{ asset: any, onRenamed: () => void }> = ({ ass
 };
 
 const AdminResourceDetail: React.FC = () => {
+    const { language } = useLanguage();
+    const t = (fr: string, en: string) => language === 'fr' ? fr : en;
+
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const [asset, setAsset] = useState<any>(null);
@@ -111,7 +118,7 @@ const AdminResourceDetail: React.FC = () => {
             }
         } catch (e) {
             console.error(e);
-            Swal.fire('Erreur', 'Impossible de charger les détails.', 'error');
+            Swal.fire(t('Erreur', 'Error'), t('Impossible de charger les détails.', 'Unable to load details.'), 'error');
         } finally {
             setLoading(false);
         }
@@ -153,21 +160,22 @@ const AdminResourceDetail: React.FC = () => {
 
     const handleDeleteAsset = async () => {
         const result = await Swal.fire({
-            title: 'Êtes-vous sûr ?',
-            text: "Cela supprimera le modèle et tous ses objets associés !",
+            title: t('Êtes-vous sûr ?', 'Are you sure?'),
+            text: t("Cela supprimera le modèle et tous ses objets associés !", "This will delete the model and all associated objects!"),
             icon: 'warning',
             showCancelButton: true,
+            cancelButtonText: t('Annuler', 'Cancel'),
             confirmButtonColor: '#f43f5e',
-            confirmButtonText: 'Oui, supprimer tout'
+            confirmButtonText: t('Oui, supprimer tout', 'Yes, delete all')
         });
 
         if (result.isConfirmed) {
             try {
                 await apiCall(`models-manager/${id}`, { method: 'POST', body: JSON.stringify({ _method: 'DELETE' }) });
-                Swal.fire('Supprimé', 'Le modèle a été supprimé.', 'success');
+                Swal.fire(t('Supprimé', 'Deleted'), t('Le modèle a été supprimé.', 'The model has been deleted.'), 'success');
                 navigate('/model');
             } catch (e) {
-                Swal.fire('Erreur', 'Suppression échouée', 'error');
+                Swal.fire(t('Erreur', 'Error'), t('Suppression échouée', 'Deletion failed'), 'error');
             }
         }
     };
@@ -189,19 +197,21 @@ const AdminResourceDetail: React.FC = () => {
             setEditingObjectId(null);
             // Mettre à jour localement au lieu de tout recharger
             setObjects(prev => prev.map(o => o.id === objId ? { ...o, ...objectFormData } : o));
-            Swal.fire('Succès', 'Objet mis à jour', 'success');
+            Swal.fire(t('Succès', 'Success'), t('Objet mis à jour', 'Object updated'), 'success');
         } catch (e) {
-            Swal.fire('Erreur', 'Mise à jour de l\'objet échouée', 'error');
+            Swal.fire(t('Erreur', 'Error'), t("Mise à jour de l'objet échouée", "Object update failed"), 'error');
         }
     };
 
     const handleDeleteObject = async (objId: number) => {
         const result = await Swal.fire({
-            title: 'Supprimer cet objet ?',
-            text: "Cette action est irréversible.",
+            title: t('Supprimer cet objet ?', 'Delete this object?'),
+            text: t("Cette action est irréversible.", "This action is irreversible."),
             icon: 'warning',
             showCancelButton: true,
+            cancelButtonText: t('Annuler', 'Cancel'),
             confirmButtonColor: '#f43f5e',
+            confirmButtonText: t('Oui, supprimer', 'Yes, delete')
         });
 
         if (result.isConfirmed) {
@@ -209,44 +219,46 @@ const AdminResourceDetail: React.FC = () => {
                 await apiCall(`models-manager/objects/${objId}`, { method: 'POST', body: JSON.stringify({ _method: 'DELETE' }) });
                 setObjects(prev => prev.filter(o => o.id !== objId));
                 setTotalObjects(prev => prev - 1);
-                Swal.fire('Supprimé', 'Objet retiré.', 'success');
+                Swal.fire(t('Supprimé', 'Deleted'), t('Objet retiré.', 'Object removed.'), 'success');
             } catch (e) {
-                Swal.fire('Erreur', 'Suppression échouée', 'error');
+                Swal.fire(t('Erreur', 'Error'), t('Suppression échouée', 'Deletion failed'), 'error');
             }
         }
     };
 
     const handleSearchParent = async () => {
         const { value: query } = await Swal.fire({
-            title: 'Rechercher un parent',
+            title: t('Rechercher un parent', 'Search for a parent'),
             input: 'text',
-            inputPlaceholder: 'Entrez un nom ou un ID...',
+            inputPlaceholder: t('Entrez un nom ou un ID...', 'Enter a name or an ID...'),
             showCancelButton: true,
-            confirmButtonText: 'Rechercher'
+            cancelButtonText: t('Annuler', 'Cancel'),
+            confirmButtonText: t('Rechercher', 'Search')
         });
 
         if (query) {
             try {
                 const results = await apiCall(`models-manager/${id}/search-objects?query=${query}`);
                 if (results.length === 0) {
-                    Swal.fire('Info', 'Aucun objet trouvé.', 'info');
+                    Swal.fire('Info', t('Aucun objet trouvé.', 'No object found.'), 'info');
                     return null;
                 }
 
                 const { value: selectedId } = await Swal.fire({
-                    title: 'Choisir le parent',
+                    title: t('Choisir le parent', 'Choose the parent'),
                     input: 'select',
                     inputOptions: results.reduce((acc: any, obj: any) => {
                         acc[obj.id] = `${obj.name} (ID: ${obj.id})`;
                         return acc;
                     }, {}),
-                    inputPlaceholder: 'Sélectionnez un objet',
-                    showCancelButton: true
+                    inputPlaceholder: t('Sélectionnez un objet', 'Select an object'),
+                    showCancelButton: true,
+                    cancelButtonText: t('Annuler', 'Cancel')
                 });
 
                 return selectedId ? parseInt(selectedId) : null;
             } catch (e) {
-                Swal.fire('Erreur', 'La recherche a échoué', 'error');
+                Swal.fire(t('Erreur', 'Error'), t('La recherche a échoué', 'Search failed'), 'error');
             }
         }
         return null;
@@ -256,15 +268,15 @@ const AdminResourceDetail: React.FC = () => {
         let parentId: number | null = null;
 
         const { value: formValues } = await Swal.fire({
-            title: 'Ajouter un objet',
+            title: t('Ajouter un objet', 'Add an object'),
             html:
-                '<div style="text-align:left"><label style="font-size:12px;color:#666">Nom</label><input id="swal-input1" class="swal2-input" placeholder="Nom"></div>' +
-                '<div style="text-align:left"><label style="font-size:12px;color:#666">ID ThreeJS</label><input id="swal-input2" class="swal2-input" placeholder="Nom ThreeJS"></div>' +
-                '<div style="text-align:left"><label style="font-size:12px;color:#666">Mesh</label><input id="swal-input3" class="swal2-input" placeholder="Mesh"></div>' +
-                '<div style="text-align:left; margin-top:15px"><label style="font-size:12px;color:#666">Parent</label>' +
-                '<div style="display:flex; gap:8px"><input id="swal-input-parent-display" class="swal2-input" style="flex:1;margin:0" readonly placeholder="Aucun parent sélectionné">' +
-                '<button type="button" id="search-parent-btn" style="padding:10px;background:#0ea5e9;color:white;border:none;border-radius:8px;cursor:pointer">Chercher</button></div></div>' +
-                '<div style="text-align:left; margin-top:15px"><label style="font-size:12px;color:#666">Description</label><textarea id="swal-input4" class="swal2-textarea" placeholder="Description"></textarea></div>',
+                `<div style="text-align:left"><label style="font-size:12px;color:#666">${t('Nom', 'Name')}</label><input id="swal-input1" class="swal2-input" placeholder="${t('Nom', 'Name')}"></div>` +
+                `<div style="text-align:left"><label style="font-size:12px;color:#666">${t('ID ThreeJS', 'ThreeJS ID')}</label><input id="swal-input2" class="swal2-input" placeholder="${t('Nom ThreeJS', 'ThreeJS Name')}"></div>` +
+                `<div style="text-align:left"><label style="font-size:12px;color:#666">${t('Mesh', 'Mesh')}</label><input id="swal-input3" class="swal2-input" placeholder="${t('Mesh', 'Mesh')}"></div>` +
+                `<div style="text-align:left; margin-top:15px"><label style="font-size:12px;color:#666">${t('Parent', 'Parent')}</label>` +
+                `<div style="display:flex; gap:8px"><input id="swal-input-parent-display" class="swal2-input" style="flex:1;margin:0" readonly placeholder="${t('Aucun parent sélectionné', 'No parent selected')}">` +
+                `<button type="button" id="search-parent-btn" style="padding:10px;background:#0ea5e9;color:white;border:none;border-radius:8px;cursor:pointer">${t('Chercher', 'Search')}</button></div></div>` +
+                `<div style="text-align:left; margin-top:15px"><label style="font-size:12px;color:#666">${t('Description', 'Description')}</label><textarea id="swal-input4" class="swal2-textarea" placeholder="${t('Description', 'Description')}"></textarea></div>`,
             focusConfirm: false,
             didOpen: () => {
                 const btn = document.getElementById('search-parent-btn');
@@ -276,7 +288,7 @@ const AdminResourceDetail: React.FC = () => {
                         display.value = `ID: ${picked}`;
                     } else {
                         parentId = null;
-                        display.value = 'Aucun parent';
+                        display.value = t('Aucun parent', 'No parent');
                     }
                 });
             },
@@ -296,23 +308,23 @@ const AdminResourceDetail: React.FC = () => {
                 const res = await apiCall(`models-manager/${id}/objects`, { method: 'POST', body: JSON.stringify(formValues) });
                 setObjects(prev => [res.object, ...prev]);
                 setTotalObjects(prev => prev + 1);
-                Swal.fire('Succès', 'Objet ajouté', 'success');
+                Swal.fire(t('Succès', 'Success'), t('Objet ajouté', 'Object added'), 'success');
             } catch (e) {
-                Swal.fire('Erreur', 'Ajout échoué', 'error');
+                Swal.fire(t('Erreur', 'Error'), t('Ajout échoué', 'Addition failed'), 'error');
             }
         }
     };
 
     const handleImportHierarchy = async () => {
         const { value: importType } = await Swal.fire({
-            title: 'Importer la hiérarchie',
-            text: "Choisissez le mode d'importation",
+            title: t('Importer la hiérarchie', 'Import hierarchy'),
+            text: t("Choisissez le mode d'importation", "Choose import mode"),
             icon: 'question',
             showCancelButton: true,
-            confirmButtonText: 'Default JSON (Server)',
-            cancelButtonText: 'Annuler',
+            cancelButtonText: t('Annuler', 'Cancel'),
+            confirmButtonText: t('Default JSON (Server)', 'Default JSON (Server)'),
             showDenyButton: true,
-            denyButtonText: 'Upload File',
+            denyButtonText: t('Importer un fichier', 'Upload File'),
             denyButtonColor: '#0ea5e9'
         });
 
@@ -321,7 +333,7 @@ const AdminResourceDetail: React.FC = () => {
         if (importType === true) {
             // Default JSON
             try {
-                Swal.fire({ title: 'Chargement du JSON...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                Swal.fire({ title: t('Chargement du JSON...', 'Loading JSON...'), allowOutsideClick: false, didOpen: () => Swal.showLoading() });
                 // On récupère d'abord le contenu pour previsualisation
                 const path = 'storage/app/anatomy_hierarchy.json'; 
                 // Note: On pourrait faire un endpoint pour LIRE le JSON sans importer
@@ -329,13 +341,13 @@ const AdminResourceDetail: React.FC = () => {
                 const res = await apiCall(`models-manager/${id}/import-hierarchy?preview=1`, { method: 'POST', body: JSON.stringify({ use_default: true }) });
                 jsonData = res.data;
             } catch (e) {
-                Swal.fire('Erreur', 'Impossible de lire le fichier par défaut', 'error');
+                Swal.fire(t('Erreur', 'Error'), t('Impossible de lire le fichier par défaut', 'Unable to read the default file'), 'error');
                 return;
             }
         } else if (importType === false) {
             // Upload File
             const { value: file } = await Swal.fire({
-                title: 'Sélectionner le fichier JSON',
+                title: t('Sélectionner le fichier JSON', 'Select JSON file'),
                 input: 'file',
                 inputAttributes: { 'accept': 'application/json' }
             });
@@ -345,7 +357,7 @@ const AdminResourceDetail: React.FC = () => {
                     const text = await file.text();
                     jsonData = JSON.parse(text);
                 } catch (e) {
-                    Swal.fire('Erreur', 'Fichier JSON invalide', 'error');
+                    Swal.fire(t('Erreur', 'Error'), t('Fichier JSON invalide', 'Invalid JSON file'), 'error');
                     return;
                 }
             }
@@ -354,21 +366,21 @@ const AdminResourceDetail: React.FC = () => {
         if (jsonData) {
             // PREVISUALISATION ET EDITION
             const result = await Swal.fire({
-                title: 'Vérification et Édition des données',
+                title: t('Vérification et Édition des données', 'Data Verification and Editing'),
                 html: `<div style="text-align:left; display:flex; flex-direction:column; gap:10px;">
-                    <p style="font-size:14px; color:#666">Vous pouvez modifier le JSON directement ci-dessous avant de valider.</p>
+                    <p style="font-size:14px; color:#666">${t('Vous pouvez modifier le JSON directement ci-dessous avant de valider.', 'You can modify the JSON directly below before validating.')}</p>
                     <textarea id="swal-json-editor" style="width:100%; height:500px; background:#1e1e1e; color:#d4d4d4; padding:15px; border-radius:8px; font-family:monospace; font-size:13px; line-height:1.5; outline:none; border:none;">${JSON.stringify(jsonData, null, 2)}</textarea>
                 </div>`,
                 width: '95%',
                 showCancelButton: true,
-                confirmButtonText: 'Confirmer l\'importation',
-                cancelButtonText: 'Annuler',
+                cancelButtonText: t('Annuler', 'Cancel'),
+                confirmButtonText: t('Confirmer l\'importation', 'Confirm import'),
                 preConfirm: () => {
                     const editor = document.getElementById('swal-json-editor') as HTMLTextAreaElement;
                     try {
                         return JSON.parse(editor.value);
                     } catch (e) {
-                        Swal.showValidationMessage('JSON invalide ! Veuillez corriger les erreurs de syntaxe.');
+                        Swal.showValidationMessage(t('JSON invalide ! Veuillez corriger les erreurs de syntaxe.', 'Invalid JSON! Please correct syntax errors.'));
                         return false;
                     }
                 }
@@ -376,34 +388,34 @@ const AdminResourceDetail: React.FC = () => {
 
             if (result.isConfirmed) {
                 try {
-                    Swal.fire({ title: 'Importation en cours...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                    Swal.fire({ title: t('Importation en cours...', 'Importing...'), allowOutsideClick: false, didOpen: () => Swal.showLoading() });
                     // Envoi effectif
                     const finalData = result.value;
                     await apiCall(`models-manager/${id}/import-hierarchy`, { 
                         method: 'POST', 
                         body: JSON.stringify({ objects: finalData.objects || finalData }) 
                     });
-                    Swal.fire('Succès', 'Importation réussie', 'success');
+                    Swal.fire(t('Succès', 'Success'), t('Importation réussie', 'Import successful'), 'success');
                     fetchDetails();
                 } catch (e) {
-                    Swal.fire('Erreur', 'L\'importation a échoué', 'error');
+                    Swal.fire(t('Erreur', 'Error'), t("L'importation a échoué", "Import failed"), 'error');
                 }
             }
         }
     };
 
-    if (loading) return <App title="Chargement..."><div style={{ padding: '40px', textAlign: 'center' }}>Veuillez patienter...</div></App>;
-    if (!asset) return <App title="Erreur"><div style={{ padding: '40px', textAlign: 'center' }}>Modèle non trouvé.</div></App>;
+    if (loading) return <App title={t("{t('Chargement...', 'Loading...')}", "Loading...")}><div style={{ padding: '40px', textAlign: 'center' }}>{t("Veuillez patienter...", "Please wait...")}</div></App>;
+    if (!asset) return <App title={t("Erreur", "Error")}><div style={{ padding: '40px', textAlign: 'center' }}>{t("Modèle non trouvé.", "Model not found.")}</div></App>;
 
     return (
-        <App breadcrumb="Administration / Modèles" title={asset.name}>
+        <App breadcrumb={t("Administration / Modèles", "Administration / Models")} title={asset.name}>
             
             <div style={{ marginBottom: '24px' }}>
                 <button 
                     onClick={() => navigate('/model')}
                     style={{ background: 'none', border: 'none', color: '#0ea5e9', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 600, padding: 0, marginBottom: '20px' }}
                 >
-                    <ArrowLeft size={18} /> Retour à la liste
+                    <ArrowLeft size={18} /> {t("Retour à la liste", "Back to list")}
                 </button>
 
                 <div style={{ background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', borderRadius: '16px', padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -413,7 +425,7 @@ const AdminResourceDetail: React.FC = () => {
                         onClick={handleDeleteAsset}
                         style={{ padding: '10px 20px', borderRadius: '10px', background: 'rgba(244, 63, 94, 0.1)', color: '#f43f5e', border: '1px solid #f43f5e50', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
                     >
-                        <Trash2 size={18} /> Supprimer le modèle
+                        <Trash2 size={18} /> {t("Supprimer le modèle", "Delete model")}
                     </button>
                 </div>
             </div>
@@ -421,14 +433,14 @@ const AdminResourceDetail: React.FC = () => {
             <div style={{ background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', borderRadius: '16px', overflow: 'hidden' }}>
                 <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 700 }}>
-                        <Info size={20} color="#f59e0b" /> Objets Anatomiques ({totalObjects})
+                        <Info size={20} color="#f59e0b" /> {t("Objets Anatomiques", "Anatomical Objects")} ({totalObjects})
                     </div>
                     <div style={{ display: 'flex', gap: '10px' }}>
                         <button onClick={handleImportHierarchy} style={{ padding: '8px 16px', background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Save size={18} /> Importer JSON (Hiérarchie)
+                            <Save size={18} /> {t("Importer JSON (Hiérarchie)", "Import JSON (Hierarchy)")}
                         </button>
                         <button onClick={handleAddObject} style={{ padding: '8px 16px', background: '#34d399', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Plus size={18} /> Ajouter un objet
+                            <Plus size={18} /> {t("Ajouter un objet", "Add an object")}
                         </button>
                     </div>
                 </div>
@@ -437,12 +449,12 @@ const AdminResourceDetail: React.FC = () => {
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                             <tr style={{ textAlign: 'left', borderBottom: '2px solid var(--dash-border)', color: 'var(--dash-text-muted)', fontSize: '12px', textTransform: 'uppercase' }}>
-                                <th style={{ padding: '12px' }}>Nom</th>
-                                <th style={{ padding: '12px' }}>Parent ID</th>
-                                <th style={{ padding: '12px' }}>ID ThreeJS</th>
-                                <th style={{ padding: '12px' }}>Mesh</th>
-                                <th style={{ padding: '12px' }}>Description</th>
-                                <th style={{ padding: '12px', textAlign: 'right' }}>Actions</th>
+                                <th style={{ padding: '12px' }}>{t("Nom", "Name")}</th>
+                                <th style={{ padding: '12px' }}>{t("Parent ID", "Parent ID")}</th>
+                                <th style={{ padding: '12px' }}>{t("ID ThreeJS", "ThreeJS ID")}</th>
+                                <th style={{ padding: '12px' }}>{t("Mesh", "Mesh")}</th>
+                                <th style={{ padding: '12px' }}>{t("Description", "Description")}</th>
+                                <th style={{ padding: '12px', textAlign: 'right' }}>{t("Actions", "Actions")}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -486,7 +498,7 @@ const AdminResourceDetail: React.FC = () => {
                                                 style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #0ea5e9', background: 'transparent', color: 'var(--dash-text)' }}
                                             />
                                         ) : (
-                                            <span style={{ fontSize: '12px' }}>{obj.mesh || 'N/A'}</span>
+                                            <span style={{ fontSize: '12px' }}>{obj.mesh || t('N/A', 'N/A')}</span>
                                         )}
                                     </td>
                                     <td style={{ padding: '16px 12px' }}>
@@ -507,7 +519,7 @@ const AdminResourceDetail: React.FC = () => {
                                                 lineHeight: '1.5em',
                                                 maxHeight: '4.5em'
                                             }}>
-                                                {obj.description || 'Aucune description'}
+                                                {obj.description || t('Aucune description', 'No description')}
                                             </div>
                                         )}
                                     </td>
@@ -522,7 +534,7 @@ const AdminResourceDetail: React.FC = () => {
                                                 <>
                                                     <button onClick={() => {
                                                         Swal.fire({
-                                                            title: `<div style="text-align: left; border-bottom: 1px solid #e5e7eb; padding-bottom: 10px;">Détails : ${obj.name}</div>`,
+                                                            title: `<div style="text-align: left; border-bottom: 1px solid #e5e7eb; padding-bottom: 10px;">${t('Détails :', 'Details:')} ${obj.name}</div>`,
                                                             html: `
                                                                 <div style="text-align: left; padding: 20px 0;">
                                                                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
@@ -531,14 +543,14 @@ const AdminResourceDetail: React.FC = () => {
                                                                             <code style="font-size: 14px; font-weight: 600;">${obj.three_js_name}</code>
                                                                         </div>
                                                                         <div style="background: #f9fafb; padding: 15px; border-radius: 12px; border: 1px solid #e5e7eb;">
-                                                                            <label style="display: block; font-size: 11px; text-transform: uppercase; color: #9ca3af; margin-bottom: 5px;">Mesh associé</label>
-                                                                            <span style="font-size: 14px; font-weight: 600;">${obj.mesh || 'N/A'}</span>
+                                                                            <label style="display: block; font-size: 11px; text-transform: uppercase; color: #9ca3af; margin-bottom: 5px;">${t('Mesh associé', 'Associated Mesh')}</label>
+                                                                            <span style="font-size: 14px; font-weight: 600;">${obj.mesh || t('N/A', 'N/A')}</span>
                                                                         </div>
                                                                     </div>
                                                                     <div style="background: #f9fafb; padding: 20px; border-radius: 12px; border: 1px solid #e5e7eb;">
                                                                         <label style="display: block; font-size: 11px; text-transform: uppercase; color: #9ca3af; margin-bottom: 10px;">Description</label>
                                                                         <div style="font-size: 15px; line-height: 1.6; white-space: pre-wrap;">
-                                                                            ${obj.description || '<i>Aucune description.</i>'}
+                                                                            ${obj.description || '<i>' + t('Aucune description.', 'No description.') + '</i>'}
                                                                         </div>
                                                                     </div>
                                                                 </div>
@@ -546,7 +558,7 @@ const AdminResourceDetail: React.FC = () => {
                                                             width: '800px',
                                                             showCloseButton: true,
                                                             showConfirmButton: true,
-                                                            confirmButtonText: 'Fermer',
+                                                            confirmButtonText: t('Fermer', 'Close'),
                                                             confirmButtonColor: '#6366f1',
                                                         });
                                                     }} style={{ padding: '6px', background: 'rgba(99, 102, 241, 0.1)', color: '#6366f1', border: 'none', borderRadius: '6px', cursor: 'pointer' }}><Eye size={16}/></button>
@@ -565,7 +577,7 @@ const AdminResourceDetail: React.FC = () => {
                     <div ref={sentinelRef} style={{ padding: '20px', textAlign: 'center' }}>
                         {loadingMore && (
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--dash-text-muted)' }}>
-                                <Loader2 size={18} className="spin" /> Chargement...
+                                <Loader2 size={18} className="spin" /> {t('Chargement...', 'Loading...')}
                             </div>
                         )}
                         {currentPage >= lastPage && objects.length > 0 && (

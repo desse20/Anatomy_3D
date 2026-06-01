@@ -100,7 +100,7 @@ class LabController extends Controller
     public function bulkDestroy(Request $request): JsonResponse
     {
         $ids = $request->input('ids', []);
-        if (empty($ids)) return response()->json(['message' => 'Aucun ID fourni.'], 400);
+        if (empty($ids)) return response()->json(['message' => __('messages.lab.no_ids')], 400);
 
         $user = auth()->user();
         $query = Lab::whereIn('id', $ids);
@@ -111,7 +111,7 @@ class LabController extends Controller
 
         $count = $query->delete();
 
-        return response()->json(['message' => "$count lab(s) supprimé(s)."]);
+        return response()->json(['message' => __('messages.lab.bulk_deleted', ['count' => $count])]);
     }
 
     /**
@@ -122,7 +122,7 @@ class LabController extends Controller
         $this->authorizeTeacherOrAdmin($lab);
         $lab->delete();
 
-        return response()->json(['message' => 'Lab supprimé.'], 200);
+        return response()->json(['message' => __('messages.lab.deleted')], 200);
     }
 
     /**
@@ -135,7 +135,7 @@ class LabController extends Controller
         $sharedView = SharedView::findOrFail($sharedViewId);
 
         if (auth()->user()->role !== 'admin' && $sharedView->teacher_id !== auth()->id()) {
-            abort(403, 'Cette vue ne vous appartient pas.');
+            abort(403, __('messages.lab.not_owner'));
         }
 
         if (!$lab->sharedViews()->where('shared_view_id', $sharedView->id)->exists()) {
@@ -147,7 +147,7 @@ class LabController extends Controller
             ]);
         }
 
-        return response()->json(['message' => 'Vue ajoutée au Lab.']);
+        return response()->json(['message' => __('messages.lab.view_added')]);
     }
 
     /**
@@ -161,7 +161,7 @@ class LabController extends Controller
             ->where('shared_view_id', $sharedViewId)
             ->delete();
 
-        return response()->json(['message' => 'Vue retirée du Lab.']);
+        return response()->json(['message' => __('messages.lab.view_removed')]);
     }
 
     /**
@@ -214,7 +214,7 @@ class LabController extends Controller
     public function bulkDestroySharedViews(Request $request): JsonResponse
     {
         $ids = $request->input('ids', []);
-        if (empty($ids)) return response()->json(['message' => 'Aucun ID fourni.'], 400);
+        if (empty($ids)) return response()->json(['message' => __('messages.lab.no_ids')], 400);
 
         $user = auth()->user();
         $query = \App\Models\SharedView::whereIn('id', $ids);
@@ -225,7 +225,7 @@ class LabController extends Controller
 
         $count = $query->delete();
 
-        return response()->json(['message' => "$count vue(s) supprimée(s)."]);
+        return response()->json(['message' => __('messages.lab.view_deleted')]);
     }
 
     /**
@@ -237,7 +237,7 @@ class LabController extends Controller
         $user = auth()->user();
 
         if ($user->role !== 'admin' && $view->teacher_id !== $user->id) {
-            abort(403, 'Action non autorisée.');
+            abort(403, __('messages.general.access_denied'));
         }
 
         $validated = $request->validate([
@@ -259,12 +259,12 @@ class LabController extends Controller
         $user = auth()->user();
 
         if ($user->role !== 'admin' && $view->teacher_id !== $user->id) {
-            abort(403, 'Action non autorisée.');
+            abort(403, __('messages.general.access_denied'));
         }
 
         $view->delete();
 
-        return response()->json(['message' => 'Vue supprimée.']);
+        return response()->json(['message' => __('messages.lab.view_deleted')]);
     }
 
     /**
@@ -283,7 +283,7 @@ class LabController extends Controller
     {
         $user = auth()->user();
         if ($user->role !== 'admin' && $lab->teacher_id !== $user->id) {
-            abort(403, 'Accès refusé.');
+            abort(403, __('messages.general.access_denied'));
         }
     }
 }

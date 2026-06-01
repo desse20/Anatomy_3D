@@ -3,11 +3,15 @@ import { useSearchParams, Link } from 'react-router-dom';
 import AnatomyViewer from '../components/AnatomyViewer';
 import App from '../components/layouts/App';
 import { apiCall } from '../services/api';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const AnatomyViewerPage: React.FC = () => {
+    const { language } = useLanguage();
+    const t = (fr: string, en: string) => language === 'fr' ? fr : en;
+
     const [searchParams] = useSearchParams();
     const assetId = searchParams.get('asset');
-    const [assetName, setAssetName] = useState<string>('Modèle 3D');
+    const [assetName, setAssetName] = useState<string>(t('Modèle 3D', '3D Model'));
 
     useEffect(() => {
         if (assetId) {
@@ -21,7 +25,7 @@ const AnatomyViewerPage: React.FC = () => {
 
     const breadcrumb = (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Link to="/atlas" style={{ color: 'var(--dash-text-muted)', textDecoration: 'none' }}>Atlas 3D</Link>
+            <Link to="/atlas" style={{ color: 'var(--dash-text-muted)', textDecoration: 'none' }}>{t('Atlas 3D', '3D Atlas')}</Link>
             <span style={{ color: 'var(--dash-text-muted)' }}>/</span>
             <span style={{ color: 'var(--dash-text-main)', fontWeight: 600 }}>{assetName}</span>
         </div>

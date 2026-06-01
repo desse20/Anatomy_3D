@@ -3,8 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import App from '../components/layouts/App';
 import { apiCall } from '../services/api';
 import { Box, Play, Info, Loader2 } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const AtlasModelSelection: React.FC = () => {
+    const { language } = useLanguage();
+    const t = (fr: string, en: string) => language === 'fr' ? fr : en;
+
     const navigate = useNavigate();
     const [assets, setAssets] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -26,7 +30,7 @@ const AtlasModelSelection: React.FC = () => {
 
     if (loading) {
         return (
-            <App title="Chargement Atlas">
+            <App title={t('Chargement Atlas', 'Loading Atlas')}>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', padding: '40px', justifyContent: 'center' }}>
                     <Loader2 className="spin" size={48} color="#0ea5e9" />
                 </div>
@@ -35,7 +39,7 @@ const AtlasModelSelection: React.FC = () => {
     }
 
     return (
-        <App breadcrumb="Atlas / Sélection" title="Choisir un Modèle Anatomique">
+        <App breadcrumb={t('Atlas / Sélection', 'Atlas / Selection')} title={t('Choisir un Modèle Anatomique', 'Choose an Anatomical Model')}>
             <div className="atlas-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '24px', padding: '20px 0' }}>
                 {assets.map(asset => (
                     <div 
@@ -66,7 +70,7 @@ const AtlasModelSelection: React.FC = () => {
                         <div className="atlas-card-content" style={{ padding: '20px', flex: 1, display: 'flex', flexDirection: 'column' }}>
                             <h3 className="atlas-card-title" style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{asset.name}</h3>
                             <p className="atlas-card-desc" style={{ margin: '0 0 20px 0', fontSize: '13px', color: 'var(--dash-text-muted)', flex: 1 }}>
-                                {asset.objects || 0} objets anatomiques répertoriés.
+                                {asset.objects || 0} {t('objets anatomiques répertoriés.', 'anatomical objects listed.')}
                             </p>
                             <button 
                                 className="atlas-card-button"
@@ -85,7 +89,7 @@ const AtlasModelSelection: React.FC = () => {
                                     cursor: 'pointer'
                                 }}
                             >
-                                <Play size={18} fill="currentColor" /> Explorer en 3D
+                                <Play size={18} fill="currentColor" /> {t('Explorer en 3D', 'Explore in 3D')}
                             </button>
                         </div>
                     </div>
@@ -94,9 +98,9 @@ const AtlasModelSelection: React.FC = () => {
                 {assets.length === 0 && (
                     <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px', color: 'var(--dash-text-muted)' }}>
                         <Info size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
-                        <p style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>En mode Maintenance pour le moment</p>
-                        <p style={{ fontSize: '14px', marginBottom: '4px' }}>Patientez quelques instants</p>
-                        <p style={{ fontSize: '14px' }}>ou contactez-nous via le support</p>
+                        <p style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>{t('En mode Maintenance pour le moment', 'Currently in Maintenance Mode')}</p>
+                        <p style={{ fontSize: '14px', marginBottom: '4px' }}>{t('Patientez quelques instants', 'Please wait a moment')}</p>
+                        <p style={{ fontSize: '14px' }}>{t('ou contactez-nous via le support', 'or contact us via support')}</p>
                     </div>
                 )}
             </div>

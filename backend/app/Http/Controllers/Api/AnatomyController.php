@@ -100,7 +100,7 @@ class AnatomyController extends Controller
                 // Essayer sans le cas
                 $rootNode = AnatomicalObject::where('name', 'LIKE', '%' . $name . '%')->first();
                 if (!$rootNode) {
-                    return response()->json(['error' => "Node '$name' not found"], 404);
+                    return response()->json(['error' => __('messages.anatomy.node_not_found', ['name' => $name])], 404);
                 }
             }
 

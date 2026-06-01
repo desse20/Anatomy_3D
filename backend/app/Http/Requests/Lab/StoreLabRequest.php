@@ -22,10 +22,10 @@ class StoreLabRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'name.required' => 'Le nom de la salle est obligatoire.',
-            'name.unique'   => 'Une salle portant ce nom existe déjà.',
-            'name.string'   => 'Le nom doit être une chaîne de caractères.',
-            'name.max'      => 'Le nom est trop long.',
+            'name.required' => __('messages.lab.name_required'),
+            'name.unique'   => __('messages.lab.name_unique'),
+            'name.string'   => __('messages.lab.name_string'),
+            'name.max'      => __('messages.lab.name_max'),
             'description.string' => __('messages.lab.description_string'),
             'description.max'    => __('messages.lab.description_max'),
         ];

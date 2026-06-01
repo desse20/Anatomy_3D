@@ -7,12 +7,13 @@ import autoTable from 'jspdf-autotable';
 import App from '../components/layouts/App';
 import { apiCall } from '../services/api';
 import { getSwalTheme } from '../services/swalTheme';
+import { useLanguage } from '../contexts/LanguageContext';
 
-const RoleSelector = ({ value, onChange, disabledRoles, isLocked }: { value: string, onChange: (r: string) => void, disabledRoles: string[], isLocked: boolean }) => (
+const RoleSelector = ({ value, onChange, disabledRoles, isLocked, t }: { t: any, value: string, onChange: (r: string) => void, disabledRoles: string[], isLocked: boolean }) => (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
         {[
-            { id: 'student', label: 'Étudiant', icon: <GraduationCap size={16} />, color: '#10b981', bg: '#34d39915', border: '#34d39930' },
-            { id: 'teacher', label: 'Professeur', icon: <BookOpen size={16} />, color: '#f59e0b', bg: '#fbbf2415', border: '#fbbf2430' },
+            { id: 'student', label: t('Étudiant', 'Student'), icon: <GraduationCap size={16} />, color: '#10b981', bg: '#34d39915', border: '#34d39930' },
+            { id: 'teacher', label: t('Professeur', 'Teacher'), icon: <BookOpen size={16} />, color: '#f59e0b', bg: '#fbbf2415', border: '#fbbf2430' },
             { id: 'admin', label: 'Admin', icon: <Shield size={16} />, color: '#f87171', bg: '#f8717115', border: '#f8717130' }
         ].map(role => {
             const isSelected = value === role.id;
@@ -50,6 +51,8 @@ const RoleSelector = ({ value, onChange, disabledRoles, isLocked }: { value: str
 );
 
 const AdminUsers: React.FC = () => {
+    const { language } = useLanguage();
+    const t = (fr: string, en: string) => language === 'fr' ? fr : en;
     const [users, setUsers] = useState<any[]>([]);
     const [search, setSearch] = useState('');
     const [roleFilter, setRoleFilter] = useState('');
@@ -114,8 +117,8 @@ const AdminUsers: React.FC = () => {
             await apiCall('users', { method: 'POST', body: JSON.stringify(formData) });
             setIsAddingUser(false);
             fetchUsers();
-            Swal.fire({ icon: 'success', title: 'Utilisateur créé', timer: 1500, showConfirmButton: false, ...getSwalTheme() });
-        } catch (e: any) { Swal.fire({ title: 'Erreur', text: e.message || "Erreur de création.", icon: 'error', ...getSwalTheme() }); }
+            Swal.fire({ icon: 'success', title: t('Utilisateur créé', 'User created'), timer: 1500, showConfirmButton: false, ...getSwalTheme() });
+        } catch (e: any) { Swal.fire({ title: t('Erreur', 'Error'), text: e.message || t('Erreur de création.', 'Creation error.'), icon: 'error', ...getSwalTheme() }); }
     };
 
     const handleEditWrapper = async (e: React.FormEvent) => {
@@ -126,21 +129,21 @@ const AdminUsers: React.FC = () => {
             await apiCall(`users/${currentUser.id}`, { method: 'POST', body: JSON.stringify({ ...data, _method: 'PUT' }) });
             setIsEditModalOpen(false);
             fetchUsers();
-            Swal.fire({ icon: 'success', title: 'Mis à jour', timer: 1000, showConfirmButton: false, ...getSwalTheme() });
-        } catch (e: any) { Swal.fire({ title: 'Erreur', text: e.message || "Erreur de modification.", icon: 'error', ...getSwalTheme() }); }
+            Swal.fire({ icon: 'success', title: t('Mis à jour', 'Updated'), timer: 1000, showConfirmButton: false, ...getSwalTheme() });
+        } catch (e: any) { Swal.fire({ title: t('Erreur', 'Error'), text: e.message || t('Erreur de modification.', 'Modification error.'), icon: 'error', ...getSwalTheme() }); }
     };
 
     const handleDelete = async (user: any) => {
         const { value: adminPassword } = await Swal.fire({
-            title: 'Confirmer la suppression',
-            text: `Êtes-vous sûr de vouloir supprimer "${user.firstname} ${user.lastname}" ? Cette action est irréversible.`,
+            title: t('Confirmer la suppression', 'Confirm deletion'),
+            text: `${t('Êtes-vous sûr de vouloir supprimer', 'Are you sure you want to delete')} "${user.firstname} ${user.lastname}" ? ${t('Cette action est irréversible.', 'This action is irreversible.')}`,
             icon: 'warning',
             input: 'password',
-            inputPlaceholder: 'Entrez votre mot de passe admin',
+            inputPlaceholder: t('Entrez votre mot de passe admin', 'Enter your admin password'),
             showCancelButton: true,
             confirmButtonColor: '#f43f5e',
-            confirmButtonText: 'Supprimer définitivement',
-            cancelButtonText: 'Annuler',
+            confirmButtonText: t('Supprimer définitivement', 'Delete permanently'),
+            cancelButtonText: t('Annuler', 'Cancel'),
             ...getSwalTheme()
         });
 
@@ -148,22 +151,22 @@ const AdminUsers: React.FC = () => {
             try {
                 await apiCall(`users/${user.id}`, { method: 'POST', body: JSON.stringify({ password: adminPassword, _method: 'DELETE' }) });
                 fetchUsers();
-                Swal.fire({ icon: 'success', title: 'Utilisateur supprimé', timer: 1000, showConfirmButton: false, ...getSwalTheme() });
-            } catch (e: any) { Swal.fire({ title: 'Erreur', text: e.message || 'Mot de passe incorrect ou erreur serveur.', icon: 'error', ...getSwalTheme() }); }
+                Swal.fire({ icon: 'success', title: t('Utilisateur supprimé', 'User deleted'), timer: 1000, showConfirmButton: false, ...getSwalTheme() });
+            } catch (e: any) { Swal.fire({ title: t('Erreur', 'Error'), text: e.message || t('Mot de passe incorrect ou erreur serveur.', 'Incorrect password or server error.'), icon: 'error', ...getSwalTheme() }); }
         }
     };
 
     const handleBulkDelete = async () => {
         const { value: adminPassword } = await Swal.fire({
-            title: 'Suppression groupée',
-            text: `Voulez-vous supprimer les ${selectedIds.length} utilisateurs sélectionnés ? Cette action est irréversible.`,
+            title: t('Suppression groupée', 'Bulk deletion'),
+            text: `${t('Voulez-vous supprimer les', 'Do you want to delete the')} ${selectedIds.length} ${t('utilisateurs sélectionnés ? Cette action est irréversible.', 'selected users? This action is irreversible.')}`,
             icon: 'warning',
             input: 'password',
-            inputPlaceholder: 'Entrez votre mot de passe admin',
+            inputPlaceholder: t('Entrez votre mot de passe admin', 'Enter your admin password'),
             showCancelButton: true,
             confirmButtonColor: '#f43f5e',
-            confirmButtonText: 'Tout supprimer',
-            cancelButtonText: 'Annuler',
+            confirmButtonText: t('Tout supprimer', 'Delete all'),
+            cancelButtonText: t('Annuler', 'Cancel'),
             ...getSwalTheme()
         });
 
@@ -171,8 +174,8 @@ const AdminUsers: React.FC = () => {
             try {
                 await apiCall('users/bulk-delete', { method: 'POST', body: JSON.stringify({ password: adminPassword, ids: selectedIds }) });
                 fetchUsers();
-                Swal.fire({ icon: 'success', title: 'Sélection supprimée', timer: 1500, showConfirmButton: false, ...getSwalTheme() });
-            } catch (e: any) { Swal.fire({ title: 'Erreur', text: e.message || 'Erreur lors de la suppression.', icon: 'error', ...getSwalTheme() }); }
+                Swal.fire({ icon: 'success', title: t('Sélection supprimée', 'Selection deleted'), timer: 1500, showConfirmButton: false, ...getSwalTheme() });
+            } catch (e: any) { Swal.fire({ title: t('Erreur', 'Error'), text: e.message || t('Erreur lors de la suppression.', 'Error during deletion.'), icon: 'error', ...getSwalTheme() }); }
         }
     };
 
@@ -188,20 +191,22 @@ const AdminUsers: React.FC = () => {
 
     // ── EXPORTS ──────────────────────────────────────────────────────────────
     const getRoleLabel = (role: string) =>
-        role === 'admin' ? 'Administrateur' : role === 'teacher' ? 'Professeur' : 'Étudiant';
+        role === 'admin' ? t('Administrateur', 'Administrator') : role === 'teacher' ? t('Professeur', 'Teacher') : t('Étudiant', 'Student');
 
     const exportExcel = () => {
-        const rows = users.map((u, i) => ({
-            '#': i + 1,
-            'Prénom': u.firstname,
-            'Nom': u.lastname,
-            'Email': u.email,
-            'Rôle': getRoleLabel(u.role),
-            'Créé le': u.created_at ? new Date(u.created_at).toLocaleDateString('fr-FR') : '—',
-        }));
+        const rows = users.map((u, i) => {
+            const row: any = {};
+            row['#'] = i + 1;
+            row[t('Prénom', 'First Name')] = u.firstname;
+            row[t('Nom', 'Last Name')] = u.lastname;
+            row[t('Email', 'Email')] = u.email;
+            row[t('Rôle', 'Role')] = getRoleLabel(u.role);
+            row[t('Inscrit le', 'Registered at')] = u.created_at ? new Date(u.created_at).toLocaleDateString('fr-FR') : '—';
+            return row;
+        });
         const ws = XLSX.utils.json_to_sheet(rows);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Utilisateurs');
+        XLSX.utils.book_append_sheet(wb, ws, t('Utilisateurs', 'Users'));
         // Largeurs de colonnes
         ws['!cols'] = [{ wch: 5 }, { wch: 18 }, { wch: 18 }, { wch: 30 }, { wch: 16 }, { wch: 14 }];
         XLSX.writeFile(wb, `utilisateurs_${new Date().toISOString().slice(0,10)}.xlsx`);
@@ -217,14 +222,14 @@ const AdminUsers: React.FC = () => {
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(13);
         doc.setFont('helvetica', 'bold');
-        doc.text('Liste des Utilisateurs — Anatomy 3D', 14, 12);
+        doc.text(t('Liste des Utilisateurs — Anatomy 3D', 'User List — Anatomy 3D'), 14, 12);
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
-        doc.text(`Généré le ${today}  •  ${users.length} utilisateur(s)`, 148, 12, { align: 'center' });
+        doc.text(`${t('Généré le', 'Generated on')} ${today}  •  ${users.length} ${t('utilisateur(s)', 'user(s)')}`, 148, 12, { align: 'center' });
 
         autoTable(doc, {
             startY: 22,
-            head: [['#', 'Prénom', 'Nom', 'Email', 'Rôle', 'Créé le']],
+            head: [[t('#', '#'), t('Prénom', 'First Name'), t('Nom', 'Last Name'), t('Email', 'Email'), t('Rôle', 'Role'), t('Créé le', 'Created at')]],
             body: users.map((u, i) => [
                 i + 1,
                 u.firstname,
@@ -249,19 +254,19 @@ const AdminUsers: React.FC = () => {
             doc.setPage(i);
             doc.setFontSize(8);
             doc.setTextColor(150);
-            doc.text(`Page ${i} / ${pageCount}`, 290, 205, { align: 'right' });
+            doc.text(`${t('Page', 'Page')} ${i} / ${pageCount}`, 290, 205, { align: 'right' });
         }
 
         doc.save(`utilisateurs_${new Date().toISOString().slice(0,10)}.pdf`);
     };
 
     return (
-        <App breadcrumb="Administration" title="Gestion des Utilisateurs">
+        <App breadcrumb={t("Administration", "Administration")} title={t("Gestion des Utilisateurs", "User Management")}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
                     {selectedIds.length > 0 && (
                         <button onClick={handleBulkDelete} style={{ background: '#f43f5e', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(244, 63, 94, 0.2)' }}>
-                            <Trash2 size={18} /> Supprimer la sélection ({selectedIds.length})
+                            <Trash2 size={18} /> {t('Supprimer la sélection', 'Delete selection')} ({selectedIds.length})
                         </button>
                     )}
                     {/* ── Boutons Export ── */}
@@ -269,7 +274,7 @@ const AdminUsers: React.FC = () => {
                         id="btn-export-excel"
                         onClick={exportExcel}
                         disabled={users.length === 0}
-                        title="Télécharger la liste en Excel"
+                        title={t('Télécharger la liste en Excel', 'Download list in Excel')}
                         style={{ background: '#16a34a', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', cursor: users.length === 0 ? 'not-allowed' : 'pointer', opacity: users.length === 0 ? 0.5 : 1, boxShadow: '0 4px 12px rgba(22,163,74,0.2)', transition: '0.2s' }}
                     >
                         <FileSpreadsheet size={17} /> Excel
@@ -278,7 +283,7 @@ const AdminUsers: React.FC = () => {
                         id="btn-export-pdf"
                         onClick={exportPdf}
                         disabled={users.length === 0}
-                        title="Télécharger la liste en PDF"
+                        title={t('Télécharger la liste en PDF', 'Download list in PDF')}
                         style={{ background: '#dc2626', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', cursor: users.length === 0 ? 'not-allowed' : 'pointer', opacity: users.length === 0 ? 0.5 : 1, boxShadow: '0 4px 12px rgba(220,38,38,0.2)', transition: '0.2s' }}
                     >
                         <FileText size={17} /> PDF
@@ -288,30 +293,30 @@ const AdminUsers: React.FC = () => {
                     onClick={() => { setIsAddingUser(!isAddingUser); setIsEditModalOpen(false); if(!isAddingUser) setFormData({firstname:'', lastname:'', email:'compte@gmail.com', password:generateSecurePassword(), role:'student'}); }}
                     style={{ background: isAddingUser ? 'var(--dash-border)' : '#0ea5e9', color: isAddingUser ? 'var(--dash-text)' : '#fff', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
                 >
-                    {isAddingUser ? <X size={18}/> : <Plus size={18}/>} {isAddingUser ? "Annuler l'ajout" : "Ajouter un Utilisateur"}
+                    {isAddingUser ? <X size={18}/> : <Plus size={18}/>} {isAddingUser ? t("Annuler l'ajout", 'Cancel addition') : t("Ajouter un Utilisateur", 'Add a User')}
                 </button>
             </div>
 
             {isAddingUser && (
                 <div style={{ background: 'var(--dash-bg)', border: '1px solid #0ea5e950', borderRadius: '16px', padding: '24px', marginBottom: '32px', boxShadow: '0 10px 25px -5px rgba(14, 165, 233, 0.1)' }}>
-                    <h3 style={{ margin: '0 0 20px 0', fontSize: '18px', color: '#0ea5e9', display: 'flex', alignItems: 'center', gap: '8px' }}><Plus size={20}/> Créer un compte</h3>
+                    <h3 style={{ margin: '0 0 20px 0', fontSize: '18px', color: '#0ea5e9', display: 'flex', alignItems: 'center', gap: '8px' }}><Plus size={20}/> {t('Créer un compte', 'Create an account')}</h3>
                     <form onSubmit={handleCreateWrapper}>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                            <div><label style={{display:'block',fontSize:'12px',fontWeight:600,color:'var(--dash-text-muted)',marginBottom:'6px'}}>Prénom</label>
+                            <div><label style={{display:'block',fontSize:'12px',fontWeight:600,color:'var(--dash-text-muted)',marginBottom:'6px'}}>{t('Prénom', 'First Name')}</label>
                             <input type="text" required value={formData.firstname} onChange={(e)=>setFormData({...formData, firstname:e.target.value})} style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid var(--dash-border)',background:'rgba(0,0,0,0.02)',color:'var(--dash-text)',outline:'none'}}/></div>
-                            <div><label style={{display:'block',fontSize:'12px',fontWeight:600,color:'var(--dash-text-muted)',marginBottom:'6px'}}>Nom</label>
+                            <div><label style={{display:'block',fontSize:'12px',fontWeight:600,color:'var(--dash-text-muted)',marginBottom:'6px'}}>{t('Nom', 'Last Name')}</label>
                             <input type="text" required value={formData.lastname} onChange={(e)=>setFormData({...formData, lastname:e.target.value})} style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid var(--dash-border)',background:'rgba(0,0,0,0.02)',color:'var(--dash-text)',outline:'none'}}/></div>
                         </div>
-                        <div style={{marginBottom:'16px'}}><label style={{display:'block',fontSize:'12px',fontWeight:600,color:'var(--dash-text-muted)',marginBottom:'6px'}}>Email</label>
+                        <div style={{marginBottom:'16px'}}><label style={{display:'block',fontSize:'12px',fontWeight:600,color:'var(--dash-text-muted)',marginBottom:'6px'}}>{t('Email', 'Email')}</label>
                         <input type="email" required value={formData.email} onChange={(e)=>setFormData({...formData, email:e.target.value})} style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid var(--dash-border)',background:'rgba(0,0,0,0.02)',color:'var(--dash-text)',outline:'none'}}/></div>
-                        <div style={{marginBottom:'16px'}}><label style={{display:'block',fontSize:'12px',fontWeight:600,color:'var(--dash-text-muted)',marginBottom:'8px'}}>Rôle de l'utilisateur</label>
-                        <RoleSelector value={formData.role} onChange={(r)=>setFormData({...formData, role:r})} disabledRoles={[]} isLocked={false}/></div>
-                        <div style={{marginBottom:'24px'}}><label style={{display:'block',fontSize:'12px',fontWeight:600,color:'var(--dash-text-muted)',marginBottom:'6px'}}>Mot de passe initial</label>
+                        <div style={{marginBottom:'16px'}}><label style={{display:'block',fontSize:'12px',fontWeight:600,color:'var(--dash-text-muted)',marginBottom:'8px'}}>{t("Rôle de l'utilisateur", "User Role")}</label>
+                        <RoleSelector t={t} value={formData.role} onChange={(r)=>setFormData({...formData, role:r})} disabledRoles={[]} isLocked={false}/></div>
+                        <div style={{marginBottom:'24px'}}><label style={{display:'block',fontSize:'12px',fontWeight:600,color:'var(--dash-text-muted)',marginBottom:'6px'}}>{t('Mot de passe initial', 'Initial password')}</label>
                         <div style={{display:'flex',gap:'8px'}}><input type="text" required value={formData.password} onChange={(e)=>setFormData({...formData, password:e.target.value})} style={{flex:1,padding:'10px',borderRadius:'8px',border:'1px solid var(--dash-border)',background:'rgba(0,0,0,0.02)',color:'var(--dash-text)',outline:'none',fontFamily:'monospace'}}/>
-                        <button type="button" onClick={()=>setFormData({...formData, password:generateSecurePassword()})} style={{padding:'0 16px',background:'var(--dash-bg)',border:'1px solid var(--dash-border)',borderRadius:'8px',cursor:'pointer'}}>Générer</button></div></div>
+                        <button type="button" onClick={()=>setFormData({...formData, password:generateSecurePassword()})} style={{padding:'0 16px',background:'var(--dash-bg)',border:'1px solid var(--dash-border)',borderRadius:'8px',cursor:'pointer'}}>{t('Générer', 'Generate')}</button></div></div>
                         <div style={{display:'flex',justifyContent:'flex-end',gap:'12px'}}>
-                            <button type="button" onClick={()=>setIsAddingUser(false)} style={{padding:'10px 20px',borderRadius:'8px',border:'1px solid var(--dash-border)',background:'transparent',color:'var(--dash-text)',cursor:'pointer'}}>Annuler</button>
-                            <button type="submit" style={{padding:'10px 24px',borderRadius:'8px',border:'none',background:'#0ea5e9',color:'#fff',fontWeight:600,cursor:'pointer'}}>Créer l'utilisateur</button>
+                            <button type="button" onClick={()=>setIsAddingUser(false)} style={{padding:'10px 20px',borderRadius:'8px',border:'1px solid var(--dash-border)',background:'transparent',color:'var(--dash-text)',cursor:'pointer'}}>{t('Annuler', 'Cancel')}</button>
+                            <button type="submit" style={{padding:'10px 24px',borderRadius:'8px',border:'none',background:'#0ea5e9',color:'#fff',fontWeight:600,cursor:'pointer'}}>{t("Créer l'utilisateur", "Create user")}</button>
                         </div>
                     </form>
                 </div>
@@ -321,14 +326,14 @@ const AdminUsers: React.FC = () => {
                 <div style={{ padding: '20px', borderBottom: '1px solid var(--dash-border)', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <div style={{ flex: 1, display: 'flex', position: 'relative' }}>
                         <Search size={18} style={{ position: 'absolute', left: '16px', top: '11px', color: 'var(--dash-text-muted)' }} />
-                        <input type="text" placeholder="Rechercher..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ width: '100%', padding: '10px 16px 10px 44px', borderRadius: '8px', border: '1px solid var(--dash-border)', background: 'transparent', color: 'var(--dash-text)', outline: 'none' }} />
+                        <input type="text" placeholder={t('Rechercher...', 'Search...')} value={search} onChange={(e) => setSearch(e.target.value)} style={{ width: '100%', padding: '10px 16px 10px 44px', borderRadius: '8px', border: '1px solid var(--dash-border)', background: 'transparent', color: 'var(--dash-text)', outline: 'none' }} />
                     </div>
                     <Filter size={18} color="var(--dash-text-muted)" />
                     <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text)', outline: 'none' }}>
-                        <option value="">Tous les rôles</option>
-                        <option value="student">Étudiants</option>
-                        <option value="teacher">Professeurs</option>
-                        <option value="admin">Administrateurs</option>
+                        <option value="">{t('Tous les rôles', 'All roles')}</option>
+                        <option value="student">{t('Étudiants', 'Students')}</option>
+                        <option value="teacher">{t('Professeurs', 'Teachers')}</option>
+                        <option value="admin">{t('Administrateurs', 'Administrators')}</option>
                     </select>
                 </div>
 
@@ -347,9 +352,9 @@ const AdminUsers: React.FC = () => {
                         </thead>
                         <tbody>
                             {loading ? (
-                                <tr><td colSpan={5} style={{ padding: '40px', textAlign: 'center' }}>Chargement...</td></tr>
+                                <tr><td colSpan={5} style={{ padding: '40px', textAlign: 'center' }}>{t('Chargement...', 'Loading...')}</td></tr>
                             ) : users.length === 0 ? (
-                                <tr><td colSpan={5} style={{ padding: '40px', textAlign: 'center' }}>Aucun utilisateur.</td></tr>
+                                <tr><td colSpan={5} style={{ padding: '40px', textAlign: 'center' }}>{t('Aucun utilisateur.', 'No user.')}</td></tr>
                             ) : (
                                 users.map(u => {
                                     const isProtected = u.role === 'admin' || u.id === currentLoggedUser.id;
@@ -371,7 +376,7 @@ const AdminUsers: React.FC = () => {
                                                         <button onClick={() => {setCurrentUser(u); setFormData({firstname:u.firstname, lastname:u.lastname, email:u.email, password:'', role:u.role}); setIsEditModalOpen(true);}} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6366f1' }}><Edit2 size={16} /></button>
                                                         <button onClick={() => handleDelete(u)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f43f5e' }}><Trash2 size={16} /></button>
                                                     </div>
-                                                ) : <span style={{fontSize:'11px',color:'var(--dash-text-muted)',fontStyle:'italic'}}>Protégé</span>}
+                                                ) : <span style={{fontSize:'11px',color:'var(--dash-text-muted)',fontStyle:'italic'}}>{language === 'fr' ? 'Protégé' : 'Protected'}</span>}
                                             </td>
                                         </tr>
                                     );
@@ -385,17 +390,17 @@ const AdminUsers: React.FC = () => {
             {isEditModalOpen && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
                     <div style={{ background: 'var(--dash-bg)', width: '100%', maxWidth: '500px', borderRadius: '16px', border: '1px solid var(--dash-border)', padding: '24px' }}>
-                        <h3 style={{ margin: '0 0 20px 0' }}>Modifier l'utilisateur</h3>
+                        <h3 style={{ margin: '0 0 20px 0' }}>{t("Modifier l'utilisateur", "Edit user")}</h3>
                         <form onSubmit={handleEditWrapper}>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                                 <input type="text" value={formData.firstname} onChange={(e)=>setFormData({...formData, firstname:e.target.value})} style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid var(--dash-border)',background:'rgba(0,0,0,0.02)',color:'var(--dash-text)'}}/>
                                 <input type="text" value={formData.lastname} onChange={(e)=>setFormData({...formData, lastname:e.target.value})} style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid var(--dash-border)',background:'rgba(0,0,0,0.02)',color:'var(--dash-text)'}}/>
                             </div>
                             <input type="email" value={formData.email} onChange={(e)=>setFormData({...formData, email:e.target.value})} style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid var(--dash-border)',marginBottom:'16px',background:'rgba(0,0,0,0.02)',color:'var(--dash-text)'}}/>
-                            <div style={{marginBottom:'24px'}}><RoleSelector value={formData.role} onChange={(r)=>setFormData({...formData, role:r})} disabledRoles={currentUser?.role === 'teacher' ? ['student'] : []} isLocked={currentUser?.role === 'admin'}/></div>
+                            <div style={{marginBottom:'24px'}}><RoleSelector t={t} value={formData.role} onChange={(r)=>setFormData({...formData, role:r})} disabledRoles={currentUser?.role === 'teacher' ? ['student'] : []} isLocked={currentUser?.role === 'admin'}/></div>
                             <div style={{ display: 'flex', gap: '12px' }}>
-                                <button type="button" onClick={() => setIsEditModalOpen(false)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid var(--dash-border)', background: 'transparent', color: 'var(--dash-text)' }}>Annuler</button>
-                                <button type="submit" style={{ flex: 1, padding: '12px', borderRadius: '8px', border: 'none', background: '#0ea5e9', color: '#fff', fontWeight: 600 }}>Enregistrer</button>
+                                <button type="button" onClick={() => setIsEditModalOpen(false)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid var(--dash-border)', background: 'transparent', color: 'var(--dash-text)' }}>{t('Annuler', 'Cancel')}</button>
+                                <button type="submit" style={{ flex: 1, padding: '12px', borderRadius: '8px', border: 'none', background: '#0ea5e9', color: '#fff', fontWeight: 600 }}>{t('Enregistrer', 'Save')}</button>
                             </div>
                         </form>
                     </div>

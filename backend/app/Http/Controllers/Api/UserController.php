@@ -55,11 +55,11 @@ class UserController extends Controller
         $data = $request->validated();
 
         if ($user->role === 'admin' && isset($data['role']) && $data['role'] !== 'admin') {
-            return response()->json(['message' => 'Impossible de modifier le rôle d\'un administrateur.'], 403);
+            return response()->json(['message' => __('messages.user.admin_role_protected')], 403);
         }
 
         if ($user->role === 'teacher' && isset($data['role']) && $data['role'] === 'student') {
-            return response()->json(['message' => 'Impossible de rétrograder un professeur au statut d\'étudiant.'], 403);
+            return response()->json(['message' => __('messages.user.teacher_downgrade_forbidden')], 403);
         }
 
         $user->update($data);
@@ -97,8 +97,8 @@ class UserController extends Controller
 
         if (!\Hash::check($request->password, auth()->user()->password)) {
             return response()->json([
-                'message' => 'Mot de passe incorrect.',
-                'errors' => ['password' => ['Mot de passe incorrect.']]
+                'message' => __('messages.user.password_incorrect'),
+                'errors' => ['password' => [__('messages.user.password_incorrect')]]
             ], 422);
         }
 
@@ -108,7 +108,7 @@ class UserController extends Controller
                     ->where('id', '!=', auth()->id())
                     ->delete();
 
-        return response()->json(['message' => "$count utilisateur(s) supprimé(s)."]);
+        return response()->json(['message' => __('messages.user.bulk_deleted', ['count' => $count])]);
     }
 
     public function destroy(Request $request, User $user)
