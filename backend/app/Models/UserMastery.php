@@ -10,7 +10,9 @@ class UserMastery extends Model
 {
     use HasUuids;
 
-    protected $table = 'user_mastery'; // Précisé car le pluriel automatique peut différer
+    protected $table = 'user_mastery';
+
+    public $timestamps = false;
 
     protected $fillable = [
         'user_id',
@@ -19,7 +21,7 @@ class UserMastery extends Model
         'failure_count',
         'mastery_level',
         'next_review_at',
-        'last_review_at'
+        'last_review_at',
     ];
 
     // Cast des dates pour manipulation facile avec Carbon
@@ -28,9 +30,9 @@ class UserMastery extends Model
         'last_review_at' => 'datetime',
     ];
 
-    public function user(): BelongsTo
+    public function student(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     public function anatomicalObject(): BelongsTo

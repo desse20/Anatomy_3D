@@ -22,8 +22,9 @@ class Asset3dSeeder extends Seeder
             Asset3d::updateOrCreate(
                 ['url_glb' => 'Assets_3D/Squelette_complet.glb'],
                 [
+                    'name'          => 'Modèle Squelettique de l\'anatomie humaine',
                     'version_cache' => 1,
-                    'admin_id' => $admin->id
+                    'admin_id'      => $admin->id
                 ]
             );
 

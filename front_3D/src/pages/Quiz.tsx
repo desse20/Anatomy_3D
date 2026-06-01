@@ -11,8 +11,8 @@ import {
 
 import Layout from '../components/layouts/App';
 import { aiService } from '../services/ai';
-import { apiCall } from '../services/api';
 import { useLanguage } from '../contexts/LanguageContext';
+import { apiCall } from '../services/api';
 import '../styles/quiz.css';
 
 const ArrowLg = () => (
@@ -35,6 +35,23 @@ interface Question {
 const slugify = (label: string) =>
     label.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 
+const formatUserAnswer = (q: Question): string => {
+    if (q.userAnswer === undefined || q.userAnswer === null || q.userAnswer === '') return '—';
+    if (typeof q.userAnswer === 'string') return q.userAnswer;
+    if (Array.isArray(q.userAnswer)) {
+        return q.userAnswer.map((i) => q.options?.[i] ?? String(i)).join(', ');
+    }
+    return q.options?.[q.userAnswer as number] ?? String(q.userAnswer);
+};
+
+const formatCorrectAnswer = (q: Question): string => {
+    if (typeof q.correctAnswer === 'string') return q.correctAnswer;
+    if (Array.isArray(q.correctAnswer)) {
+        return q.correctAnswer.map((i) => q.options?.[i] ?? String(i)).join(', ');
+    }
+    return q.options?.[q.correctAnswer as number] ?? String(q.correctAnswer);
+};
+
 // Map URL hashes → quiz type IDs (covers both FR and EN labels)
 const HASH_TO_TYPE: Record<string, string> = {
     'qcm-classique':      'MCQ',
@@ -52,18 +69,23 @@ const Quiz: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
 
-    // Paramètres de révision ciblée venant de Review.tsx
+    // Paramètres de révision ciblée venant de Review.tsx ou Dashboard
     const navState = (location.state as any) ?? {};
     const targetSystem: string | null = navState.system ?? null;
     const [targetSystemLabel, setTargetSystemLabel] = useState<string | null>(targetSystem);
+    // Resync quand on navigue vers /quiz avec un nouvel état (Dashboard → Quiz)
+    useEffect(() => {
+        if (navState.system) {
+            setTargetSystemLabel(navState.system);
+        }
+    }, [location.state]);
 
     const [step, setStep] = useState(1);
     const [quizType, setQuizType] = useState<string | null>(navState.quizType ?? null);
     const [questionCount, setQuestionCount] = useState<number>(navState.questionCount ?? 10);
-    const [immediateReveal, setImmediateReveal] = useState(false);
-    const [showFeedback, setShowFeedback] = useState(false);
     const [isReviewMode, setIsReviewMode] = useState(false);
     const [masterQuestions, setMasterQuestions] = useState<Question[]>([]);
+    const [topicLoading, setTopicLoading] = useState(false);
 
     // Si on arrive depuis Review.tsx avec un système ciblé, on saute directement à l'étape 4
     useEffect(() => {
@@ -82,13 +104,16 @@ const Quiz: React.FC = () => {
             setQuizType(matchedType);
             setStep(2);
         }
+        // Auto-pick a topic if none provided
+        if (!navState.system) {
+            fetchNextTopic();
+        }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const [isLoading, setIsLoading] = useState(false);
     const [questions, setQuestions] = useState<Question[]>([]);
     const [currentIdx, setCurrentIdx] = useState(0);
-    const [selectedOpt, setSelectedOpt] = useState<number | null>(null);
     const [selectedOpts, setSelectedOpts] = useState<number[]>([]);
     const [textAnswer, setTextAnswer] = useState('');
     const [error, setError] = useState<string | null>(null);
@@ -104,7 +129,7 @@ const Quiz: React.FC = () => {
         else format = 'STRICT OPEN QUESTION: NO options array. NO numeric index. correctAnswer MUST BE A STRING (the name of the structure). [{text, correctAnswer:string, explanation}]';
 
         const scope = system
-            ? `FOCUS EXCLUSIVELY on the "${system}" anatomical system and its sub-structures.`
+            ? `FOCUS EXCLUSIVELY on the DIRECT ANATOMICAL SUB-STRUCTURES of "${system}". Each question must test knowledge about ONE specific sub-structure (not about "${system}" itself).`
             : 'Cover diverse anatomy topics.';
 
         return `CRITICAL: OUTPUT MUST BE A VALID JSON ARRAY ONLY. NO COMMENTS. NO EXPLANATIONS OUTSIDE JSON.
@@ -120,25 +145,84 @@ const Quiz: React.FC = () => {
     const handleStartWithSystem = async (system: string, type: string, count: number) => {
         setIsLoading(true);
         setError(null);
-        setShowFeedback(false);
-        const prompt = buildPrompt(system, type, count);
         try {
-            const response = await aiService.generate('phi3:latest', prompt);
-            await parseAndSetQuestions(response, type);
+            // Générer les questions une par une pour éviter les problèmes de l'IA
+            const allQuestions: Question[] = [];
+            let attempts = 0;
+            const maxAttempts = count * 3; // 3 essais par question
+            
+            while (allQuestions.length < count && attempts < maxAttempts) {
+                const prompt = buildPrompt(system, type, 1);
+                const response = await aiService.generate('phi3:latest', prompt);
+                const parsed = parseAndSetQuestionsSingle(response.response, type, allQuestions.length);
+                if (parsed) {
+                    allQuestions.push(...parsed);
+                }
+                attempts++;
+            }
+            
+            if (allQuestions.length === 0) {
+                throw new Error("No questions generated");
+            }
+            
+            if (allQuestions.length < count) {
+                console.warn(`Seulement ${allQuestions.length} questions générées sur ${count} demandées`);
+            }
+            
+            setQuestions(allQuestions);
+            setMasterQuestions(allQuestions);
+            setIsReviewMode(false);
         } catch (err: any) {
             setError(language === 'fr' ? `Erreur: ${err.message || 'IA Indisponible'}` : `Error: ${err.message || 'AI Unavailable'}`);
         } finally { setIsLoading(false); }
+    };
+
+    // Pioche un objet parent non étudié via l'API
+    const fetchNextTopic = async () => {
+        setTopicLoading(true);
+        try {
+            const res = await apiCall('quiz/next-topic');
+            if (res?.name) {
+                setTargetSystemLabel(res.name);
+            }
+        } catch (e) {
+            console.warn('Auto-pick topic failed, user will choose manually', e);
+        } finally {
+            setTopicLoading(false);
+        }
     };
 
     const handleStart = async () => {
         setStep(4);
         setIsLoading(true);
         setError(null);
-        setShowFeedback(false);
         try {
-            const prompt   = buildPrompt(targetSystemLabel, quizType, questionCount);
-            const response = await aiService.generate('phi3:latest', prompt);
-            await parseAndSetQuestions(response, quizType);
+            // Générer les questions une par une pour éviter les problèmes de l'IA
+            const allQuestions: Question[] = [];
+            let attempts = 0;
+            const maxAttempts = questionCount * 3; // 3 essais par question
+            
+            while (allQuestions.length < questionCount && attempts < maxAttempts) {
+                const prompt = buildPrompt(targetSystemLabel, quizType, 1);
+                const response = await aiService.generate('phi3:latest', prompt);
+                const parsed = parseAndSetQuestionsSingle(response.response, quizType, allQuestions.length);
+                if (parsed) {
+                    allQuestions.push(...parsed);
+                }
+                attempts++;
+            }
+            
+            if (allQuestions.length === 0) {
+                throw new Error("No questions generated");
+            }
+            
+            if (allQuestions.length < questionCount) {
+                console.warn(`Seulement ${allQuestions.length} questions générées sur ${questionCount} demandées`);
+            }
+            
+            setQuestions(allQuestions);
+            setMasterQuestions(allQuestions);
+            setIsReviewMode(false);
         } catch (err: any) {
             console.error("Quiz Start Error:", err);
             setError(language === 'fr' ? `Erreur: ${err.message || "IA Indisponible"}` : `Error: ${err.message || "AI Unavailable"}`);
@@ -146,7 +230,7 @@ const Quiz: React.FC = () => {
     };
 
     // Parsing JSON ultra-robuste — partagé avec handleStartWithSystem (Review.tsx)
-    const parseAndSetQuestions = async (response: string, type: string | null) => {
+    const parseAndSetQuestionsSingle = (response: string, type: string | null, startIndex: number): Question[] | null => {
         const cleanStr = (s: string) => {
             let c = s
                 .replace(/\/\/.*/g, '')
@@ -176,24 +260,23 @@ const Quiz: React.FC = () => {
                 }
             }
         }
-        if (!parsed) throw new Error("Invalid JSON");
+        if (!parsed) return null;
         const arr = Array.isArray(parsed) ? parsed : (parsed.quiz || []);
-        if (!arr.length) throw new Error("Empty quiz array");
+        if (!arr.length) return null;
+        
         const finalQs = arr.map((q: any, i: number) => {
             const defOpts = type === 'TRUE_FALSE'
                 ? (language === 'fr' ? ['Vrai', 'Faux'] : ['True', 'False'])
                 : ['Option A', 'Option B', 'Option C', 'Option D'];
             return {
-                id: i + 1,
+                id: startIndex + i + 1,
                 text: q.text || q.question || 'Description anatomique...',
                 options: q.options || defOpts,
                 correctAnswer: q.correctAnswer !== undefined ? q.correctAnswer : (q.answer || 0),
                 explanation: q.explanation || ''
             };
         });
-        setQuestions(finalQs);
-        setMasterQuestions(finalQs);
-        setIsReviewMode(false);
+        return finalQs;
     };
 
     const handleAnswer = (val: any) => {
@@ -217,21 +300,14 @@ const Quiz: React.FC = () => {
         const updated = [...questions];
         updated[currentIdx] = { ...q, userAnswer: val, isCorrect: correct };
         setQuestions(updated);
-
-        if (immediateReveal) {
-            setShowFeedback(true);
-        } else {
-            proceedToNext(updated);
-        }
+        proceedToNext(updated);
     };
 
     const proceedToNext = (currentQuestions: Question[]) => {
         if (currentIdx < currentQuestions.length - 1) {
             setCurrentIdx(currentIdx + 1);
-            setSelectedOpt(null);
             setSelectedOpts([]);
             setTextAnswer('');
-            setShowFeedback(false);
         } else {
             let finalSet = currentQuestions;
             
@@ -244,23 +320,27 @@ const Quiz: React.FC = () => {
                 setMasterQuestions(finalSet);
                 setQuestions(finalSet);
                 setIsReviewMode(false);
+            } else {
+                // En mode normal, on met aussi à jour masterQuestions avec les réponses
+                setMasterQuestions(finalSet);
             }
 
             const score = finalSet.filter(x => x.isCorrect).length;
             setResults({ correct: score, total: finalSet.length });
             setStep(5);
             
-            // Sync Mastery
-            finalSet.forEach(q => {
-                const subjectName = targetSystemLabel || 'Sujet Général';
-                apiCall('mastery/record', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        anatomical_object_name: subjectName,
-                        is_correct: !!q.isCorrect
-                    })
-                }).catch(e => console.error("Mastery track error", e));
-            });
+            // Sync Mastery — envoie chaque réponse au backend
+            if (targetSystemLabel) {
+                finalSet.forEach(q => {
+                    apiCall('mastery/record', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            anatomical_object_name: targetSystemLabel,
+                            is_correct: !!q.isCorrect
+                        })
+                    }).catch(e => console.error("Mastery track error", e));
+                });
+            }
 
             const typeLabel = types.find(t => t.id === quizType)?.label || '';
             navigate(`/quiz/#${slugify(typeLabel)}/result`, { replace: true });
@@ -272,10 +352,8 @@ const Quiz: React.FC = () => {
         setQuestions(resetQs);
         setCurrentIdx(0);
         setResults({ correct: 0, total: resetQs.length });
-        setSelectedOpt(null);
         setSelectedOpts([]);
         setTextAnswer('');
-        setShowFeedback(false);
         setStep(4);
         const typeLabel = types.find(t => t.id === quizType)?.label || '';
         navigate(`/quiz/#${slugify(typeLabel)}`, { replace: true });
@@ -285,19 +363,19 @@ const Quiz: React.FC = () => {
         setIsReviewMode(true);
         // On base toujours la révision sur le Master pour accumuler les corrections
         const missed = masterQuestions.filter(q => q.isCorrect === false);
+        
         if (missed.length === 0) {
             setIsReviewMode(false);
             return;
         }
 
         const resetQs = missed.map(q => ({ ...q, userAnswer: undefined, isCorrect: undefined }));
+        
         setQuestions(resetQs);
         setCurrentIdx(0);
         setResults({ correct: 0, total: resetQs.length });
-        setSelectedOpt(null);
         setSelectedOpts([]);
         setTextAnswer('');
-        setShowFeedback(false);
         setStep(4);
         const typeLabel = types.find(t => t.id === quizType)?.label || '';
         navigate(`/quiz/#${slugify(typeLabel)}/review`, { replace: true });
@@ -310,9 +388,7 @@ const Quiz: React.FC = () => {
         setCurrentIdx(0);
         setResults({ correct: 0, total: 0 });
         setSelectedOpts([]);
-        setSelectedOpt(null);
         setTextAnswer('');
-        setShowFeedback(false);
         navigate('/quiz', { replace: true });
     };
 
@@ -385,8 +461,22 @@ const Quiz: React.FC = () => {
                     {step === 1 && (
                         <motion.div key="step1" variants={pageVariants} initial="initial" animate="animate" exit="exit" className="quiz-fullscreen-section">
                             <div className="quiz-header-text">
-                                <h1>{language === 'fr' ? "Paramétrez votre évaluation" : "Configure your evaluation"}</h1>
-                                <p>{language === 'fr' ? "Choisissez le format de test généré sur-mesure par notre IA en fonction de votre cursus." : "Choose the test format custom-generated by our AI based on your curriculum."}</p>
+                                <h1>
+                                    {topicLoading
+                                        ? (language === 'fr' ? 'Sélection du sujet…' : 'Selecting topic…')
+                                        : targetSystemLabel
+                                        ? (language === 'fr' ? `Quiz sur : ${targetSystemLabel}` : `Quiz on: ${targetSystemLabel}`)
+                                        : (language === 'fr' ? "Paramétrez votre évaluation" : "Configure your evaluation")
+                                    }
+                                </h1>
+                                <p>
+                                    {topicLoading
+                                        ? (language === 'fr' ? 'Recherche d\'un sujet anatomique non étudié…' : 'Searching for an unstudied anatomical topic…')
+                                        : targetSystemLabel
+                                        ? (language === 'fr' ? `Questions exclusivement sur les sous-structures de "${targetSystemLabel}" — choisis le format ci-dessous.` : `Questions exclusively on sub-structures of "${targetSystemLabel}" — choose the format below.`)
+                                        : (language === 'fr' ? "Choisissez le format de test généré sur-mesure par notre IA en fonction de votre cursus." : "Choose the test format custom-generated by our AI based on your curriculum.")
+                                    }
+                                </p>
                             </div>
                             <div className="quiz-step-layout">
                                 <div className="quiz-cards-grid">
@@ -438,7 +528,10 @@ const Quiz: React.FC = () => {
                                     {selectedType?.label}
                                 </h1>
                                 <p className="qz-config-sub">
-                                    {language === 'fr' ? 'Configuration de l’examen' : 'Examination settings'}
+                                    {targetSystemLabel
+                                        ? (language === 'fr' ? `Objet : ${targetSystemLabel}` : `Subject: ${targetSystemLabel}`)
+                                        : (language === 'fr' ? 'Configuration de l\'examen' : 'Examination settings')
+                                    }
                                 </p>
 
                                 {/* Question count slider */}
@@ -458,32 +551,6 @@ const Quiz: React.FC = () => {
                                     <div className="qz-slider-range">
                                         <span>1</span><span>100</span>
                                     </div>
-                                </div>
-
-                                {/* Reveal mode toggle */}
-                                <div className="qz-reveal-block">
-                                    <p className="qz-reveal-label">
-                                        {language === 'fr' ? 'Correction des réponses' : 'Answer correction'}
-                                    </p>
-                                    <div className="qz-reveal-toggle">
-                                        <button
-                                            className={`qz-reveal-opt${!immediateReveal ? ' active' : ''}`}
-                                            onClick={() => setImmediateReveal(false)}
-                                        >
-                                            {language === 'fr' ? 'À la fin' : 'At the end'}
-                                        </button>
-                                        <button
-                                            className={`qz-reveal-opt${immediateReveal ? ' active' : ''}`}
-                                            onClick={() => setImmediateReveal(true)}
-                                        >
-                                            {language === 'fr' ? 'Instantanée' : 'Instant'}
-                                        </button>
-                                    </div>
-                                    <p className="qz-reveal-hint">
-                                        {immediateReveal
-                                            ? (language === 'fr' ? "La bonne réponse s'affiche après chaque question." : 'The correct answer is shown after each question.')
-                                            : (language === 'fr' ? "Le bilan complet apparaît en fin d'examen." : 'The full results appear at the end of the exam.')}
-                                    </p>
                                 </div>
 
                                 <button className="qz-start-btn" onClick={handleStart}>
@@ -518,9 +585,14 @@ const Quiz: React.FC = () => {
                                         {language === 'fr' ? 'Génération IA en cours…' : 'AI generation in progress…'}
                                     </h2>
                                     <p className="qz-state-sub">
-                                        {language === 'fr'
-                                            ? 'Analyse des structures anatomiques et création de cas cliniques.'
-                                            : 'Analyzing anatomical structures and building clinical cases.'}
+                                        {targetSystemLabel
+                                            ? (language === 'fr'
+                                                ? `Questions exclusives sur "${targetSystemLabel}" — analyse anatomique en cours.`
+                                                : `Exclusive questions on "${targetSystemLabel}" — anatomical analysis in progress.`)
+                                            : (language === 'fr'
+                                                ? 'Analyse des structures anatomiques et création de cas cliniques.'
+                                                : 'Analyzing anatomical structures and building clinical cases.')
+                                        }
                                     </p>
                                 </div>
                             ) : error ? (
@@ -541,6 +613,9 @@ const Quiz: React.FC = () => {
                                         <span className="qz-q-counter">
                                             {language === 'fr' ? 'Question' : 'Question'} {currentIdx + 1} / {questions.length}
                                         </span>
+                                        {targetSystemLabel && (
+                                            <span className="qz-target-badge">{targetSystemLabel}</span>
+                                        )}
                                         <div className="qz-progress-track">
                                             <div
                                                 className="qz-progress-fill"
@@ -558,7 +633,6 @@ const Quiz: React.FC = () => {
                                             className="qz-open-textarea"
                                             value={textAnswer}
                                             onChange={e => setTextAnswer(e.target.value)}
-                                            disabled={showFeedback}
                                             placeholder={language === 'fr' ? 'Rédigez votre réponse ici…' : 'Write your answer here…'}
                                         />
                                     ) : quizType === 'MCQ_MULTI' ? (
@@ -566,10 +640,8 @@ const Quiz: React.FC = () => {
                                             {questions[currentIdx].options?.map((opt, i) => (
                                                 <button
                                                     key={i}
-                                                    disabled={showFeedback}
                                                     className={`qz-option-btn${selectedOpts.includes(i) ? ' qz-selected' : ''}`}
                                                     onClick={() => {
-                                                        if (showFeedback) return;
                                                         if (selectedOpts.includes(i)) {
                                                             setSelectedOpts(selectedOpts.filter(x => x !== i));
                                                         } else {
@@ -589,12 +661,8 @@ const Quiz: React.FC = () => {
                                             {questions[currentIdx].options?.map((opt, i) => (
                                                 <button
                                                     key={i}
-                                                    disabled={showFeedback}
-                                                    className={`qz-option-btn${selectedOpt === i ? ' qz-selected' : ''}`}
-                                                    onClick={() => {
-                                                        setSelectedOpt(i);
-                                                        if (immediateReveal) handleAnswer(i);
-                                                    }}
+                                                    className="qz-option-btn"
+                                                    onClick={() => handleAnswer(i)}
                                                 >
                                                     <span className="qz-opt-letter">{String.fromCharCode(65 + i)}</span>
                                                     <span className="qz-opt-text">{opt}</span>
@@ -603,69 +671,23 @@ const Quiz: React.FC = () => {
                                         </div>
                                     )}
 
-                                    {/* Explanation for Immediate Reveal */}
-                                    <AnimatePresence>
-                                        {showFeedback && (
-                                            <motion.div 
-                                                initial={{ opacity: 0, y: 10 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                className={`qz-immediate-feedback ${questions[currentIdx].isCorrect ? 'is-correct' : 'is-wrong'}`}
-                                            >
-                                                <div className="qz-fb-header">
-                                                    {questions[currentIdx].isCorrect ? <CheckCircle2 size={18}/> : <XCircle size={18}/>}
-                                                    <strong>{questions[currentIdx].isCorrect 
-                                                        ? (language === 'fr' ? 'Excellent !' : 'Excellent!') 
-                                                        : (language === 'fr' ? 'Incorrect' : 'Incorrect')}</strong>
-                                                </div>
-                                                
-                                                {!questions[currentIdx].isCorrect && (
-                                                    <p className="qz-fb-correction">
-                                                        {language === 'fr' ? 'La bonne réponse était : ' : 'The correct answer was: '}
-                                                        <strong>{typeof questions[currentIdx].correctAnswer === 'number' 
-                                                            ? questions[currentIdx].options?.[questions[currentIdx].correctAnswer as number]
-                                                            : questions[currentIdx].correctAnswer}</strong>
-                                                    </p>
-                                                )}
-
-                                                {questions[currentIdx].explanation && (
-                                                    <div className="qz-fb-explanation">
-                                                        {questions[currentIdx].explanation}
-                                                    </div>
-                                                )}
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-
-                                    {/* Next / Submit */}
-                                    <button
-                                        className="qz-next-btn"
-                                        onClick={() => {
-                                            if (showFeedback) {
-                                                proceedToNext(questions);
-                                            } else {
-                                                const finalAns = quizType === 'OPEN' ? textAnswer :
-                                                                quizType === 'MCQ_MULTI' ? selectedOpts :
-                                                                (selectedOpt ?? '');
+                                    {(quizType === 'OPEN' || quizType === 'MCQ_MULTI') && (
+                                        <button
+                                            className="qz-next-btn"
+                                            onClick={() => {
+                                                const finalAns = quizType === 'OPEN' ? textAnswer : selectedOpts;
                                                 handleAnswer(finalAns);
-                                            }
-                                        }}
-                                        disabled={
-                                            !showFeedback && (
+                                            }}
+                                            disabled={
                                                 (quizType === 'OPEN' && !textAnswer.trim()) ||
-                                                (quizType === 'MCQ_MULTI' && selectedOpts.length === 0) ||
-                                                (quizType !== 'OPEN' && quizType !== 'MCQ_MULTI' && selectedOpt === null)
-                                            )
-                                        }
-                                    >
-                                        {showFeedback 
-                                            ? (currentIdx === questions.length - 1 
-                                                ? (language === 'fr' ? 'Voir le bilan final' : 'See final results') 
-                                                : (language === 'fr' ? 'Question suivante →' : 'Next Question →'))
-                                            : (currentIdx === questions.length - 1
-                                                ? (language === 'fr' ? 'Valider l\'examen' : 'Submit Exam')
-                                                : (language === 'fr' ? 'Valider la réponse' : 'Validate answer'))
-                                        }
-                                    </button>
+                                                (quizType === 'MCQ_MULTI' && selectedOpts.length === 0)
+                                            }
+                                        >
+                                            {currentIdx === questions.length - 1
+                                                ? (language === 'fr' ? 'Terminer l\'examen' : 'Finish exam')
+                                                : (language === 'fr' ? 'Question suivante →' : 'Next question →')}
+                                        </button>
+                                    )}
                                 </div>
                             )}
                         </motion.div>
@@ -765,34 +787,31 @@ const Quiz: React.FC = () => {
                                 <span>{language === 'fr' ? 'Détails du Bilan' : 'Detailed Assessment'}</span>
                             </div>
 
-                            <div className="qz-breakdown">
-                                {questions.map((q, i) => (
-                                    <div key={i} className={`qz-bk-card ${q.isCorrect ? 'is-correct' : 'is-wrong'}`}>
-                                        <div className="qz-bk-status-icon">
-                                            {q.isCorrect ? <CheckCircle2 size={22} /> : <XCircle size={22} />}
-                                        </div>
-                                        <div className="qz-bk-header">
-                                            {language === 'fr' ? 'Question' : 'Question'} {i + 1}
-                                        </div>
-                                        <p className="qz-bk-question">{q.text}</p>
-                                        
-                                        <div className="qz-bk-correction">
-                                            <strong>{language === 'fr' ? 'Réponse : ' : 'Answer: '}</strong>
-                                            {typeof q.correctAnswer === 'number' 
-                                                ? (Array.isArray(q.correctAnswer) 
-                                                    ? q.correctAnswer.map((idx: number) => q.options?.[idx]).join(', ')
-                                                    : q.options?.[q.correctAnswer])
-                                                : q.correctAnswer}
-                                        </div>
-
-                                        {q.explanation && (
-                                            <div className="qz-bk-explanation">
-                                                <strong>{language === 'fr' ? 'Explication' : 'Explanation'}</strong>
-                                                {q.explanation}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
+                            <div className="qz-breakdown-table-container">
+                                <table className="qz-breakdown-table">
+                                    <thead>
+                                        <tr>
+                                            <th>{language === 'fr' ? '#' : '#'}</th>
+                                            <th>{language === 'fr' ? 'Question' : 'Question'}</th>
+                                            <th>{language === 'fr' ? 'Votre réponse' : 'Your answer'}</th>
+                                            <th>{language === 'fr' ? 'Bonne réponse' : 'Correct answer'}</th>
+                                            <th>{language === 'fr' ? 'Statut' : 'Status'}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {questions.map((q, i) => (
+                                            <tr key={i} className={q.isCorrect ? 'qz-row-correct' : 'qz-row-wrong'}>
+                                                <td className="qz-cell-num">{i + 1}</td>
+                                                <td className="qz-cell-question">{q.text}</td>
+                                                <td className={`qz-cell-answer ${q.isCorrect ? 'qz-ans-ok' : 'qz-ans-ko'}`}>{formatUserAnswer(q)}</td>
+                                                <td className="qz-cell-correct qz-ans-ok">{formatCorrectAnswer(q)}</td>
+                                                <td className="qz-cell-status">
+                                                    {q.isCorrect ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
                         </motion.div>
                         );

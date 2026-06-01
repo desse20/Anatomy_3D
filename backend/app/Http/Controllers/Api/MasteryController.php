@@ -30,12 +30,17 @@ class MasteryController extends Controller
 
         if ($masteries->isEmpty()) {
             return response()->json([
-                'has_data'        => false,
-                'global_score'    => 0,
-                'total_attempts'  => 0,
-                'weak_notions'    => [],
-                'strong_notions'  => [],
-                'mastery_levels'  => [],
+                'has_data'               => false,
+                'global_score'           => 0,
+                'total_attempts'         => 0,
+                'total_notions'          => 0,
+                'not_started'            => [],
+                'en_cours'               => [],
+                'maitrisees'             => [],
+                'totalement_maitrisees'  => [],
+                'cultivees'              => [],
+                'due_notions'            => [],
+                'mastery_levels'         => [],
             ]);
         }
 
@@ -44,36 +49,54 @@ class MasteryController extends Controller
         $totalAttempts = $totalSuccess + $totalFailure;
         $globalScore = $totalAttempts > 0 ? round(($totalSuccess / $totalAttempts) * 100) : 0;
 
-        // Notions les PLUS RATÉES (failure_count élevé)
-        $weak = $masteries
-            ->filter(fn($m) => ($m->success_count + $m->failure_count) > 0)
+        $mapItem = fn($m) => [
+            'name'               => $m->anatomicalObject->name ?? 'Inconnu',
+            'success'            => $m->success_count,
+            'failure'            => $m->failure_count,
+            'mastery_level'      => $m->mastery_level,
+            'last_review'        => $m->last_review_at?->diffForHumans(),
+            'next_review'        => $m->next_review_at?->diffForHumans(),
+            'next_review_ts'     => $m->next_review_at?->timestamp,
+            'net_score'          => $m->success_count - $m->failure_count,
+        ];
+
+        $net = fn($m) => $m->success_count - $m->failure_count;
+
+        // Jamais commencées (aucune tentative)
+        $notStarted = $masteries
+            ->filter(fn($m) => ($m->success_count + $m->failure_count) === 0)
+            ->values()
+            ->map($mapItem);
+
+        // En cours : net_score <= 0 (plus d'échecs que de succès)
+        $enCours = $masteries
+            ->filter(fn($m) => ($m->success_count + $m->failure_count) > 0 && $net($m) <= 0)
             ->sortByDesc('failure_count')
-            ->take(8)
-            ->map(fn($m) => [
-                'name'          => $m->anatomicalObject->name ?? 'Inconnu',
-                'success'       => $m->success_count,
-                'failure'       => $m->failure_count,
-                'mastery_level' => $m->mastery_level,
-                'last_review'   => $m->last_review_at?->diffForHumans(),
-                'next_review'   => $m->next_review_at?->diffForHumans(),
-            ])
-            ->values();
+            ->values()
+            ->map($mapItem);
 
-        // Notions les MIEUX MAÎTRISÉES (mastery_level élevé)
-        $strong = $masteries
-            ->filter(fn($m) => $m->mastery_level > 0)
-            ->sortByDesc('mastery_level')
-            ->take(8)
-            ->map(fn($m) => [
-                'name'          => $m->anatomicalObject->name ?? 'Inconnu',
-                'success'       => $m->success_count,
-                'failure'       => $m->failure_count,
-                'mastery_level' => $m->mastery_level,
-                'last_review'   => $m->last_review_at?->diffForHumans(),
-            ])
-            ->values();
+        // Maîtrisées : net_score entre 1 et 4 (plus de succès)
+        $maitrisees = $masteries
+            ->filter(fn($m) => $net($m) > 0 && $net($m) < 5)
+            ->sortByDesc('net_score')
+            ->values()
+            ->map($mapItem);
 
-        // Distribution des niveaux de maîtrise (0=débutant … 5=expert)
+        // Totalement maîtrisées : net_score >= 5
+        $totalementMaitrisees = $masteries
+            ->filter(fn($m) => $net($m) >= 5)
+            ->sortByDesc('net_score')
+            ->values()
+            ->map($mapItem);
+
+        // Cultivées : net_score >= 5 ET peu d'échecs (≤ 2)
+        $cultivees = $masteries
+            ->filter(fn($m) => $net($m) >= 5 && $m->failure_count <= 2)
+            ->sortByDesc('net_score')
+            ->values()
+            ->map($mapItem);
+
+        // Distribution des niveaux
         $levelDistribution = $masteries
             ->groupBy('mastery_level')
             ->map(fn($group, $level) => [
@@ -83,14 +106,26 @@ class MasteryController extends Controller
             ->sortBy('level')
             ->values();
 
+        // Notions avec une révision planifiée (passée ou future), triée par date
+        $due = $masteries
+            ->filter(fn($m) => $m->next_review_at !== null)
+            ->sortBy('next_review_at')
+            ->take(12)
+            ->values()
+            ->map($mapItem);
+
         return response()->json([
-            'has_data'        => true,
-            'global_score'    => $globalScore,
-            'total_attempts'  => $totalAttempts,
-            'total_notions'   => $masteries->count(),
-            'weak_notions'    => $weak,
-            'strong_notions'  => $strong,
-            'mastery_levels'  => $levelDistribution,
+            'has_data'               => true,
+            'global_score'           => $globalScore,
+            'total_attempts'         => $totalAttempts,
+            'total_notions'          => $masteries->count(),
+            'not_started'            => $notStarted,
+            'en_cours'               => $enCours,
+            'maitrisees'             => $maitrisees,
+            'totalement_maitrisees'  => $totalementMaitrisees,
+            'cultivees'              => $cultivees,
+            'due_notions'            => $due,
+            'mastery_levels'         => $levelDistribution,
         ]);
     }
 
@@ -114,8 +149,13 @@ class MasteryController extends Controller
         $obj = \App\Models\AnatomicalObject::where('name', $request->anatomical_object_name)->first();
         if (!$obj) {
             $maxId = \App\Models\AnatomicalObject::max('id') ?? 10000;
+            $defaultAssetId = \App\Models\Asset3d::inRandomOrder()->first()?->id;
+            if (!$defaultAssetId) {
+                return response()->json(['error' => 'No asset found to associate object'], 500);
+            }
             $obj = \App\Models\AnatomicalObject::create([
                 'id' => $maxId + 1,
+                'asset_3d_id' => $defaultAssetId,
                 'name' => $request->anatomical_object_name,
                 'three_js_name' => strtolower($request->anatomical_object_name),
                 'description' => '',
@@ -124,7 +164,7 @@ class MasteryController extends Controller
 
         $mastery = UserMastery::firstOrCreate(
             [
-                'user_id'               => $userId,
+                'user_id'            => $userId,
                 'anatomical_object_id'  => $obj->id,
             ],
             [
@@ -136,22 +176,16 @@ class MasteryController extends Controller
 
         if ($request->is_correct) {
             $mastery->success_count++;
-            // Monte de niveau tous les 3 succès consécutifs (max 5)
-            if ($mastery->success_count % 3 === 0 && $mastery->mastery_level < 5) {
-                $mastery->mastery_level++;
-            }
         } else {
             $mastery->failure_count++;
-            // Descend de niveau si trop d'échecs (min 0)
-            if ($mastery->failure_count % 5 === 0 && $mastery->mastery_level > 0) {
-                $mastery->mastery_level--;
-            }
         }
 
+        $netScore = $mastery->success_count - $mastery->failure_count;
+        $mastery->mastery_level = min(max($netScore, 0), 5);
+
         $mastery->last_review_at = now();
-        // Algorithme de répétition espacée simple : intervalle en heures selon le niveau
-        $intervals = [1, 6, 24, 72, 168, 336]; // 1h, 6h, 1j, 3j, 1sem, 2sem
-        $mastery->next_review_at = now()->addHours($intervals[$mastery->mastery_level] ?? 1);
+        // 1 semaine = 2 révisions → intervalle fixe de 84 heures (3,5 jours)
+        $mastery->next_review_at = now()->addHours(84);
         $mastery->save();
 
         return response()->json(['success' => true, 'mastery_level' => $mastery->mastery_level]);

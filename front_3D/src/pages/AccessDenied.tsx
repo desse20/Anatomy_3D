@@ -1,8 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ShieldAlert, ArrowLeft } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const AccessDenied: React.FC = () => {
+    const { language } = useLanguage();
+    const t = (fr: string, en: string) => language === 'fr' ? fr : en;
+
     return (
         <div style={{ 
             height: '100vh', 
@@ -30,7 +34,7 @@ const AccessDenied: React.FC = () => {
                 <ShieldAlert size={48} />
             </div>
             
-            <h1 style={{ fontSize: '32px', fontWeight: 800, margin: '0 0 12px 0' }}>Accès Interdit</h1>
+            <h1 style={{ fontSize: '32px', fontWeight: 800, margin: '0 0 12px 0' }}>{t('Accès Interdit', 'Access Denied')}</h1>
             <p style={{ 
                 color: 'var(--dash-text-muted, #64748b)', 
                 maxWidth: '450px', 
@@ -38,8 +42,7 @@ const AccessDenied: React.FC = () => {
                 fontSize: '16px',
                 margin: '0 0 32px 0'
             }}>
-                Désolé, vous ne disposez pas des privilèges nécessaires pour accéder à cette zone sécurisée de la plateforme. 
-                Si vous pensez qu'il s'agit d'une erreur, contactez votre administrateur technique.
+                {t("Désolé, vous ne disposez pas des privilèges nécessaires pour accéder à cette zone sécurisée de la plateforme. Si vous pensez qu'il s'agit d'une erreur, contactez votre administrateur technique.", "Sorry, you do not have the necessary privileges to access this secure area of the platform. If you think this is an error, please contact your technical administrator.")}
             </p>
             
             <Link to="/dash" style={{ 
@@ -59,7 +62,7 @@ const AccessDenied: React.FC = () => {
             onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
             >
                 <ArrowLeft size={18} />
-                Retour au tableau de bord
+                {t('Retour au tableau de bord', 'Back to dashboard')}
             </Link>
         </div>
     );

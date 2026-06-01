@@ -24,13 +24,19 @@ class CheckRole
         $userRole = $user->role;
         $allowedRoles = explode('|', $role);
 
-        // L'administrateur a un accès universel dans l'application
-        if ($userRole === 'admin') {
-            return $next($request);
-        }
+        $hierarchy = [
+            'student' => 1,
+            'teacher' => 2,
+            'admin'   => 3,
+        ];
 
-        if (in_array($userRole, $allowedRoles)) {
-            return $next($request);
+        $userWeight = $hierarchy[$userRole] ?? 0;
+
+        foreach ($allowedRoles as $reqRole) {
+            $reqWeight = $hierarchy[$reqRole] ?? 999;
+            if ($userWeight >= $reqWeight) {
+                return $next($request);
+            }
         }
 
         return response()->json([

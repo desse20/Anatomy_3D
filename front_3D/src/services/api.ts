@@ -1,5 +1,5 @@
 // front_3D/src/services/api.ts
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://10.85.3.181:8000/api';
 
 export const apiCall = async (endpoint: string, options: RequestInit = {}) => {
     const token = localStorage.getItem('token');
@@ -83,4 +83,50 @@ export const userService = {
         method: 'POST', // On utilise POST pour contourner les blocages DELETE
         body: JSON.stringify({ password, _method: 'DELETE' }),
     }),
+};
+
+export const fetchBlob = async (endpoint: string): Promise<Blob> => {
+    const token = localStorage.getItem('token');
+    const fullUrl = `${API_BASE_URL.replace(/\/$/, '')}/${endpoint.replace(/^\//, '')}`;
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const response = await fetch(fullUrl, { headers });
+    if (!response.ok) throw new Error(`Download failed: ${response.statusText}`);
+    return response.blob();
+};
+
+export const downloadWithProgress = (endpoint: string, onProgress: (pct: number) => void): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+        const token = localStorage.getItem('token');
+        const fullUrl = `${API_BASE_URL.replace(/\/$/, '')}/${endpoint.replace(/^\//, '')}`;
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', fullUrl);
+        if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        xhr.responseType = 'blob';
+        xhr.onprogress = (e) => {
+            if (e.lengthComputable) {
+                onProgress(Math.round((e.loaded / e.total) * 100));
+            }
+        };
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                resolve(xhr.response);
+            } else {
+                reject(new Error(`Download failed: ${xhr.status}`));
+            }
+        };
+        xhr.onerror = () => reject(new Error('Network error during download'));
+        xhr.send();
+    });
+};
+
+export const anatomyService = {
+    /** Récupère TOUTE la hiérarchie pour le mapper 3D */
+    getAll: () => apiCall('/anatomy/all'),
+    /** Récupère les racines de la hiérarchie (Skeletal System, etc.) */
+    getRoots: () => apiCall('/anatomy/roots'),
+    /** Récupère un sous-arbre complet à partir d'un nom de node */
+    getSubtree: (name: string) => apiCall(`/anatomy/subtree/${encodeURIComponent(name)}`),
+    /** Recherche des structures anatomiques */
+    search: (query: string) => apiCall(`/anatomy/search?q=${encodeURIComponent(query)}`),
 };

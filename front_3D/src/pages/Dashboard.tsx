@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Calendar, AlertTriangle, CheckCircle, Activity } from 'lucide-react';
+import { Calendar, AlertTriangle, CheckCircle, Activity, Database } from 'lucide-react';
 import App from '../components/layouts/App';
 import { useLanguage } from '../contexts/LanguageContext';
 import { apiCall } from '../services/api';
@@ -88,16 +88,334 @@ const RadarChart: React.FC<{ data: { label: string, value: number, max: number }
     );
 };
 
-// ... MiniCalendar inside Dashboard.tsx
-const MiniCalendar = ({ language, upcomingCount }: { language: string, upcomingCount: number }) => {
+const RoleDonut: React.FC<{ roleCounts: {admin:number, teacher:number, student:number} | null }> = ({ roleCounts }) => {
+    const counts = roleCounts || { admin: 0, teacher: 0, student: 0 };
+    const total = counts.admin + counts.teacher + counts.student;
+    const items = [
+        { label: 'Admin',    val: counts.admin,   color: '#6366f1' },
+        { label: 'Prof',     val: counts.teacher,  color: '#0ea5e9' },
+        { label: 'Étudiant', val: counts.student, color: '#34d399' },
+    ];
+    const size = 160, r = 55, stroke = 18, cx = size / 2, cy = size / 2;
+    let offset = 0;
+    const circ = 2 * Math.PI * r;
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+            <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
+                <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={stroke} />
+                {total === 0 ? (
+                    <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={stroke} />
+                ) : items.map((d, i) => {
+                    const dash = (d.val / total) * circ;
+                    const el = <circle key={i} cx={cx} cy={cy} r={r} fill="none" stroke={d.color}
+                        strokeWidth={stroke} strokeDasharray={`${dash} ${circ}`} strokeDashoffset={-offset}
+                        strokeLinecap="round" style={{ transition: 'stroke-dasharray 0.8s ease' }} />;
+                    offset += dash;
+                    return el;
+                })}
+                <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle"
+                    style={{ fill: '#fff', fontSize: '20px', fontWeight: 800, transform: 'rotate(90deg)', transformOrigin: `${cx}px ${cy}px` }}>{total}</text>
+            </svg>
+            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                {items.map(d => (
+                    <div key={d.label} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>
+                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: d.color, flexShrink: 0 }} />
+                        <span>{d.label}</span>
+                        <span style={{ opacity: 0.6 }}>({d.val})</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const ChartCard: React.FC<{ title: string, subtitle: string, children: React.ReactNode, color: string }> = ({ title, subtitle, children, color }) => (
+    <>
+        <div className="chart-container-inner" style={{ 
+            background: color || 'var(--dash-accent-hover)', 
+            borderRadius: '12px', 
+            padding: '16px 12px', 
+            marginTop: '-25px', 
+            boxShadow: '0 10px 30px -12px rgba(0,0,0,0.42), 0 4px 25px 0px rgba(0,0,0,0.12), 0 8px 10px -5px rgba(0,0,0,0.2)',
+            marginBottom: '15px',
+            width: '100%',
+            boxSizing: 'border-box',
+        }}>
+            {children}
+        </div>
+        <div style={{ padding: '0 5px' }}>
+            <h4 style={{ margin: '0 0 5px', fontSize: '16px', fontWeight: 700, color: 'var(--dash-text-main)' }}>{title}</h4>
+            <p style={{ margin: 0, fontSize: '13px', color: 'var(--dash-text-muted)' }}>{subtitle}</p>
+            <hr style={{ border: 'none', borderTop: '1px solid var(--dash-border)', margin: '15px 0 10px', opacity: 0.5 }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: 'var(--dash-text-muted)', fontStyle: 'italic' }}>
+                <span>Données synchronisées</span>
+            </div>
+        </div>
+    </>
+);
+
+type EvolutionPoint = { date: string; role: string; count: number };
+
+const normalizeEvolution = (raw: unknown[]): EvolutionPoint[] =>
+    (raw || []).map((row: any) => ({
+        date: String(row.date ?? '').slice(0, 10),
+        role: String(row.role ?? ''),
+        count: Number(row.count) || 0,
+    })).filter(p => p.date);
+
+const toDateKey = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+};
+
+const buildDateAxis = (rangeDays: number): string[] => {
+    const days = Math.max(1, rangeDays);
+    const out: string[] = [];
+    const end = new Date();
+    for (let i = days - 1; i >= 0; i--) {
+        const d = new Date(end);
+        d.setDate(end.getDate() - i);
+        out.push(toDateKey(d));
+    }
+    return out;
+};
+
+const countFor = (data: EvolutionPoint[], date: string, role: string) =>
+    data.filter(d => d.date === date && d.role === role).reduce((s, d) => s + d.count, 0);
+
+const CHART_LINES = [
+    { key: 'total', color: '#e2e8f0', dash: undefined, strokeWidth: 3.5 },
+    { key: 'student', color: '#34d399', dash: undefined, strokeWidth: 3 },
+    { key: 'teacher', color: '#0ea5e9', dash: '10 5', strokeWidth: 3 },
+    { key: 'admin', color: '#6366f1', dash: '4 4', strokeWidth: 3 },
+] as const;
+
+/** Graduations Y entières uniques (évite 0, 1, 1, 2) */
+const buildYAxis = (dataMax: number): { ticks: number[]; max: number } => {
+    const max = Math.max(1, Math.ceil(dataMax));
+    if (max <= 8) {
+        return { ticks: Array.from({ length: max + 1 }, (_, i) => i), max };
+    }
+    const step = max <= 20 ? 5 : max <= 50 ? 10 : max <= 100 ? 20 : Math.ceil(max / 5);
+    const ticks: number[] = [0];
+    for (let v = step; v < max; v += step) ticks.push(v);
+    if (ticks[ticks.length - 1] !== max) ticks.push(max);
+    return { ticks, max };
+};
+
+const PremiumCombinedChart: React.FC<{
+    data: unknown[];
+    range: string;
+    labels: { total: string; student: string; teacher: string; admin: string };
+}> = ({ data, range, labels }) => {
+    const wrapRef = useRef<HTMLDivElement>(null);
+    const [chartWidth, setChartWidth] = useState(960);
+
+    useEffect(() => {
+        const el = wrapRef.current;
+        if (!el) return;
+        const update = () => setChartWidth(Math.max(400, el.clientWidth));
+        update();
+        const ro = new ResizeObserver(update);
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, []);
+
+    const rangeDays = Math.max(1, parseInt(range, 10) || 30);
+    const normalized = normalizeEvolution(data);
+    const dates = buildDateAxis(rangeDays);
+
+    const totalSeries = dates.map(date =>
+        normalized.filter(d => d.date === date).reduce((s, d) => s + d.count, 0)
+    );
+    const roleSeries = CHART_LINES.filter(l => l.key !== 'total').map(({ key }) =>
+        dates.map(date => countFor(normalized, date, key))
+    );
+    const allValues = [...totalSeries, ...roleSeries.flat()];
+    const dataMax = Math.max(0, ...allValues);
+    const { ticks: yTicks, max: maxVal } = buildYAxis(dataMax);
+
+    const seriesByKey: Record<string, number[]> = {
+        total: totalSeries,
+        student: dates.map(date => countFor(normalized, date, 'student')),
+        teacher: dates.map(date => countFor(normalized, date, 'teacher')),
+        admin: dates.map(date => countFor(normalized, date, 'admin')),
+    };
+
+    const height = 340;
+    const padL = 52;
+    const padR = 20;
+    const legendH = 36;
+    const padTop = legendH + 16;
+    const padBottom = 44;
+    const chartW = chartWidth - padL - padR;
+    const chartH = height - padTop - padBottom;
+
+    const xAt = (i: number) => {
+        if (dates.length <= 1) return padL + chartW / 2;
+        return padL + (i / (dates.length - 1)) * chartW;
+    };
+    const yAt = (v: number) => padTop + chartH - (v / maxVal) * chartH;
+
+    const labelStep = rangeDays <= 7 ? 1 : rangeDays <= 90 ? Math.ceil(rangeDays / 6) : Math.ceil(rangeDays / 8);
+
+    const getXLabel = (dateStr: string, index: number) => {
+        if (index % labelStep !== 0 && index !== dates.length - 1) return '';
+        const d = new Date(`${dateStr}T12:00:00`);
+        if (rangeDays <= 7) return ['L', 'M', 'M', 'J', 'V', 'S', 'D'][(d.getDay() + 6) % 7];
+        if (rangeDays <= 90) return String(d.getDate());
+        return d.toLocaleDateString('fr', { month: 'short', day: 'numeric' });
+    };
+
+    const hasAnyData = normalized.some(d => d.count > 0);
+
+    if (!hasAnyData) {
+        return (
+            <div ref={wrapRef} className="growth-chart-wrap" style={{ width: '100%', minHeight: 280 }}>
+                <div style={{ height: 260, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.55)', fontSize: '14px', gap: '8px' }}>
+                    <span>Aucune inscription sur cette période</span>
+                    <span style={{ fontSize: '12px', opacity: 0.7 }}>Les courbes apparaîtront dès que des comptes seront créés</span>
+                </div>
+            </div>
+        );
+    }
+
+    const lineLabels: Record<string, string> = {
+        total: labels.total,
+        student: labels.student,
+        teacher: labels.teacher,
+        admin: labels.admin,
+    };
+
+    const legendGap = (chartWidth - padL - padR) / CHART_LINES.length;
+
+    return (
+        <div ref={wrapRef} className="growth-chart-wrap" style={{ width: '100%' }}>
+            <svg
+                width={chartWidth}
+                height={height}
+                viewBox={`0 0 ${chartWidth} ${height}`}
+                role="img"
+                aria-label="Graphique d'évolution des inscriptions"
+                style={{ display: 'block', width: '100%', height: 'auto', overflow: 'visible' }}
+            >
+                <g transform={`translate(${padL}, 8)`}>
+                    {CHART_LINES.map(({ key, color, dash, strokeWidth }, i) => (
+                        <g key={key} transform={`translate(${i * legendGap}, 0)`}>
+                            <line x1="0" y1="14" x2="26" y2="14" stroke={color} strokeWidth={strokeWidth} strokeDasharray={dash} strokeLinecap="round" />
+                            <text x="32" y="18" fill="#fff" fontSize="12" fontWeight="700">
+                                {lineLabels[key]}
+                            </text>
+                        </g>
+                    ))}
+                </g>
+
+                <rect x={padL} y={padTop} width={chartW} height={chartH} fill="rgba(255,255,255,0.04)" rx="8" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
+
+                {yTicks.map(tick => (
+                    <g key={tick}>
+                        <line
+                            x1={padL} y1={yAt(tick)} x2={padL + chartW} y2={yAt(tick)}
+                            stroke="rgba(255,255,255,0.12)" strokeWidth="1" strokeDasharray="5 5"
+                        />
+                        <text x={padL - 12} y={yAt(tick) + 5} textAnchor="end" fill="rgba(255,255,255,0.6)" fontSize="12" fontWeight="600">
+                            {tick}
+                        </text>
+                    </g>
+                ))}
+
+                <line x1={padL} y1={padTop + chartH} x2={padL + chartW} y2={padTop + chartH} stroke="rgba(255,255,255,0.45)" strokeWidth="2" />
+
+                {CHART_LINES.map(({ key, color, dash, strokeWidth }) => {
+                    const values = seriesByKey[key];
+                    const pts = values.map((v, i) => ({ x: xAt(i), y: yAt(v) }));
+                    const linePath = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+                    const showDots = key !== 'total';
+                    return (
+                        <g key={key}>
+                            <path
+                                d={linePath}
+                                fill="none"
+                                stroke={color}
+                                strokeWidth={strokeWidth}
+                                strokeDasharray={dash}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                opacity={key === 'total' ? 0.9 : 1}
+                            />
+                            {showDots && pts.map((p, i) => values[i] > 0 && (
+                                <circle key={i} cx={p.x} cy={p.y} r="5" fill={color} stroke="#fff" strokeWidth="2" />
+                            ))}
+                        </g>
+                    );
+                })}
+
+                {dates.map((date, i) => {
+                    const label = getXLabel(date, i);
+                    if (!label) return null;
+                    return (
+                        <text key={date} x={xAt(i)} y={height - 14} textAnchor="middle" fill="rgba(255,255,255,0.75)" fontSize="12" fontWeight="600">
+                            {label}
+                        </text>
+                    );
+                })}
+            </svg>
+        </div>
+    );
+};
+
+
+
+const DonutChart: React.FC<{ roleCounts: any, t: any }> = ({ roleCounts, t }) => {
+    if (!roleCounts) return <div style={{height:'150px'}} />;
+    const data = [
+        { label: 'Admin', val: roleCounts.admin || 0, color: '#fff' },
+        { label: 'Prof', val: roleCounts.teacher || 0, color: 'rgba(255,255,255,0.7)' },
+        { label: 'Etudiant', val: roleCounts.student || 0, color: 'rgba(255,255,255,0.4)' }
+    ];
+    const total = data.reduce((a, b) => a + b.val, 0);
+    const size = 150;
+    const r = 50, w = 12, center = size / 2;
+    let acc = -Math.PI / 2;
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ overflow: 'visible' }}>
+                {total === 0 ? (
+                    <circle cx={center} cy={center} r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={w} />
+                ) : data.map((d, i) => {
+                    if (d.val === 0) return null;
+                    const angle = (d.val / total) * Math.PI * 2;
+                    const x1 = center + r * Math.cos(acc), y1 = center + r * Math.sin(acc);
+                    const x2 = center + r * Math.cos(acc + angle), y2 = center + r * Math.sin(acc + angle);
+                    const path = `M ${x1} ${y1} A ${r} ${r} 0 ${angle > Math.PI ? 1 : 0} 1 ${x2} ${y2}`;
+                    const res = <motion.path key={i} initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} d={path} fill="none" stroke={d.color} strokeWidth={w} strokeLinecap="round" />;
+                    acc += angle;
+                    return res;
+                })}
+                <text x={center} y={center} textAnchor="middle" dominantBaseline="middle" style={{ fill: '#fff', fontSize: '18px', fontWeight: 800 }}>{total}</text>
+            </svg>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '10px', fontSize: '10px', fontWeight: 700, flexWrap: 'wrap', justifyContent: 'center' }}>
+                {data.map(d => (
+                    <div key={d.label} style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#fff' }}>
+                        <div style={{ width: '6px', height: '6px', background: d.color, borderRadius: '50%' }} />
+                        <span>{d.label === 'Admin' ? t('Admin', 'Admin') : d.label === 'Prof' ? t('Prof', 'Teacher') : t('Etudiant', 'Student')}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+const MiniCalendar = ({ language, dueDays }: { language: string, dueDays: number[] }) => {
     const today = new Date();
     const year = today.getFullYear();
     const month = today.getMonth();
     
-    // Calculate days in month and starting day offset
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     let firstDayIndex = new Date(year, month, 1).getDay() - 1; 
-    if (firstDayIndex === -1) firstDayIndex = 6; // Start week on Monday
+    if (firstDayIndex === -1) firstDayIndex = 6;
     
     const daysArray = [];
     for (let i = 0; i < firstDayIndex; i++) daysArray.push(null);
@@ -121,8 +439,7 @@ const MiniCalendar = ({ language, upcomingCount }: { language: string, upcomingC
                 {daysArray.map((day, i) => {
                     if (!day) return <div key={i} className="mc-day empty" />;
                     const isToday = day === today.getDate();
-                    // Just pseudo-randomly highlight upcoming days if we have weak notions to review
-                    const hasReview = upcomingCount > 0 && (day === today.getDate() + 1 || day === today.getDate() + 3);
+                    const hasReview = dueDays.includes(day);
                     return (
                         <div key={i} className={`mc-day ${isToday ? 'today' : ''} ${hasReview ? 'has-review' : ''}`}>
                             <span>{day}</span>
@@ -135,37 +452,137 @@ const MiniCalendar = ({ language, upcomingCount }: { language: string, upcomingC
     );
 };
 
+const readUserRole = (): string => {
+    try {
+        return JSON.parse(localStorage.getItem('user') || '{}').role || 'student';
+    } catch {
+        return 'student';
+    }
+};
+
+const SectionCollapseHeading: React.FC<{
+    title: string;
+    open: boolean;
+    onToggle: () => void;
+}> = ({ title, open, onToggle }) => (
+    <div
+        className={`full-width-heading collapsible ${open ? 'open' : ''}`}
+        onClick={onToggle}
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); } }}
+    >
+        <span>{title}</span>
+        <span className="heading-line" aria-hidden />
+        <div className="collapse-arrow" aria-hidden>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m6 9 6 6 6-6" />
+            </svg>
+        </div>
+    </div>
+);
+
 const Dashboard: React.FC = () => {
     const { language } = useLanguage();
     const [stats, setStats] = useState<any>(null);
     const [roots, setRoots] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [adminStats, setAdminStats] = useState<any>(null);
+    const [teacherStats, setTeacherStats] = useState<any>(null);
+    const [statRange, setStatRange] = useState('30');
+    const [showTeacherSection, setShowTeacherSection] = useState(() => readUserRole() === 'teacher');
+    const [showStudentSection, setShowStudentSection] = useState(() => readUserRole() === 'student');
+    const adminStatsRangeReady = useRef(false);
+
+    const fetchAdminStats = async (range: string) => {
+        try {
+            const data = await apiCall(`/system/stats?range=${range}`);
+            setAdminStats(data);
+        } catch (err) {
+            console.error("Admin stats failed", err);
+        }
+    };
 
     useEffect(() => {
-        Promise.all([
-            apiCall('mastery/stats').catch(() => null),
+        setLoading(true);
+        const userJson = localStorage.getItem('user');
+        const user = userJson ? JSON.parse(userJson) : null;
+        const role = user?.role || 'student';
+
+        const promises: Promise<any>[] = [
             apiCall('anatomy/roots').catch(() => ({ roots: [] }))
-        ])
-        .then(([statsRes, rootsRes]) => {
-            setStats(statsRes);
+        ];
+
+        if (role === 'admin') {
+            promises.push(apiCall('/system/stats?range=30').catch(() => null));
+            promises.push(apiCall('labs').catch(() => ({ data: [] })));
+            promises.push(apiCall('mastery/stats').catch(() => null));
+        } else if (role === 'teacher') {
+            promises.push(apiCall('labs').catch(() => ({ data: [] })));
+            promises.push(apiCall('mastery/stats').catch(() => null));
+        } else {
+            promises.push(apiCall('mastery/stats').catch(() => null));
+        }
+
+        Promise.all(promises)
+        .then((results) => {
+            const rootsRes = results[0];
             setRoots(rootsRes?.roots || []);
+            if (role === 'admin') {
+                setAdminStats(results[1]);
+                setTeacherStats(results[2]);
+                setStats(results[3]);
+            } else if (role === 'teacher') {
+                setTeacherStats(results[1]);
+                setStats(results[2]);
+            } else {
+                setStats(results[1]);
+            }
         })
         .finally(() => setLoading(false));
     }, []);
 
+    useEffect(() => {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        if (user.role !== 'admin' || loading) return;
+        if (!adminStatsRangeReady.current) {
+            adminStatsRangeReady.current = true;
+            return;
+        }
+        fetchAdminStats(statRange);
+    }, [statRange, loading]);
+
     const t = (fr: string, en: string) => language === 'fr' ? fr : en;
 
-    const renderNotionsList = (list: any[], emptyMsg: string, isWeak: boolean) => (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', maxHeight: '180px', paddingRight: '8px' }}>
+    const navigate = useNavigate();
+
+    const renderNotionsList = (list: any[], emptyMsg: string) => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', maxHeight: '260px', paddingRight: '8px' }}>
             {list.length === 0 ? (
                 <p style={{ color: 'var(--dash-text-muted)', fontSize: '14px', margin: 'auto', paddingTop: '40px' }}>{emptyMsg}</p>
             ) : (
-                list.slice(0, 4).map((n, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--dash-bg)', borderRadius: '10px', border: '1px solid var(--dash-border)' }}>
-                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dash-text)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.name}</span>
-                        <div style={{ display: 'flex', gap: '8px', fontSize: '12px', fontWeight: 700 }}>
-                            <span style={{ color: '#34d399' }}>✓ {n.success}</span>
-                            {isWeak && <span style={{ color: '#f87171' }}>✗ {n.failure}</span>}
+                list.slice(0, 8).map((n, i) => (
+                    <div
+                        key={i}
+                        onClick={() => navigate('/quiz', { state: { system: n.name } })}
+                        style={{ display: 'flex', flexDirection: 'column', padding: '10px 14px', background: 'var(--dash-bg)', borderRadius: '10px', border: '1px solid var(--dash-border)', gap: '4px', cursor: 'pointer', transition: 'background 0.15s' }}
+                        onMouseOver={e => e.currentTarget.style.background = 'var(--dash-accent-hover)'}
+                        onMouseOut={e => e.currentTarget.style.background = 'var(--dash-bg)'}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dash-text)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.name}</span>
+                            <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '10px', background: n.mastery_level >= 3 ? 'rgba(52,211,153,0.15)' : 'rgba(248,113,113,0.15)', color: n.mastery_level >= 3 ? '#34d399' : '#f87171' }}>Lvl {n.mastery_level}/5</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', gap: '10px', fontSize: '12px', fontWeight: 700 }}>
+                                <span style={{ color: '#34d399' }}>✓ {n.success}</span>
+                                {(n.failure > 0) && <span style={{ color: '#f87171' }}>✗ {n.failure}</span>}
+                                <span style={{ color: n.net_score >= 5 ? '#34d399' : '#94a3b8' }}>∑ {n.net_score ?? n.success - n.failure}</span>
+                            </div>
+                            {n.next_review && (
+                                <span style={{ fontSize: '10px', color: 'var(--dash-text-muted)', fontStyle: 'italic' }}>{n.next_review}</span>
+                            )}
                         </div>
                     </div>
                 ))
@@ -173,12 +590,71 @@ const Dashboard: React.FC = () => {
         </div>
     );
 
+    const renderNotionsListCultivees = (list: any[], emptyMsg: string) => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', maxHeight: '260px', paddingRight: '8px' }}>
+            {list.length === 0 ? (
+                <p style={{ color: 'var(--dash-text-muted)', fontSize: '14px', margin: 'auto', paddingTop: '40px' }}>{emptyMsg}</p>
+            ) : (
+                list.slice(0, 8).map((n, i) => (
+                    <div
+                        key={i}
+                        onClick={() => navigate('/chat', { state: { system: n.name } })}
+                        style={{ display: 'flex', flexDirection: 'column', padding: '10px 14px', background: 'var(--dash-bg)', borderRadius: '10px', border: '1px solid var(--dash-border)', gap: '4px', cursor: 'pointer', transition: 'background 0.15s' }}
+                        onMouseOver={e => e.currentTarget.style.background = 'var(--dash-accent-hover)'}
+                        onMouseOut={e => e.currentTarget.style.background = 'var(--dash-bg)'}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '13px', fontWeight: 600, color: '#a78bfa', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.name}</span>
+                            <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '10px', background: 'rgba(167,139,250,0.15)', color: '#a78bfa' }}>🤖 Chat</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', gap: '10px', fontSize: '12px', fontWeight: 700 }}>
+                                <span style={{ color: '#34d399' }}>✓ {n.success}</span>
+                                {(n.failure > 0) && <span style={{ color: '#f87171' }}>✗ {n.failure}</span>}
+                                <span style={{ color: '#34d399' }}>∑ {n.net_score}</span>
+                            </div>
+                            {n.next_review && (
+                                <span style={{ fontSize: '10px', color: 'var(--dash-text-muted)', fontStyle: 'italic' }}>{n.next_review}</span>
+                            )}
+                        </div>
+                    </div>
+                ))
+            )}
+        </div>
+    );
+
+    // Collect due review days from ALL items with next_review_ts
+    const dueReviewDays: number[] = React.useMemo(() => {
+        if (!stats) return [];
+        const days = new Set<number>();
+        const now = new Date();
+        const month = now.getMonth();
+        const year = now.getFullYear();
+        const allItems = [
+            ...(stats.due_notions || []),
+            ...(stats.en_cours || []),
+            ...(stats.maitrisees || []),
+            ...(stats.totalement_maitrisees || []),
+            ...(stats.cultivees || []),
+        ];
+        allItems.forEach((n: any) => {
+            if (n.next_review_ts) {
+                const d = new Date(n.next_review_ts * 1000);
+                // Only future dates (next review, not overdue)
+                if (d > now && d.getMonth() === month && d.getFullYear() === year) {
+                    days.add(d.getDate());
+                }
+            }
+        });
+        return Array.from(days);
+    }, [stats]);
+
     // Compute global mastery mapped onto actual anatomy roots
     const computeRadarData = () => {
         if (!roots.length || !stats) return [];
         
         const knownLevels: Record<string, number> = {};
-        [...(stats.weak_notions || []), ...(stats.strong_notions || [])].forEach((n: any) => {
+        [...(stats.learning_notions || []), ...(stats.mastered_notions || []), ...(stats.due_notions || []), ...(stats.not_started || [])].forEach((n: any) => {
             knownLevels[n.name.toLowerCase()] = n.mastery_level || 0;
         });
 
@@ -203,12 +679,14 @@ const Dashboard: React.FC = () => {
     const user = userJson ? JSON.parse(userJson) : { role: 'student' };
     const userRole = user.role || 'student';
     const isStudent = userRole === 'student';
+    const isAdmin = userRole === 'admin';
+    const isTeacher = userRole === 'teacher';
 
     return (
         <App breadcrumb={
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                 <span>{t('Tableau de bord', 'Dashboard')}</span>
-                {!loading && isStudent && (
+                {!loading && (
                     <div className="competence-bar-container" style={{ display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '250px', marginLeft: 'auto' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
                             <span>{t('Compétence globale', 'Global Competence')}</span>
@@ -227,151 +705,315 @@ const Dashboard: React.FC = () => {
             </div>
         }>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '16px' }}>
-                        <h1 style={{ margin: 0 }}>{t('Tableau de bord', 'Dashboard')}</h1>
+                <h1 style={{ margin: 0 }}>{t('Tableau de bord', 'Dashboard')}</h1>
                 <Link to="/" className="dash-home-link-hero" style={{ margin: 0 }}>
                     <span className="home-link-text">{t("Retour au portail d'accueil", "Back to Home Portal")}</span>
                     <ArrowLg />
                 </Link>
             </div>
+
             {loading ? (
                 <div style={{ padding: '40px', color: 'var(--dash-text-muted)' }}>{t('Chargement des données biométriques...', 'Loading biometric data...')}</div>
-            ) : isStudent ? (
-                <>
-                    <div className="dash-grid">
-                        {/* Cadre 1 : Calendrier */}
-                    <div className="dash-card custom-card">
-                        <div className="card-header">
-                            <span className="card-icon"><Calendar size={20} strokeWidth={2.5}/></span>
-                            <h3>{t('Calendrier de révisions', 'Review Calendar')}</h3>
-                        </div>
-                        <div className="card-content">
-                            <MiniCalendar language={language} upcomingCount={stats?.weak_notions?.length || 0} />
-                            
-                            {stats && stats.weak_notions.length > 0 && (
-                                <Link to="/quiz" className="mini-btn mt-auto">{t('Lancer un Quiz', 'Start Quiz')} →</Link>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Cadre 2 : Non maîtrisées (À améliorer) */}
-                    <div className="dash-card custom-card">
-                        <div className="card-header">
-                            <span className="card-icon" style={{ background: '#f8717120', color: '#f87171' }}>
-                                <AlertTriangle size={20} strokeWidth={2.5}/>
-                            </span>
-                            <h3>{t('À améliorer', 'Needs Improvement')}</h3>
-                        </div>
-                        <div className="card-content">
-                            {renderNotionsList(stats ? stats.weak_notions : [], t('Aucune lacune détectée.', 'No weak spots detected.'), true)}
-                        </div>
-                    </div>
-
-                    {/* Cadre 3 : Maîtrisées */}
-                    <div className="dash-card custom-card">
-                        <div className="card-header">
-                            <span className="card-icon" style={{ background: '#34d39920', color: '#34d399' }}>
-                                <CheckCircle size={20} strokeWidth={2.5}/>
-                            </span>
-                            <h3>{t('Notions maîtrisées', 'Mastered Notions')}</h3>
-                        </div>
-                        <div className="card-content">
-                            {renderNotionsList(stats ? stats.strong_notions : [], t('Acquérez de l\'expérience pour la voir ici.', 'Gain experience to see it here.'), false)}
-                        </div>
-                    </div>
-
-                    {/* Cadre 4 : Courbe Radiale + Progression globale */}
-                    <div className="dash-card full-width custom-card-bottom">
-                        <div className="card-header" style={{ marginBottom: '16px' }}>
-                            <span className="card-icon" style={{ background: '#0ea5e920', color: '#0ea5e9' }}>
-                                <Activity size={22} strokeWidth={2.5}/>
-                            </span>
-                            <div>
-                                <h3 style={{ margin: 0, fontSize: '18px' }}>{t('Cartographie & Compétence Globale', 'Global Mastery & Mapping')}</h3>
-                                <p style={{ fontSize: '13px', color: 'var(--dash-text-muted)', margin: '4px 0 0 0' }}>
-                                    {t("Analyse de la complétion absolue sur l'ensemble de l'anatomie.", 'Absolute completion analysis across all anatomy.')}
-                                </p>
-                            </div>
-                        </div>
-                        
-                        <div className="radar-layout">
-                            <div className="radar-gfx">
-                                {radarData.length > 0 ? (
-                                    <RadarChart data={radarData} />
-                                ) : (
-                                    <p className="empty-text" style={{ textAlign: 'center', margin: '40px 0' }}>{t('Impossible de charger la cartographie.', 'Failed to load mapping.')}</p>
-                                )}
-                            </div>
-                            
-                            <div className="radar-metrics">
-                                <div className="radar-stat-box accent">
-                                    <span className="rm-val">{globalProgress}%</span>
-                                    <span className="rm-label">{t('Complétion', 'Completion')}</span>
-                                </div>
-                                <div className="radar-stat-box">
-                                    <span className="rm-val">{roots.length}</span>
-                                    <span className="rm-label">{t('Systèmes du corps', 'Body Systems')}</span>
-                                </div>
-                                <div className="radar-stat-box">
-                                    <span className="rm-val">{stats ? stats.total_attempts : 0}</span>
-                                    <span className="rm-label">{t('Examens tentés', 'Attempted Exams')}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                </>
             ) : (
-                /* Admin or Teacher dashboard - Literally Empty Skeleton Frames */
                 <div className="dash-grid">
-                    <div className="dash-card custom-card">
-                        <div className="card-header">
-                            <span className="card-icon" style={{ display: 'none' }}></span>
-                            <div className="skeleton-line" style={{ width: '120px', height: '14px' }}></div>
-                        </div>
-                        <div className="card-content" style={{ gap: '12px', marginTop: '20px' }}>
-                            <div className="skeleton-line" style={{ width: '100%' }}></div>
-                            <div className="skeleton-line" style={{ width: '90%' }}></div>
-                            <div className="skeleton-line" style={{ width: '95%' }}></div>
-                            <div className="skeleton-line" style={{ width: '40%', marginTop: 'auto' }}></div>
-                        </div>
-                    </div>
-                    <div className="dash-card custom-card">
-                        <div className="card-header">
-                            <span className="card-icon" style={{ display: 'none' }}></span>
-                            <div className="skeleton-line" style={{ width: '100px', height: '14px' }}></div>
-                        </div>
-                        <div className="card-content" style={{ gap: '12px', marginTop: '20px' }}>
-                            <div className="skeleton-line" style={{ width: '100%' }}></div>
-                            <div className="skeleton-line" style={{ width: '95%' }}></div>
-                            <div className="skeleton-line" style={{ width: '85%' }}></div>
-                            <div className="skeleton-line" style={{ width: '50%', marginTop: 'auto' }}></div>
-                        </div>
-                    </div>
-                    <div className="dash-card custom-card">
-                        <div className="card-header">
-                            <span className="card-icon" style={{ display: 'none' }}></span>
-                            <div className="skeleton-line" style={{ width: '140px', height: '14px' }}></div>
-                        </div>
-                        <div className="card-content" style={{ gap: '12px', marginTop: '20px' }}>
-                            <div className="skeleton-line" style={{ width: '90%' }}></div>
-                            <div className="skeleton-line" style={{ width: '100%' }}></div>
-                            <div className="skeleton-line" style={{ width: '95%' }}></div>
-                            <div className="skeleton-line" style={{ width: '60%', marginTop: 'auto' }}></div>
-                        </div>
-                    </div>
-                    <div className="dash-card full-width custom-card-bottom skeleton-responsive-container" style={{ minHeight: '380px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center', width: '100%', padding: '20px' }}>
-                            <div className="skeleton-line" style={{ width: '80%', maxWidth: '300px', height: '24px' }}></div>
-                            <div className="skeleton-line" style={{ width: '90%', maxWidth: '500px' }}></div>
-                            <div className="skeleton-line" style={{ width: '85%', maxWidth: '450px' }}></div>
-                            
-                            <div style={{ display: 'flex', gap: '15px', marginTop: '40px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                                <div className="skeleton-line" style={{ width: '100px', height: '80px', borderRadius: '12px' }}></div>
-                                <div className="skeleton-line" style={{ width: '100px', height: '80px', borderRadius: '12px' }}></div>
-                                <div className="skeleton-line" style={{ width: '100px', height: '80px', borderRadius: '12px' }}></div>
+                    {/* --- ADMIN VIEW (ALWAYS PRIMARY) --- */}
+                    {isAdmin && (
+                        <>
+                            <div className="full-width-heading"><span>{t('Contrôle Administrateur', 'Administrator Control')}</span></div>
+
+                            {/* Top 3 cards */}
+                            <div className="dash-card custom-card">
+                                <div className="card-header">
+                                    <span className="card-icon"><Database size={20} color="#6366f1"/></span>
+                                    <h3>{t('Statut Système', 'System Status')}</h3>
+                                </div>
+                                <div className="card-content">
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '10px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
+                                            <span>{t('Stockage utilisé', 'Used Storage')}</span>
+                                            <strong style={{ color: '#6366f1' }}>{adminStats?.total_size_mb || 0} MB</strong>
+                                        </div>
+                                        <div style={{ width: '100%', height: '6px', background: 'var(--dash-border)', borderRadius: '3px', overflow: 'hidden' }}>
+                                            <div style={{ width: `${Math.min(((adminStats?.total_size_mb || 0) / 500) * 100, 100)}%`, height: '100%', background: '#6366f1', transition: 'width 1s' }}></div>
+                                        </div>
+                                        <div style={{ marginTop: '6px', fontSize: '12px' }}>
+                                            <div style={{ color: 'var(--dash-text-muted)', marginBottom: '6px', fontWeight: 700, textTransform: 'uppercase' }}>{t('Top Tables', 'Top Tables')}</div>
+                                            {adminStats?.top_tables?.slice(0, 3).map((tt: any, idx: number) => (
+                                                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--dash-border)', opacity: 0.8 }}>
+                                                    <span style={{ fontWeight: 600 }}>{tt.label_fr || tt.name}</span>
+                                                    <span style={{ color: 'var(--dash-text-muted)' }}>{tt.rows} {t('lignes', 'rows')}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <Link to="/tech" className="mini-btn" style={{ marginTop: 'auto' }}>{t("Gérer l'infra", 'Manage Infra')} →</Link>
+                                    </div>
+                                </div>
                             </div>
-                         </div>
-                    </div>
+
+                            <div className="dash-card custom-card">
+                                <div className="card-header">
+                                    <span className="card-icon"><Activity size={20} color="#0ea5e9"/></span>
+                                    <h3>{t('Utilisateurs & Assets', 'Users & Assets')}</h3>
+                                </div>
+                                <div className="card-content" style={{ gap: '16px', marginTop: '10px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <div style={{ textAlign: 'center', flex: 1 }}>
+                                            <div style={{ fontSize: '20px', fontWeight: 800 }}>{adminStats?.counts?.users || 0}</div>
+                                            <div style={{ fontSize: '11px', color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>{t('Membres', 'Members')}</div>
+                                        </div>
+                                        <div style={{ width: '1px', height: '30px', background: 'var(--dash-border)' }}></div>
+                                        <div style={{ textAlign: 'center', flex: 1 }}>
+                                            <div style={{ fontSize: '20px', fontWeight: 800 }}>{adminStats?.counts?.assets_3d || 0}</div>
+                                            <div style={{ fontSize: '11px', color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>{t('Modèles', 'Models')}</div>
+                                        </div>
+                                    </div>
+                                    <div style={{ textAlign: 'center', padding: '15px', background: 'var(--dash-accent-hover)', borderRadius: '12px', border: '1px solid var(--dash-border)' }}>
+                                        <div style={{ fontSize: '28px', fontWeight: 800, color: '#34d399', lineHeight: 1 }}>{adminStats?.active_sessions || 0}</div>
+                                        <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase', marginTop: '4px' }}>{t('Sessions Actives', 'Active Sessions')}</div>
+                                    </div>
+                                    <Link to="/utilisateurs" className="mini-btn" style={{ background: 'rgba(14, 165, 233, 0.1)', color: '#0ea5e9' }}>{t('Console Admin', 'Admin Console')} →</Link>
+                                </div>
+                            </div>
+
+                            <div className="dash-card custom-card">
+                                <div className="card-header">
+                                    <span className="card-icon"><Calendar size={20} color="#f59e0b"/></span>
+                                    <h3>{t('Actions Rapides', 'Quick Actions')}</h3>
+                                </div>
+                                <div className="card-content" style={{ gap: '12px' }}>
+                                    <Link to="/model" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 15px', borderRadius: '12px', background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', fontSize: '14px', fontWeight: 700, color: 'var(--dash-text-main)', transition: 'all 0.2s' }}>
+                                        <span>{t('Importer un nouvel asset', 'Import new asset')}</span>
+                                        <ArrowLg />
+                                    </Link>
+                                    <Link to="/utilisateurs" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 15px', borderRadius: '12px', background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', fontSize: '14px', fontWeight: 700, color: 'var(--dash-text-main)', transition: 'all 0.2s' }}>
+                                        <span>{t('Gérer les utilisateurs', 'Manage users')}</span>
+                                        <ArrowLg />
+                                    </Link>
+                                </div>
+                            </div>
+
+                            {/* Analytics Section — full width */}
+                            <div className="full-width-heading" style={{ marginTop: '10px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                                    <span>{t('Analyse de Croissance', 'Growth Analytics')}</span>
+                                    <div style={{ display: 'flex', gap: '4px', background: 'var(--dash-border)', padding: '3px', borderRadius: '8px' }}>
+                                        {[{v:'7', l:'7J'}, {v:'30', l:'1M'}, {v:'90', l:'3M'}, {v:'365', l:'1A'}, {v:'730', l:'2A'}].map(r => (
+                                            <button key={r.v} onClick={() => setStatRange(r.v)} style={{
+                                                padding: '4px 12px', fontSize: '11px', fontWeight: 800, border: 'none', borderRadius: '6px', cursor: 'pointer',
+                                                background: statRange === r.v ? 'var(--dash-bg)' : 'transparent',
+                                                color: statRange === r.v ? 'var(--dash-primary)' : 'var(--dash-text-muted)',
+                                                transition: '0.2s'
+                                            }}>{r.l}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="full-width" style={{ marginBottom: '30px' }}>
+                                <ChartCard title={t("Analyse de Croissance", "Growth Analytics")} subtitle={t("4 courbes : Total + Utilisateur, Prof, Admin", "4 curves: Total + User, Teacher, Admin")} color="linear-gradient(135deg, #1e293b, #334155)">
+                                    <PremiumCombinedChart
+                                        data={adminStats?.user_evolution || []}
+                                        range={statRange}
+                                        labels={{
+                                            total: t('Total', 'Total'),
+                                            student: t('Utilisateur', 'User'),
+                                            teacher: t('Prof', 'Teacher'),
+                                            admin: t('Admin', 'Admin'),
+                                        }}
+                                    />
+                                </ChartCard>
+                            </div>
+                        </>
+                    )}
+
+                    {/* --- TEACHER VIEW (Teacher or Admin) --- */}
+                    {(isTeacher || (isAdmin && teacherStats)) && (
+                        <>
+                            {isAdmin && (
+                                <SectionCollapseHeading
+                                    title={t('Espace Pédagogique (Hérité du Professeur)', 'Pedagogy Space (Inherited from Teacher)')}
+                                    open={showTeacherSection}
+                                    onToggle={() => setShowTeacherSection(v => !v)}
+                                />
+                            )}
+                            {isTeacher && (
+                                <div className="full-width-heading">
+                                    <span>{t('Espace Pédagogique', 'Teaching Space')}</span>
+                                </div>
+                            )}
+
+                            {(isTeacher || showTeacherSection) && (
+                                <>
+                                    <div className="dash-card custom-card">
+                                        <div className="card-header">
+                                            <span className="card-icon"><Calendar size={20} color="#0ea5e9"/></span>
+                                            <h3>{t('Mes Salles de Cours', 'My Labs')}</h3>
+                                        </div>
+                                        <div className="card-content">
+                                            <div style={{ fontSize: '32px', fontWeight: 800, margin: '10px 0' }}>{teacherStats?.data?.length || 0}</div>
+                                            <div style={{ fontSize: '13px', color: 'var(--dash-text-muted)' }}>{t('Salles virtuelles actives', 'Active virtual labs')}</div>
+                                            <Link to="/labs" className="mini-btn mt-auto">{t('Gérer mes salles', 'Manage my labs')} →</Link>
+                                        </div>
+                                    </div>
+
+                                    <div className="dash-card custom-card">
+                                        <div className="card-header">
+                                            <span className="card-icon"><Activity size={20} color="#34d399"/></span>
+                                            <h3>{t('Vues Partagées', 'Shared Views')}</h3>
+                                        </div>
+                                        <div className="card-content">
+                                            <div style={{ fontSize: '32px', fontWeight: 800, margin: '10px 0' }}>{teacherStats?.data?.reduce((acc: number, l: any) => acc + (l.shared_views?.length || 0), 0) || 0}</div>
+                                            <div style={{ fontSize: '13px', color: 'var(--dash-text-muted)' }}>{t('Points d\'intérêt partagés', 'Shared points of interest')}</div>
+                                            <Link to="/my-views" className="mini-btn mt-auto" style={{ background: 'rgba(52, 211, 153, 0.1)', color: '#34d399' }}>{t('Catalogue de vues', 'Views Catalog')} →</Link>
+                                        </div>
+                                    </div>
+
+                                    <div className="dash-card custom-card">
+                                        <div className="card-header">
+                                            <span className="card-icon"><CheckCircle size={20} color="#6366f1"/></span>
+                                            <h3>{t('Participation', 'Engagement')}</h3>
+                                        </div>
+                                        <div className="card-content">
+                                            <div style={{ fontSize: '32px', fontWeight: 800, margin: '10px 0' }}>{teacherStats?.data?.reduce((acc: number, l: any) => acc + (l.total_participants || 0), 0) || 0}</div>
+                                            <div style={{ fontSize: '13px', color: 'var(--dash-text-muted)' }}>{t('Étudiants ont rejoint vos salles', 'Students joined your labs')}</div>
+                                            <p style={{ marginTop: 'auto', fontSize: '12px', fontStyle: 'italic', color: 'var(--dash-text-muted)' }}>{t('Les statistiques sont mises à jour en temps réel.', 'Stats are updated in real-time.')}</p>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </>
+                    )}
+                    
+                    {/* --- STUDENT VIEW (Student, Teacher or Admin) --- */}
+                    {(isStudent || isTeacher || (isAdmin && stats)) && (
+                        <>
+                            {(isTeacher || isAdmin) && (
+                                <SectionCollapseHeading
+                                    title={isAdmin
+                                        ? t('Aperçu côté Étudiant (Autogéré)', 'Student Side Overview (Self-managed)')
+                                        : t('Mon parcours d\'apprentissage', 'My Learning Journey')}
+                                    open={showStudentSection}
+                                    onToggle={() => setShowStudentSection(v => !v)}
+                                />
+                            )}
+
+                            {(isStudent || showStudentSection) && (
+                                <>
+                                    <div className="student-overview-row">
+                                        <div className="dash-card custom-card">
+                                            <div className="card-header">
+                                                <span className="card-icon"><Calendar size={20} strokeWidth={2.5}/></span>
+                                                <h3>{t('Calendrier de révisions', 'Review Calendar')}</h3>
+                                            </div>
+                                            <div className="card-content">
+                                                <MiniCalendar language={language} dueDays={dueReviewDays} />
+                                                {stats && (stats.due_notions?.length > 0 || stats.en_cours?.length > 0) && (
+                                                    <Link to="/quiz" className="mini-btn mt-auto">{t('Lancer un Quiz', 'Start Quiz')} →</Link>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="dash-card custom-card">
+                                            <div className="card-header">
+                                                <span className="card-icon" style={{ background: '#f8717120', color: '#f87171' }}>
+                                                    <AlertTriangle size={20} strokeWidth={2.5}/>
+                                                </span>
+                                                <h3>{t('Prochaines révisions', 'Upcoming Reviews')}</h3>
+                                            </div>
+                                            <div className="card-content">
+                                                {renderNotionsList(stats?.due_notions || [], t('Aucune révision due.', 'No reviews due.'))}
+                                            </div>
+                                        </div>
+
+                                        <div className="dash-card custom-card">
+                                            <div className="card-header">
+                                                <span className="card-icon" style={{ background: '#f9731620', color: '#f97316' }}>
+                                                    <Activity size={20} strokeWidth={2.5}/>
+                                                </span>
+                                                <h3>{t('En cours (∑ ≤ 0)', 'In Progress (∑ ≤ 0)')}</h3>
+                                            </div>
+                                            <div className="card-content">
+                                                {renderNotionsList(stats?.en_cours || [], t('Commencez un quiz !', 'Start a quiz!'))}
+                                            </div>
+                                        </div>
+
+                                        <div className="dash-card custom-card">
+                                            <div className="card-header">
+                                                <span className="card-icon" style={{ background: '#22d3ee20', color: '#22d3ee' }}>
+                                                    <CheckCircle size={20} strokeWidth={2.5}/>
+                                                </span>
+                                                <h3>{t('Maîtrisées (∑ 1-4)', 'Mastered (∑ 1-4)')}</h3>
+                                            </div>
+                                            <div className="card-content">
+                                                {renderNotionsList(stats?.maitrisees || [], t('Encore aucune.', 'None yet.'))}
+                                            </div>
+                                        </div>
+
+                                        <div className="dash-card custom-card">
+                                            <div className="card-header">
+                                                <span className="card-icon" style={{ background: '#34d39920', color: '#34d399' }}>
+                                                    <CheckCircle size={20} strokeWidth={2.5}/>
+                                                </span>
+                                                <h3>{t('Total. maîtrisées (∑ ≥ 5)', 'Totally Mastered (∑ ≥ 5)')}</h3>
+                                            </div>
+                                            <div className="card-content">
+                                                {renderNotionsList(stats?.totalement_maitrisees || [], t('Encore aucun score ≥ 5.', 'No score ≥ 5 yet.'))}
+                                            </div>
+                                        </div>
+
+                                        <div className="dash-card custom-card">
+                                            <div className="card-header">
+                                                <span className="card-icon" style={{ background: '#a78bfa20', color: '#a78bfa' }}>
+                                                    <Activity size={20} strokeWidth={2.5}/>
+                                                </span>
+                                                <h3>{t('Cultivées (∑ ≥ 5, peu d\'échecs)', 'Cultivated (∑ ≥ 5, few fails)')}</h3>
+                                            </div>
+                                            <div className="card-content">
+                                                {renderNotionsListCultivees(stats?.cultivees || [], t('Atteignez ∑ ≥ 5 avec ≤ 2 échecs.', 'Reach ∑ ≥ 5 with ≤ 2 failures.'))}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="dash-card full-width custom-card-bottom">
+                                        <div className="card-header" style={{ marginBottom: '16px' }}>
+                                            <span className="card-icon" style={{ background: '#0ea5e920', color: '#0ea5e9' }}>
+                                                <Activity size={22} strokeWidth={2.5}/>
+                                            </span>
+                                            <div>
+                                                <h3 style={{ margin: 0, fontSize: '18px' }}>{t('Cartographie & Compétence Globale', 'Global Mastery & Mapping')}</h3>
+                                                <p style={{ fontSize: '13px', color: 'var(--dash-text-muted)', margin: '4px 0 0 0' }}>
+                                                    {t("Analyse de la complétion absolue sur l'ensemble de l'anatomie.", 'Absolute completion analysis across all anatomy.')}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="radar-layout">
+                                            <div className="radar-gfx">
+                                                {radarData.length > 0 ? (
+                                                    <RadarChart data={radarData} />
+                                                ) : (
+                                                    <p className="empty-text" style={{ textAlign: 'center', margin: '40px 0' }}>{t('Impossible de charger la cartographie.', 'Failed to load mapping.')}</p>
+                                                )}
+                                            </div>
+                                            <div className="radar-metrics">
+                                                <div className="radar-stat-box accent">
+                                                    <span className="rm-val">{globalProgress}%</span>
+                                                    <span className="rm-label">{t('Complétion', 'Completion')}</span>
+                                                </div>
+                                                <div className="radar-stat-box">
+                                                    <span className="rm-val">{roots.length}</span>
+                                                    <span className="rm-label">{t('Systèmes du corps', 'Body Systems')}</span>
+                                                </div>
+                                                <div className="radar-stat-box">
+                                                    <span className="rm-val">{stats ? stats.total_attempts : 0}</span>
+                                                    <span className="rm-label">{t('Examens tentés', 'Attempted Exams')}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </>
+                    )}
                 </div>
             )}
 
@@ -483,10 +1125,161 @@ const Dashboard: React.FC = () => {
                     100% { transform: translateX(100%); }
                 }
                 
-                @media (max-width: 800px) {
-                    .radar-layout { flex-direction: column; }
-                    .radar-metrics { width: 100%; flex-direction: row; flex-wrap: wrap; }
-                    .radar-stat-box { flex: 1; min-width: 120px; }
+                .full-width-heading {
+                    grid-column: 1 / -1;
+                    padding: 20px 0 10px;
+                    display: flex;
+                    align-items: center;
+                    gap: 15px;
+                }
+                .full-width-heading span {
+                    font-size: 11px;
+                    font-weight: 800;
+                    color: var(--dash-text-muted);
+                    text-transform: uppercase;
+                    letter-spacing: 1.5px;
+                    white-space: nowrap;
+                }
+                .full-width-heading::after {
+                    content: '';
+                    flex: 1;
+                    height: 1px;
+                    background: var(--dash-border);
+                    opacity: 0.5;
+                }
+                .full-width-heading.collapsible::after {
+                    display: none;
+                }
+                .full-width-heading .heading-line {
+                    flex: 1;
+                    height: 1px;
+                    background: var(--dash-border);
+                    opacity: 0.5;
+                    margin: 0 12px;
+                }
+                
+                .full-width-heading.collapsible {
+                    cursor: pointer;
+                    user-select: none;
+                    transition: all 0.2s;
+                    border-radius: 8px;
+                    padding: 20px 10px 10px;
+                    margin-left: -10px;
+                }
+                .full-width-heading.collapsible:hover {
+                    background: var(--dash-accent-hover);
+                }
+                .collapse-arrow {
+                    flex-shrink: 0;
+                    width: 32px;
+                    height: 32px;
+                    border-radius: 8px;
+                    border: 1px solid var(--dash-border);
+                    background: var(--dash-bg);
+                    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s, border-color 0.2s;
+                    color: var(--dash-text-muted);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .full-width-heading.collapsible:hover .collapse-arrow {
+                    border-color: var(--dash-primary);
+                    color: var(--dash-primary);
+                }
+                .full-width-heading.open .collapse-arrow {
+                    transform: rotate(180deg);
+                    color: var(--dash-primary);
+                    border-color: rgba(14, 165, 233, 0.45);
+                    background: color-mix(in srgb, #0ea5e9 12%, var(--dash-bg));
+                }
+                
+                .premium-chart-card {
+                    overflow: visible !important;
+                    padding: 15px !important;
+                    margin-top: 30px;
+                }
+                .full-width {
+                    grid-column: 1 / -1;
+                    width: 100%;
+                }
+                .student-overview-row {
+                    grid-column: 1 / -1;
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 16px;
+                    width: 100%;
+                }
+                .student-overview-row .dash-card {
+                    min-width: 0;
+                    min-height: 220px;
+                    padding: 16px;
+                }
+                .student-overview-row .card-content {
+                    overflow: hidden;
+                }
+                @media (max-width: 640px) {
+                    .student-overview-row {
+                        grid-template-columns: 1fr;
+                    }
+                }
+                .chart-container-inner {
+                    min-height: 320px;
+                    width: 100%;
+                }
+                .growth-chart-wrap {
+                    width: 100%;
+                }
+                .growth-chart-wrap svg {
+                    vertical-align: top;
+                }
+                
+                .stat-card-material {
+                    position: relative;
+                    padding: 15px 20px !important;
+                    display: flex;
+                    flex-direction: column;
+                }
+                .stat-icon-box {
+                    position: absolute;
+                    top: -20px;
+                    left: 20px;
+                    width: 60px;
+                    height: 60px;
+                    border-radius: 12px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    box-shadow: 0 4px 20px 0 rgba(0,0,0,0.14), 0 7px 10px -5px rgba(0,0,0,0.4);
+                }
+                .stat-content {
+                    text-align: right;
+                    margin-bottom: 10px;
+                }
+                .stat-title {
+                    font-size: 14px;
+                    color: var(--dash-text-muted);
+                    margin: 0;
+                }
+                .stat-value {
+                    font-size: 24px;
+                    font-weight: 800;
+                    margin: 5px 0 0;
+                    color: var(--dash-text-main);
+                }
+                .stat-divider {
+                    border: none;
+                    border-top: 1px solid var(--dash-border);
+                    margin: 10px 0;
+                    opacity: 0.5;
+                }
+                .stat-footer {
+                    font-size: 12px;
+                    color: var(--dash-text-muted);
+                    margin: 0;
+                }
+                
+                @media (max-width: 1000px) {
+                    .dash-grid { grid-template-columns: 1fr; }
                 }
             `}</style>
         </App>

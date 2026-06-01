@@ -9,6 +9,37 @@ use App\Models\AnatomicalObject;
 class AnatomyController extends Controller
 {
     /**
+     * GET /api/anatomy/all
+     * Retourne TOUTE la hiérarchie (léger) pour le viewer 3D
+     */
+    public function all(Request $request)
+    {
+        try {
+            $query = AnatomicalObject::select('id', 'name', 'parent_id', 'mesh', 'description');
+            
+            if ($request->has('asset_3d_id')) {
+                $query->where('asset_3d_id', $request->asset_3d_id);
+            }
+
+            $objects = $query->get()
+                ->map(function($obj) {
+                    return [
+                        'id' => $obj->id,
+                        'name' => preg_replace('/\.g$/i', '', $obj->name),
+                        'three_js_name' => $obj->name, // Le nom brut est utilisé dans Three.js
+                        'parent_id' => $obj->parent_id,
+                        'type' => strtolower($obj->mesh ?? '') === 'mesh' ? 'mesh' : 'group',
+                        'description' => $obj->description
+                    ];
+                });
+
+            return response()->json($objects);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * GET /api/anatomy/roots
      * Retourne les systèmes anatomiques principaux
      */
@@ -69,7 +100,7 @@ class AnatomyController extends Controller
                 // Essayer sans le cas
                 $rootNode = AnatomicalObject::where('name', 'LIKE', '%' . $name . '%')->first();
                 if (!$rootNode) {
-                    return response()->json(['error' => "Node '$name' not found"], 404);
+                    return response()->json(['error' => __('messages.anatomy.node_not_found', ['name' => $name])], 404);
                 }
             }
 

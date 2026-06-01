@@ -43,6 +43,13 @@ class AnatomySeeder extends Seeder
         DB::table('anatomical_objects')->truncate();
         $this->command->info('Old records truncated.');
 
+        $asset = \App\Models\Asset3d::first();
+        
+        if (!$asset) {
+            $this->command->error("Aucun Asset3D trouvé ! Exécutez Asset3dSeeder d'abord.");
+            return;
+        }
+
         $count = 0;
         foreach ($data as $item) {
             if (!isset($item['id'])) {
@@ -62,6 +69,7 @@ class AnatomySeeder extends Seeder
                 ['id' => $item['id']],
                 [
                     'parent_id' => $item['parent_id'] ?? null,
+                    'asset_3d_id' => $asset->id,
                     'name' => $item['name'] ?? '',
                     'three_js_name' => $item['three_js_name'] ?? '',
                     'mesh' => $item['type'] ?? null,
