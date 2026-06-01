@@ -144,21 +144,28 @@ const LabViewer: React.FC = () => {
                     <div style={{ flex: 1, minWidth: '300px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
                         
                         {/* === META INFO === */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap', color: 'var(--dash-text-muted)', fontSize: '13px', paddingBottom: '10px', borderBottom: '1px solid var(--dash-border)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#fbbf24', fontWeight: 700 }}>
-                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#fbbf24', boxShadow: '0 0 8px #fbbf24' }}></div>
-                                {t('Session Live', 'Live Session')}
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap', color: 'var(--dash-text-muted)', fontSize: '13px', paddingBottom: '10px', borderBottom: '1px solid var(--dash-border)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#fbbf24', fontWeight: 700 }}>
+                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#fbbf24', boxShadow: '0 0 8px #fbbf24' }}></div>
+                                    {t('Session Live', 'Live Session')}
+                                </div>
+                                <span style={{ opacity: 0.3 }}>|</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <User size={14} />
+                                    {lab.teacher ? `${lab.teacher.firstname} ${lab.teacher.lastname}` : 'System Admin'}
+                                </div>
+                                <span style={{ opacity: 0.3 }}>|</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <Calendar size={14} />
+                                    {lab.created_at ? new Date(lab.created_at).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US') : new Date().toLocaleDateString()}
+                                </div>
                             </div>
-                            <span style={{ opacity: 0.3 }}>|</span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <User size={14} />
-                                {lab.teacher ? `${lab.teacher.firstname} ${lab.teacher.lastname}` : 'System Admin'}
-                            </div>
-                            <span style={{ opacity: 0.3 }}>|</span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <Calendar size={14} />
-                                {lab.created_at ? new Date(lab.created_at).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US') : new Date().toLocaleDateString()}
-                            </div>
+                            {lab.description && (
+                                <div style={{ marginTop: '12px', padding: '14px 16px', fontSize: '14px', color: 'var(--dash-text)', lineHeight: 1.6, textAlign: 'center' }}>
+                                    {lab.description}
+                                </div>
+                            )}
                         </div>
 
                         {/* === SECTION VUES 3D === */}
@@ -208,14 +215,42 @@ const LabViewer: React.FC = () => {
                             )}
 
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
-                                {sharedViews.map((view: any) => (
-                                    <div key={view.id} style={{ background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', borderRadius: '14px', overflow: 'hidden', opacity: view.status === 'hidden' ? 0.7 : 1 }}>
-                                        <div style={{ height: '140px', background: view.status === 'hidden' ? 'var(--dash-border)' : 'linear-gradient(135deg, rgba(14,165,233,0.08), rgba(14,165,233,0.02))', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                                            <Presentation size={52} color={view.status === 'hidden' ? 'var(--dash-text-muted)' : "rgba(14,165,233,0.25)"} />
+                                {sharedViews.map((view: any) => {
+                                    const isHidden = view.status === 'hidden';
+                                    return (
+                                    <div key={view.id} style={{
+                                        background: 'var(--dash-bg)',
+                                        border: isHidden ? '2px dashed rgba(244,63,94,0.4)' : '1px solid var(--dash-border)',
+                                        borderRadius: '14px', overflow: 'hidden',
+                                        opacity: isHidden ? 0.8 : 1,
+                                        position: 'relative'
+                                    }}>
+                                        {isHidden && (
+                                            <div style={{
+                                                position: 'absolute', inset: 0, zIndex: 2,
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                background: 'rgba(0,0,0,0.25)', borderRadius: '14px',
+                                                pointerEvents: 'none'
+                                            }}>
+                                                <div style={{
+                                                    background: 'rgba(244,63,94,0.85)', borderRadius: '50%',
+                                                    width: '48px', height: '48px',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                }}>
+                                                    <EyeOff size={24} color="#fff" />
+                                                </div>
+                                            </div>
+                                        )}
+                                        <div style={{
+                                            height: '140px',
+                                            background: isHidden ? 'var(--dash-border)' : 'linear-gradient(135deg, rgba(14,165,233,0.08), rgba(14,165,233,0.02))',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative'
+                                        }}>
+                                            <Presentation size={52} color={isHidden ? 'var(--dash-text-muted)' : "rgba(14,165,233,0.25)"} />
                                             {isOwner && (
-                                                <div style={{ position: 'absolute', top: '10px', right: '10px', display: 'flex', gap: '6px' }}>
-                                                    <button onClick={() => handleToggleStatus(view)} style={{ background: '#fff', border: '1px solid var(--dash-border)', color: view.status === 'visible' ? '#34d399' : '#f43f5e', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer' }}>
-                                                        {view.status === 'visible' ? <Eye size={14} /> : <EyeOff size={14} />}
+                                                <div style={{ position: 'absolute', top: '10px', right: '10px', display: 'flex', gap: '6px', zIndex: 3 }}>
+                                                    <button onClick={() => handleToggleStatus(view)} style={{ background: '#fff', border: '1px solid var(--dash-border)', color: isHidden ? '#f43f5e' : '#34d399', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer' }}>
+                                                        {isHidden ? <EyeOff size={14} /> : <Eye size={14} />}
                                                     </button>
                                                     <button onClick={() => handleRemoveView(view.id)} style={{ background: '#fff', border: '1px solid var(--dash-border)', color: '#f43f5e', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer' }}>
                                                         <Trash2 size={14} />
@@ -225,17 +260,20 @@ const LabViewer: React.FC = () => {
                                         </div>
                                         <div style={{ padding: '16px' }}>
                                             <h4 style={{ margin: '0 0 6px 0', fontSize: '15px' }}>{view.teacher_note || t(`Vue 3D #${view.id.substring(0, 8)}`, `3D View #${view.id.substring(0, 8)}`)}</h4>
-                                            <p style={{ fontSize: '12px', color: 'var(--dash-text-muted)', margin: '0 0 14px 0' }}>{view.status === 'visible' ? t('Visible', 'Visible') : t('Masquée', 'Hidden')}</p>
+                                            <p style={{ fontSize: '12px', color: isHidden ? '#f43f5e' : 'var(--dash-text-muted)', margin: '0 0 14px 0', fontWeight: isHidden ? 600 : 400 }}>
+                                                {isHidden ? t('Masquée (étudiants invisibles)', 'Hidden (students cannot see)') : t('Visible', 'Visible')}
+                                            </p>
                                             <button
-                                                disabled={view.status === 'hidden' && !isOwner}
-                                                onClick={() => navigate(`/atlas?view=${view.id}`)}
-                                                style={{ width: '100%', padding: '10px', background: view.status === 'hidden' ? 'var(--dash-border)' : 'rgba(14, 165, 233, 0.08)', color: view.status === 'hidden' ? 'var(--dash-text-muted)' : '#0ea5e9', border: '1px solid rgba(14, 165, 233, 0.2)', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                                                disabled={isHidden && !isOwner}
+                                                onClick={() => navigate(`/atlas/viewer?view=${view.id}`)}
+                                                style={{ width: '100%', padding: '10px', background: isHidden ? 'var(--dash-border)' : 'rgba(14, 165, 233, 0.08)', color: isHidden ? 'var(--dash-text-muted)' : '#0ea5e9', border: '1px solid rgba(14, 165, 233, 0.2)', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                                             >
                                                 <ExternalLink size={14} /> {t('Rejoindre', 'Join')}
                                             </button>
                                         </div>
                                     </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>

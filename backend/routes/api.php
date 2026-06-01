@@ -103,11 +103,15 @@ Route::prefix('labs')->middleware(['simple_auth'])->group(function () {
     // Accessible à tous les rôles via lien de partage (enregistre le participant)
     Route::get('{lab}/view',           [LabController::class, 'publicShow']);
 
+    // Permet à tout utilisateur authentifié de charger une vue partagée dans le viewer
+    Route::get('shared-views/{sharedViewId}', [LabController::class, 'getSharedView']);
+
     // Accessibles uniquement aux profs/admins
     Route::middleware('role:teacher')->group(function () {
         Route::post('bulk-delete',                          [LabController::class, 'bulkDestroy']);
         Route::post('',                                     [LabController::class, 'store']);
         // Gestion des vues 3D partagées (Routes statiques en premier !)
+        Route::post('shared-views',                        [LabController::class, 'storeSharedView']);
         Route::get('shared-views',                         [LabController::class, 'mySharedViews']);
         Route::post('shared-views/bulk-delete',            [LabController::class, 'bulkDestroySharedViews']);
         Route::put('shared-views/{sharedViewId}',          [LabController::class, 'updateSharedView']);

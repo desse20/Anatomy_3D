@@ -1,48 +1,78 @@
 /* Anatomy Viewer Styles */
-
-/* Main layout */
 .anatomy-viewer {
   display: flex;
   height: 100%;
   font-family: inherit;
   background: var(--dash-bg);
   color: var(--dash-text-main);
+  position: relative;
 }
 
-/* Canvas container */
 #canvas-container {
   flex: 1;
-  position: relative;
+  min-height: 0;
   background: #0a0a0a;
 }
 
-/* Hover label */
 #label {
   position: absolute;
   display: none;
-  background-color: rgba(0, 0, 0, 0.8);
-  color: white;
+  background: rgba(0,0,0,0.85);
+  color: #fff;
   padding: 5px 10px;
   border-radius: 4px;
   font-size: 12px;
   pointer-events: none;
   z-index: 1000;
+  border: 1px solid rgba(255,255,255,0.15);
+  pointer-events: none;
 }
 
-/* Hierarchy panel */
+/* ── Zoom ── */
+.zoom-buttons {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 10;
+}
+.zoom-btn {
+  width: 40px;
+  height: 40px;
+  background: rgba(0,0,0,0.7);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  user-select: none;
+  line-height: 1;
+}
+.zoom-btn:hover { background: rgba(14,165,233,0.4); }
+
+/* ── Hierarchy panel ── */
 .hierarchy-panel {
-  width: 300px;
-  background-color: var(--dash-sidebar-bg);
+  width: 280px;
+  background: var(--dash-sidebar-bg);
   border-right: 1px solid var(--dash-border);
   overflow: auto;
+  flex-shrink: 0;
 }
-
 .hierarchy-header {
-  padding: 15px;
+  padding: 12px 15px;
   border-bottom: 1px solid var(--dash-border);
-  background-color: var(--dash-accent-hover);
+  background: var(--dash-accent-hover);
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
-
 .hierarchy-header h3 {
   margin: 0;
   font-size: 14px;
@@ -50,176 +80,110 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--dash-text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-
-/* Hierarchy tree styles */
-#hierarchy-root {
-  padding: 10px;
+.model-name-label {
+  font-size: 11px;
+  color: var(--dash-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-
-#hierarchy-root ul {
-  list-style-type: none;
-  padding-left: 20px;
-  margin: 0;
+.back-arrow {
+  background: none; border: none; color: var(--dash-text-main); font-size: 20px;
+  cursor: pointer; padding: 4px 8px; border-radius: 6px; line-height: 1;
+  flex-shrink: 0; transition: background 0.15s; display: flex;
 }
+.back-arrow:hover { background: rgba(255,255,255,0.1); }
 
-#hierarchy-root li {
-  margin: 2px 0;
-}
-
-.item-row {
+/* ── Action buttons ── */
+.hierarchy-actions {
+  padding: 8px;
+  border-bottom: 1px solid var(--dash-border);
   display: flex;
-  align-items: center;
-  padding: 8px 12px;
-  cursor: pointer;
-  border-radius: 8px;
-  transition: all 0.2s;
-  color: var(--dash-text-main);
-  font-size: 13px;
-  font-weight: 500;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.ha-btn {
+  width: 34px; height: 34px;
+  background: rgba(0,0,0,0.7);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px; color: #ccc; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+  flex-shrink: 0; position: relative;
+}
+.ha-btn:hover:not(:disabled) { background: rgba(14,165,233,0.25) !important; border-color: rgba(14,165,233,0.4); }
+.ha-btn:disabled { opacity: 0.35; cursor: default; }
+.ha-badge {
+  position: absolute; top: -4px; right: -4px;
+  background: #0ea5e9; color: #fff; font-size: 9px; font-weight: 700;
+  min-width: 16px; height: 16px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 3px;
 }
 
-.item-row:hover {
-  background-color: var(--dash-accent-hover);
+/* ── Tree ── */
+#hierarchy-root { padding: 10px; }
+#hierarchy-root ul { list-style: none; padding-left: 20px; margin: 0; }
+#hierarchy-root li { margin: 2px 0; }
+.item-row {
+  display: flex; align-items: center; padding: 8px 12px; cursor: pointer;
+  border-radius: 8px; transition: all 0.2s;
+  color: var(--dash-text-main); font-size: 13px; font-weight: 500;
 }
-
-.item-row.selected-item {
-  background-color: var(--dash-primary);
-  color: white;
-}
-
-.item-row.is-hidden {
-  opacity: 0.5;
-  font-style: italic;
-}
-
+.item-row:hover { background: var(--dash-accent-hover); }
+.item-row.selected-item { background: var(--dash-primary); color: #fff; }
+.item-row.is-hidden { opacity: 0.5; font-style: italic; }
 .eye-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  margin-right: 8px;
-  font-size: 14px;
-  padding: 2px;
-  border-radius: 2px;
-  transition: background-color 0.2s;
+  background: none; border: none; cursor: pointer; margin-right: 8px;
+  font-size: 14px; padding: 2px; border-radius: 2px; transition: background 0.2s;
 }
+.eye-btn:hover { background: var(--dash-accent-hover); }
+.item-row.selected-item .eye-btn:hover { background: rgba(255,255,255,0.2); }
+.caret { cursor: pointer; user-select: none; margin-right: 5px; }
+.caret:before { content: "▶"; display: inline-block; margin-right: 6px; transition: transform 0.2s; }
+.caret-down:before { transform: rotate(90deg); }
+.nested { display: none; }
+.nested.active { display: block; }
 
-.eye-btn:hover {
-  background-color: var(--dash-accent-hover);
-}
-
-.item-row.selected-item .eye-btn:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-}
-
-.caret {
-  cursor: pointer;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
-  margin-right: 5px;
-}
-
-.caret:before {
-  content: "▶";
-  display: inline-block;
-  margin-right: 6px;
-  transition: transform 0.2s;
-}
-
-.caret-down:before {
-  transform: rotate(90deg);
-}
-
-.nested {
-  display: none;
-}
-
-.nested.active {
-  display: block;
-}
-
-/* Description panel */
+/* ── Description ── */
 .description-panel {
-  width: 350px;
-  background-color: var(--dash-bg);
+  width: 320px;
+  background: var(--dash-bg);
   border-left: 1px solid var(--dash-border);
   overflow: auto;
+  flex-shrink: 0;
 }
-
 .description-header {
   padding: 15px;
   border-bottom: 1px solid var(--dash-border);
-  background-color: var(--dash-accent-hover);
+  background: var(--dash-accent-hover);
 }
+.description-header h3 { margin: 0; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--dash-text-main); }
+#desc-text { padding: 20px; font-size: 14px; line-height: 1.6; color: var(--dash-text-main); }
+#desc-text strong { color: var(--dash-primary); font-size: 16px; display: block; margin-bottom: 10px; }
+#desc-text em { color: #666; font-style: italic; }
 
-.description-header h3 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--dash-text-main);
+/* ── Fullscreen wrapper ── */
+.viewer-fullscreen {
+  position: fixed;
+  inset: 0;
+  background: #0a0a0a;
+  z-index: 9999;
 }
+.viewer-fullscreen .anatomy-viewer { width: 100%; height: 100%; }
 
-#desc-text {
-  padding: 20px;
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--dash-text-main);
-}
-
-#desc-text strong {
-  color: var(--dash-primary);
-  font-size: 16px;
-  display: block;
-  margin-bottom: 10px;
-}
-
-#desc-text em {
-  color: #666;
-  font-style: italic;
-}
-
-/* Loading state */
-.loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: #666;
-  font-style: italic;
-}
-
-/* Error state */
-.error {
-  color: #ff4444;
-  padding: 15px;
-  background-color: #ffe6e6;
-  border-radius: 4px;
-  margin: 10px;
-}
-
-/* Responsive design */
+/* ── Responsive ── */
 @media (max-width: 1200px) {
-  .hierarchy-panel {
-    width: 250px;
-  }
-  
-  .description-panel {
-    width: 300px;
-  }
+  .hierarchy-panel { width: 230px; }
+  .description-panel { width: 260px; }
 }
-
 @media (max-width: 900px) {
-  .anatomy-viewer {
-    flex-direction: column;
-  }
-  
-  .hierarchy-panel,
-  .description-panel {
-    width: 100%;
-    max-height: 300px;
-  }
+  .anatomy-viewer { flex-direction: column; }
+  .hierarchy-panel, .description-panel { width: 100%; max-height: 200px; }
 }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

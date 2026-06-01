@@ -31,4 +31,10 @@ class Asset3d extends Model
     {
         return $this->hasMany(AnatomicalObject::class, 'asset_3d_id');
     }
+
+    // Relation : Un asset peut avoir plusieurs vues sauvegardées
+    public function sharedViews(): HasMany
+    {
+        return $this->hasMany(SharedView::class, 'asset_3d_id');
+    }
 }

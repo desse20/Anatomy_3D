@@ -8,6 +8,7 @@ return new class extends Migration {
         Schema::create('shared_views', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('user_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignUuid('asset_3d_id')->constrained('assets_3d')->cascadeOnDelete();
             $table->enum('status', ['visible', 'hidden'])->default('hidden');
             $table->json('camera_position');
             $table->json('camera_target');

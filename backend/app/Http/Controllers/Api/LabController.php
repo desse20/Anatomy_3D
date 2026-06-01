@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Lab\StoreLabRequest;
 use App\Http\Requests\Lab\UpdateLabRequest;
+use App\Http\Requests\SharedView\StoreSharedViewRequest;
 use App\Models\Lab;
 use App\Models\SharedView;
 use App\Models\LabParticipant;
@@ -165,6 +166,24 @@ class LabController extends Controller
     }
 
     /**
+     * Crée une nouvelle SharedView.
+     */
+    public function storeSharedView(StoreSharedViewRequest $request): JsonResponse
+    {
+        $view = SharedView::create([
+            'user_id'         => auth()->id(),
+            'asset_3d_id'     => $request->input('asset_3d_id'),
+            'status'          => 'hidden',
+            'camera_position' => $request->input('camera_position'),
+            'camera_target'   => $request->input('camera_target'),
+            'scene_state'     => $request->input('scene_state'),
+            'teacher_note'    => $request->input('teacher_note'),
+        ]);
+
+        return response()->json(['data' => $view], 201);
+    }
+
+    /**
      * Retourne les vues du prof pour le sélecteur.
      */
     public function mySharedViews(): JsonResponse
@@ -176,7 +195,7 @@ class LabController extends Controller
             $query->where('user_id', $user->id);
         }
 
-        $views = $query->get();
+        $views = $query->with('labs')->get();
         return response()->json(['data' => $views]);
     }
 
@@ -199,9 +218,15 @@ class LabController extends Controller
 
         // Chargement du prof
         $lab->load(['teacher']);
-        
-        // Chargement uniquement des vues VISIBLES pour les étudiants
-        $lab->setRelation('sharedViews', $lab->sharedViews()->where('status', 'visible')->get());
+
+        $isTeacherOrAdmin = $user && in_array($user->role, ['teacher', 'admin']);
+
+        // Étudiants : uniquement les vues visibles. Teachers/admins : toutes les vues.
+        if ($isTeacherOrAdmin) {
+            $lab->load(['sharedViews']);
+        } else {
+            $lab->setRelation('sharedViews', $lab->sharedViews()->where('status', 'visible')->get());
+        }
         
         $lab->loadCount('participants as total_participants');
 
@@ -265,6 +290,15 @@ class LabController extends Controller
         $view->delete();
 
         return response()->json(['message' => __('messages.lab.view_deleted')]);
+    }
+
+    /**
+     * Récupère une SharedView par son ID (pour chargement dans le viewer).
+     */
+    public function getSharedView(string $sharedViewId): JsonResponse
+    {
+        $view = SharedView::with('labs')->findOrFail($sharedViewId);
+        return response()->json(['data' => $view]);
     }
 
     /**

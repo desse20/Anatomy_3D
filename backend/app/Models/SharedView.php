@@ -15,6 +15,7 @@ class SharedView extends Model
 
     protected $fillable = [
         'user_id',
+        'asset_3d_id',
         'status',
         'camera_position',
         'camera_target',
@@ -31,12 +32,14 @@ class SharedView extends Model
         'scene_state'     => 'array',
     ];
 
-    /**
-     * Relation : La vue a été créée par un enseignant.
-     */
     public function teacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function asset3d(): BelongsTo
+    {
+        return $this->belongsTo(Asset3d::class, 'asset_3d_id');
     }
 
     /**
