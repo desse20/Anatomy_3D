@@ -161,23 +161,35 @@ const AdminResourceDetail: React.FC = () => {
     }, [id]);
 
     const handleDeleteAsset = async () => {
-        const result = await Swal.fire({
-            title: t('Êtes-vous sûr ?', 'Are you sure?'),
-            text: t("Cela supprimera le modèle et tous ses objets associés !", "This will delete the model and all associated objects!"),
-            icon: 'warning',
+        const { value: password } = await Swal.fire({
+            title: t('Supprimer le modèle ?', 'Delete model?'),
+            html: `
+                <p style="margin-bottom: 16px">${t("Cette action supprimera le modèle et tous ses objets associés.", "This will delete the model and all associated objects.")}</p>
+                <p style="font-weight:600; margin-bottom:8px">${t('Confirmez avec votre mot de passe', 'Confirm with your password')}</p>
+                <input id="swal-delete-password" type="password" class="swal2-input" style="width:80%" placeholder="${t('Mot de passe', 'Password')}" />
+            `,
+            focusConfirm: false,
+            preConfirm: () => {
+                const pw = (document.getElementById('swal-delete-password') as HTMLInputElement).value;
+                if (!pw) {
+                    Swal.showValidationMessage(t('Mot de passe requis', 'Password required'));
+                    return false;
+                }
+                return pw;
+            },
             showCancelButton: true,
             cancelButtonText: t('Annuler', 'Cancel'),
             confirmButtonColor: '#f43f5e',
-            confirmButtonText: t('Oui, supprimer tout', 'Yes, delete all')
+            confirmButtonText: t('Oui, supprimer', 'Yes, delete')
         });
 
-        if (result.isConfirmed) {
+        if (password) {
             try {
-                await apiCall(`models-manager/${id}`, { method: 'POST', body: JSON.stringify({ _method: 'DELETE' }) });
+                await apiCall(`models-manager/${id}`, { method: 'POST', body: JSON.stringify({ _method: 'DELETE', password }) });
                 Swal.fire(t('Supprimé', 'Deleted'), t('Le modèle a été supprimé.', 'The model has been deleted.'), 'success');
                 navigate('/model');
-            } catch (e) {
-                Swal.fire(t('Erreur', 'Error'), t('Suppression échouée', 'Deletion failed'), 'error');
+            } catch (e: any) {
+                Swal.fire(t('Erreur', 'Error'), e?.message || t('Suppression échouée', 'Deletion failed'), 'error');
             }
         }
     };
@@ -369,7 +381,12 @@ const AdminResourceDetail: React.FC = () => {
                 title: t('Vérification et Édition des données', 'Data Verification and Editing'),
                 html: `<div style="text-align:left; display:flex; flex-direction:column; gap:10px;">
                     <p style="font-size:14px; color:#666">${t('Vous pouvez modifier le JSON directement ci-dessous avant de valider.', 'You can modify the JSON directly below before validating.')}</p>
-                    <textarea id="swal-json-editor" style="width:100%; height:500px; background:#1e1e1e; color:#d4d4d4; padding:15px; border-radius:8px; font-family:monospace; font-size:13px; line-height:1.5; outline:none; border:none;">${JSON.stringify(jsonData, null, 2)}</textarea>
+                    <div style="display:flex; align-items:center; gap:12px; background:#f9fafb; padding:10px 14px; border-radius:8px; border:1px solid #e5e7eb;">
+                        <label style="font-weight:600; font-size:14px; white-space:nowrap;">${t('Version:', 'Version:')}</label>
+                        <input id="swal-version-input" type="number" min="1" value="${asset.version_cache || 1}" style="flex:1; padding:6px 10px; border-radius:6px; border:1px solid #d1d5db; font-size:14px;" />
+                        <span style="font-size:12px; color:#9ca3af; white-space:nowrap;">${t('(actuelle: ' + (asset.version_cache || 1) + ')', '(current: ' + (asset.version_cache || 1) + ')')}</span>
+                    </div>
+                    <textarea id="swal-json-editor" style="width:100%; height:400px; background:#1e1e1e; color:#d4d4d4; padding:15px; border-radius:8px; font-family:monospace; font-size:13px; line-height:1.5; outline:none; border:none;">${JSON.stringify(jsonData, null, 2)}</textarea>
                 </div>`,
                 width: '95%',
                 showCancelButton: true,
@@ -377,8 +394,12 @@ const AdminResourceDetail: React.FC = () => {
                 confirmButtonText: t('Confirmer l\'importation', 'Confirm import'),
                 preConfirm: () => {
                     const editor = document.getElementById('swal-json-editor') as HTMLTextAreaElement;
+                    const versionInput = document.getElementById('swal-version-input') as HTMLInputElement;
                     try {
-                        return JSON.parse(editor.value);
+                        return {
+                            objects: JSON.parse(editor.value),
+                            version_cache: parseInt(versionInput.value) || 1
+                        };
                     } catch (e) {
                         Swal.showValidationMessage(t('JSON invalide ! Veuillez corriger les erreurs de syntaxe.', 'Invalid JSON! Please correct syntax errors.'));
                         return false;
@@ -393,7 +414,10 @@ const AdminResourceDetail: React.FC = () => {
                     const finalData = result.value;
                     await apiCall(`models-manager/${id}/import-hierarchy`, { 
                         method: 'POST', 
-                        body: JSON.stringify({ objects: finalData.objects || finalData }) 
+                        body: JSON.stringify({ 
+                            objects: finalData.objects.objects || finalData.objects,
+                            version_cache: finalData.version_cache 
+                        }) 
                     });
                     Swal.fire(t('Succès', 'Success'), t('Importation réussie', 'Import successful'), 'success');
                     fetchDetails();
@@ -437,7 +461,7 @@ const AdminResourceDetail: React.FC = () => {
                     </div>
                     <div style={{ display: 'flex', gap: '10px' }}>
                         <button onClick={handleImportHierarchy} style={{ padding: '8px 16px', background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Save size={18} /> {t("Importer JSON (Hiérarchie)", "Import JSON (Hierarchy)")}
+                            <Save size={18} /> {t("Import JSON En Max", "Import JSON In Max")}
                         </button>
                         <button onClick={handleAddObject} style={{ padding: '8px 16px', background: '#34d399', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <Plus size={18} /> {t("Ajouter un objet", "Add an object")}

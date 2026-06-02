@@ -137,21 +137,25 @@ const AdminResources: React.FC = () => {
                             <thead>
                                 <tr style={{ background: 'rgba(0,0,0,0.02)', borderBottom: '1px solid var(--dash-border)', fontSize: '11px', textTransform: 'uppercase', color: 'var(--dash-text-muted)' }}>
                                     <th style={{ padding: '12px 20px', textAlign: 'left' }}>{language === 'fr' ? 'Nom / Fichier' : 'Name / File'}</th>
+                                    <th style={{ padding: '12px 20px', textAlign: 'center' }}>{language === 'fr' ? 'Version' : 'Version'}</th>
                                     <th style={{ padding: '12px 20px', textAlign: 'center' }}>{language === 'fr' ? 'Objets' : 'Objects'}</th>
                                     <th style={{ padding: '12px 20px', textAlign: 'right' }}>{language === 'fr' ? 'Date' : 'Date'}</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {loading ? (
-                                    <tr><td colSpan={3} style={{ padding: '40px', textAlign: 'center' }}>{language === 'fr' ? 'Chargement...' : 'Loading...'}</td></tr>
+                                    <tr><td colSpan={4} style={{ padding: '40px', textAlign: 'center' }}>{language === 'fr' ? 'Chargement...' : 'Loading...'}</td></tr>
                                 ) : assets.length === 0 ? (
-                                    <tr><td colSpan={3} style={{ padding: '40px', textAlign: 'center' }}>{language === 'fr' ? 'Aucun modèle.' : 'No models.'}</td></tr>
+                                    <tr><td colSpan={4} style={{ padding: '40px', textAlign: 'center' }}>{language === 'fr' ? 'Aucun modèle.' : 'No models.'}</td></tr>
                                 ) : (
                                     assets.map(a => (
                                         <tr key={a.id} onClick={() => navigate(`/model/${a.id}`)} style={{ borderBottom: '1px solid var(--dash-border)', cursor: 'pointer', transition: '0.2s' }}>
                                             <td style={{ padding: '14px 20px' }}>
                                                 <div style={{ fontWeight: 600, fontSize: '14px' }}>{a.name}</div>
                                                 <div style={{ fontSize: '11px', color: 'var(--dash-text-muted)', fontFamily: 'monospace' }}>{a.url_glb.split('/').pop()}</div>
+                                            </td>
+                                            <td style={{ padding: '14px 20px', textAlign: 'center' }}>
+                                                <span style={{ padding: '2px 8px', borderRadius: '10px', background: 'rgba(99, 102, 241, 0.1)', color: '#6366f1', fontSize: '12px', fontWeight: 700 }}>v{a.version}</span>
                                             </td>
                                             <td style={{ padding: '14px 20px', textAlign: 'center' }}>
                                                 <span style={{ padding: '2px 8px', borderRadius: '10px', background: 'rgba(14, 165, 233, 0.1)', color: '#0ea5e9', fontSize: '12px', fontWeight: 700 }}>{a.objects}</span>

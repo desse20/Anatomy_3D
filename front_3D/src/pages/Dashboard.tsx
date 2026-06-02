@@ -190,6 +190,7 @@ const CHART_LINES = [
     { key: 'student', color: '#34d399', dash: undefined, strokeWidth: 3 },
     { key: 'teacher', color: '#0ea5e9', dash: '10 5', strokeWidth: 3 },
     { key: 'admin', color: '#6366f1', dash: '4 4', strokeWidth: 3 },
+    { key: 'connected', color: '#f59e0b', dash: '3 3', strokeWidth: 2.5 },
 ] as const;
 
 /** Graduations Y entières uniques (évite 0, 1, 1, 2) */
@@ -208,8 +209,9 @@ const buildYAxis = (dataMax: number): { ticks: number[]; max: number } => {
 const PremiumCombinedChart: React.FC<{
     data: unknown[];
     range: string;
-    labels: { total: string; student: string; teacher: string; admin: string };
-}> = ({ data, range, labels }) => {
+    labels: { total: string; student: string; teacher: string; admin: string; connected?: string };
+    connectedData?: unknown[];
+}> = ({ data, range, labels, connectedData }) => {
     const wrapRef = useRef<HTMLDivElement>(null);
     const [chartWidth, setChartWidth] = useState(960);
 
@@ -225,13 +227,19 @@ const PremiumCombinedChart: React.FC<{
 
     const rangeDays = Math.max(1, parseInt(range, 10) || 30);
     const normalized = normalizeEvolution(data);
+    const connectedNormalized = (connectedData || []).map((row: any) => ({
+        date: String(row.date ?? '').slice(0, 10),
+        role: 'connected',
+        count: Number(row.count) || 0,
+    })).filter(p => p.date);
+    const allNormalized = [...normalized, ...connectedNormalized];
     const dates = buildDateAxis(rangeDays);
 
     const totalSeries = dates.map(date =>
-        normalized.filter(d => d.date === date).reduce((s, d) => s + d.count, 0)
+        allNormalized.filter(d => d.date === date && d.role !== 'connected').reduce((s, d) => s + d.count, 0)
     );
     const roleSeries = CHART_LINES.filter(l => l.key !== 'total').map(({ key }) =>
-        dates.map(date => countFor(normalized, date, key))
+        dates.map(date => countFor(allNormalized, date, key))
     );
     const allValues = [...totalSeries, ...roleSeries.flat()];
     const dataMax = Math.max(0, ...allValues);
@@ -239,9 +247,10 @@ const PremiumCombinedChart: React.FC<{
 
     const seriesByKey: Record<string, number[]> = {
         total: totalSeries,
-        student: dates.map(date => countFor(normalized, date, 'student')),
-        teacher: dates.map(date => countFor(normalized, date, 'teacher')),
-        admin: dates.map(date => countFor(normalized, date, 'admin')),
+        student: dates.map(date => countFor(allNormalized, date, 'student')),
+        teacher: dates.map(date => countFor(allNormalized, date, 'teacher')),
+        admin: dates.map(date => countFor(allNormalized, date, 'admin')),
+        connected: dates.map(date => countFor(allNormalized, date, 'connected')),
     };
 
     const height = 340;
@@ -269,7 +278,7 @@ const PremiumCombinedChart: React.FC<{
         return d.toLocaleDateString('fr', { month: 'short', day: 'numeric' });
     };
 
-    const hasAnyData = normalized.some(d => d.count > 0);
+    const hasAnyData = allNormalized.some(d => d.count > 0);
 
     if (!hasAnyData) {
         return (
@@ -287,6 +296,7 @@ const PremiumCombinedChart: React.FC<{
         student: labels.student,
         teacher: labels.teacher,
         admin: labels.admin,
+        connected: labels.connected || 'Connectés',
     };
 
     const legendGap = (chartWidth - padL - padR) / CHART_LINES.length;
@@ -810,15 +820,17 @@ const Dashboard: React.FC = () => {
                             </div>
 
                             <div className="full-width" style={{ marginBottom: '30px' }}>
-                                <ChartCard title={t("Analyse de Croissance", "Growth Analytics")} subtitle={t("4 courbes : Total + Utilisateur, Prof, Admin", "4 curves: Total + User, Teacher, Admin")} color="linear-gradient(135deg, #1e293b, #334155)">
+                                <ChartCard title={t("Analyse de Croissance", "Growth Analytics")} subtitle={t("5 courbes : Total + Utilisateur, Prof, Admin, Connectés", "5 curves: Total + User, Teacher, Admin, Connected")} color="linear-gradient(135deg, #1e293b, #334155)">
                                     <PremiumCombinedChart
                                         data={adminStats?.user_evolution || []}
+                                        connectedData={adminStats?.connected_evolution || []}
                                         range={statRange}
                                         labels={{
                                             total: t('Total', 'Total'),
                                             student: t('Utilisateur', 'User'),
                                             teacher: t('Prof', 'Teacher'),
                                             admin: t('Admin', 'Admin'),
+                                            connected: t('Connectés', 'Connected'),
                                         }}
                                     />
                                 </ChartCard>

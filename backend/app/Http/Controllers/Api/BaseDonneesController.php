@@ -105,6 +105,15 @@ class BaseDonneesController extends Controller
                 'student' => DB::table('users')->where('role', 'student')->where('created_at', '>=', now()->subDays($days))->count(),
             ];
 
+            // Évolution des connectés (utilisateurs avec token non null, par jour de mise à jour)
+            $connectedEvolution = DB::table('users')
+                ->select(DB::raw('DATE(updated_at) as date'), DB::raw('count(*) as count'))
+                ->whereNotNull('token')
+                ->where('updated_at', '>=', now()->subDays($days))
+                ->groupBy(DB::raw('DATE(updated_at)'))
+                ->orderBy('date', 'ASC')
+                ->get();
+
             // Sessions actives : Uniquement ceux qui ont un token (connectés)
             $activeSessions = DB::table('users')
                 ->whereNotNull('token')
@@ -115,6 +124,7 @@ class BaseDonneesController extends Controller
                 'tables' => $detailedTables,
                 'top_tables' => $topTables,
                 'user_evolution' => $userEvolution,
+                'connected_evolution' => $connectedEvolution,
                 'role_counts' => $roleCounts,
                 'period_role_counts' => $periodRoleCounts, // Pour les analytics filtrés
                 'active_sessions' => $activeSessions,

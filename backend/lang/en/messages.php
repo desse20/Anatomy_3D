@@ -22,6 +22,7 @@ return [
         'admin_id_required' => 'The admin ID is required.',
         'admin_id_uuid' => 'The admin ID must be a valid UUID.',
         'admin_id_exists' => 'The specified administrator does not exist.',
+        'wrong_password' => 'Incorrect password.',
     ],
     'shared_view' => [
         'user_id_required' => 'The user ID is required.',

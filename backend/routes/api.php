@@ -73,8 +73,8 @@ Route::prefix('quiz')->middleware(['simple_auth'])->group(function () {
 
 use App\Http\Controllers\Api\Asset3dController;
 
-// Gestion des Actifs 3D (Admin uniquement) - Sécurité bypassée pour debug final
-Route::prefix('models-manager')->group(function () {
+// Gestion des Actifs 3D (Admin uniquement)
+Route::prefix('models-manager')->middleware('simple_auth')->group(function () {
     Route::get('scan',           [Asset3dController::class, 'scanLocalFolder']);
     Route::get('',               [Asset3dController::class, 'index']);
     Route::get('{asset}',        [Asset3dController::class, 'show']);

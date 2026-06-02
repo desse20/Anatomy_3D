@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Asset3d;
 use App\Models\AnatomicalObject;
@@ -363,9 +364,22 @@ class Asset3dController extends Controller
         }
     }
 
-    public function destroy(Asset3d $asset)
+    public function destroy(Request $request, Asset3d $asset)
     {
+        $request->validate(['password' => 'required|string']);
+
+        $user = $request->user();
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            return response()->json(['error' => __('messages.asset_3d.wrong_password')], 403);
+        }
+
         $asset->anatomicalObjects()->delete();
+
+        // Supprimer le fichier GLB du disque
+        if ($asset->url_glb && Storage::disk('local')->exists($asset->url_glb)) {
+            Storage::disk('local')->delete($asset->url_glb);
+        }
+
         $asset->delete();
         return response()->json(['message' => __('messages.asset_3d.deleted')]);
     }
@@ -434,7 +448,7 @@ class Asset3dController extends Controller
             $json = $normalized;
         }
 
-        return DB::transaction(function() use ($json, $asset) {
+        return DB::transaction(function() use ($json, $asset, $request) {
             $count = 0;
             
             // Désactiver les vérifications de clés étrangères (comme dans le seeder)
@@ -473,9 +487,15 @@ class Asset3dController extends Controller
             // Réactiver les vérifications de clés étrangères
             DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
+            // Mettre à jour la version si fournie
+            if ($version = $request->input('version_cache')) {
+                $asset->update(['version_cache' => (int)$version]);
+            }
+
             return response()->json([
                 'message' => __('messages.asset_3d.import_success', ['count' => $count]),
-                'count'   => $count
+                'count'   => $count,
+                'version_cache' => $asset->fresh()->version_cache
             ]);
         });
     }
