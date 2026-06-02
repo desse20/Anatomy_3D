@@ -15,7 +15,7 @@ class AnatomyController extends Controller
     public function all(Request $request)
     {
         try {
-            $query = AnatomicalObject::select('id', 'name', 'parent_id', 'mesh', 'description');
+            $query = AnatomicalObject::select('id', 'name', 'parent_id', 'mesh', 'description', 'three_js_name');
             
             if ($request->has('asset_3d_id')) {
                 $query->where('asset_3d_id', $request->asset_3d_id);
@@ -26,7 +26,7 @@ class AnatomyController extends Controller
                     return [
                         'id' => $obj->id,
                         'name' => preg_replace('/\.g$/i', '', $obj->name),
-                        'three_js_name' => $obj->name, // Le nom brut est utilisé dans Three.js
+                        'three_js_name' => $obj->three_js_name,
                         'parent_id' => $obj->parent_id,
                         'type' => strtolower($obj->mesh ?? '') === 'mesh' ? 'mesh' : 'group',
                         'description' => $obj->description

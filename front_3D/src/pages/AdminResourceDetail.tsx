@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Box, ArrowLeft, Plus, Edit2, Trash2, Save, X, Info, Eye, Loader2 } from 'lucide-react';
+import { Box, ArrowLeft, Plus, Edit2, Trash2, Save, X, Info, Eye, Loader2, Search } from 'lucide-react';
 import App from '../components/layouts/App';
 import { apiCall } from '../services/api';
 import Swal from 'sweetalert2';
@@ -88,6 +88,7 @@ const AdminResourceDetail: React.FC = () => {
     const [loadingMore, setLoadingMore] = useState(false);
     const [totalObjects, setTotalObjects] = useState(0);
     const sentinelRef = useRef<HTMLDivElement>(null);
+    const [searchTerm, setSearchTerm] = useState('');
 
     // Object editing state
     const [editingObjectId, setEditingObjectId] = useState<number | null>(null);
@@ -145,37 +146,127 @@ const AdminResourceDetail: React.FC = () => {
         if (!sentinel) return;
 
         const observer = new IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting && currentPage < lastPage && !loadingMore) {
+            // Empêcher le chargement infini si on est en train de filtrer la vue (éviter boucle infinie)
+            if (entries[0].isIntersecting && currentPage < lastPage && !loadingMore && !searchTerm) {
                 loadMore();
             }
         }, { threshold: 0.1 });
 
         observer.observe(sentinel);
         return () => observer.disconnect();
-    }, [currentPage, lastPage, loadingMore, loadMore]);
+    }, [currentPage, lastPage, loadingMore, loadMore, searchTerm]);
 
     useEffect(() => {
         fetchDetails();
     }, [id]);
 
+    const handleEditModel = async () => {
+        const { value: formValues } = await Swal.fire({
+            title: t('Modifier le modèle', 'Edit model'),
+            html: `
+                <div style="text-align:left; display:flex; flex-direction:column; gap:14px;">
+                    <div>
+                        <label style="font-weight:600; font-size:14px; display:block; margin-bottom:4px;">${t('Nom', 'Name')}</label>
+                        <input id="swal-edit-name" value="${asset.name}" style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid #d1d5db; font-size:15px;" />
+                    </div>
+                    <div>
+                        <label style="font-weight:600; font-size:14px; display:block; margin-bottom:4px;">${t('Version', 'Version')}</label>
+                        <input id="swal-edit-version" type="number" min="1" value="${asset.version_cache || 1}" style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid #d1d5db; font-size:15px;" />
+                    </div>
+                    <div style="border-top:1px solid #e5e7eb; padding-top:14px;">
+                        <label style="font-weight:600; font-size:14px; display:block; margin-bottom:4px;">${t('Remplacer le fichier GLB', 'Replace GLB file')}</label>
+                        <input id="swal-edit-file" type="file" accept=".glb" style="width:100%; padding:8px; border-radius:8px; border:1px solid #d1d5db; font-size:14px;" />
+                        <span style="font-size:12px; color:#9ca3af; margin-top:4px; display:block;">${t('Optionnel — laissez vide pour conserver le fichier actuel', 'Optional — leave empty to keep the current file')}</span>
+                    </div>
+                </div>
+            `,
+            focusConfirm: false,
+            showCancelButton: true,
+            cancelButtonText: t('Annuler', 'Cancel'),
+            confirmButtonText: t('Enregistrer', 'Save'),
+            confirmButtonColor: '#0ea5e9',
+            preConfirm: () => {
+                const name = (document.getElementById('swal-edit-name') as HTMLInputElement).value.trim();
+                const version = parseInt((document.getElementById('swal-edit-version') as HTMLInputElement).value) || 1;
+                const fileInput = document.getElementById('swal-edit-file') as HTMLInputElement;
+                const file = fileInput.files?.[0] || null;
+                if (!name) {
+                    Swal.showValidationMessage(t('Le nom est requis', 'Name is required'));
+                    return false;
+                }
+                return { name, version_cache: version, file };
+            }
+        });
+
+        if (formValues) {
+            try {
+                Swal.fire({ title: t('Enregistrement...', 'Saving...'), allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                if (formValues.file) {
+                    const token = localStorage.getItem('token');
+                    const API_BASE_URL = import.meta.env.VITE_API_URL.replace(/\/$/, '');
+                    const fd = new FormData();
+                    fd.append('_method', 'PUT');
+                    fd.append('name', formValues.name);
+                    fd.append('version_cache', String(formValues.version_cache));
+                    fd.append('glb_file', formValues.file);
+                    const res = await fetch(`${API_BASE_URL}/models-manager/${id}`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Accept': 'application/json',
+                            'Accept-Language': localStorage.getItem('app_lang') || 'fr',
+                        },
+                        body: fd,
+                    });
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        throw new Error((err as any).error || t('Échec de la mise à jour', 'Update failed'));
+                    }
+                    await res.json();
+                } else {
+                    await apiCall(`models-manager/${id}`, {
+                        method: 'POST',
+                        body: JSON.stringify({ _method: 'PUT', name: formValues.name, version_cache: formValues.version_cache })
+                    });
+                }
+                Swal.fire(t('Succès', 'Success'), t('Modèle mis à jour', 'Model updated'), 'success');
+                fetchDetails();
+            } catch (e: any) {
+                Swal.fire(t('Erreur', 'Error'), e?.message || t('Échec de la mise à jour', 'Update failed'), 'error');
+            }
+        }
+    };
+
     const handleDeleteAsset = async () => {
-        const result = await Swal.fire({
-            title: t('Êtes-vous sûr ?', 'Are you sure?'),
-            text: t("Cela supprimera le modèle et tous ses objets associés !", "This will delete the model and all associated objects!"),
-            icon: 'warning',
+        const { value: password } = await Swal.fire({
+            title: t('Supprimer le modèle ?', 'Delete model?'),
+            html: `
+                <p style="margin-bottom: 16px">${t("Cette action supprimera le modèle et tous ses objets associés.", "This will delete the model and all associated objects.")}</p>
+                <p style="font-weight:600; margin-bottom:8px">${t('Confirmez avec votre mot de passe', 'Confirm with your password')}</p>
+                <input id="swal-delete-password" type="password" class="swal2-input" style="width:80%" placeholder="${t('Mot de passe', 'Password')}" />
+            `,
+            focusConfirm: false,
+            preConfirm: () => {
+                const pw = (document.getElementById('swal-delete-password') as HTMLInputElement).value;
+                if (!pw) {
+                    Swal.showValidationMessage(t('Mot de passe requis', 'Password required'));
+                    return false;
+                }
+                return pw;
+            },
             showCancelButton: true,
             cancelButtonText: t('Annuler', 'Cancel'),
             confirmButtonColor: '#f43f5e',
-            confirmButtonText: t('Oui, supprimer tout', 'Yes, delete all')
+            confirmButtonText: t('Oui, supprimer', 'Yes, delete')
         });
 
-        if (result.isConfirmed) {
+        if (password) {
             try {
-                await apiCall(`models-manager/${id}`, { method: 'POST', body: JSON.stringify({ _method: 'DELETE' }) });
+                await apiCall(`models-manager/${id}`, { method: 'POST', body: JSON.stringify({ _method: 'DELETE', password }) });
                 Swal.fire(t('Supprimé', 'Deleted'), t('Le modèle a été supprimé.', 'The model has been deleted.'), 'success');
                 navigate('/model');
-            } catch (e) {
-                Swal.fire(t('Erreur', 'Error'), t('Suppression échouée', 'Deletion failed'), 'error');
+            } catch (e: any) {
+                Swal.fire(t('Erreur', 'Error'), e?.message || t('Suppression échouée', 'Deletion failed'), 'error');
             }
         }
     };
@@ -335,9 +426,7 @@ const AdminResourceDetail: React.FC = () => {
             try {
                 Swal.fire({ title: t('Chargement du JSON...', 'Loading JSON...'), allowOutsideClick: false, didOpen: () => Swal.showLoading() });
                 // On récupère d'abord le contenu pour previsualisation
-                const path = 'storage/app/anatomy_hierarchy.json'; 
-                // Note: On pourrait faire un endpoint pour LIRE le JSON sans importer
-                // Mais pour simuler la demande "Afficher JSON d'abord", on va demander au serveur le contenu
+                // On récupère d'abord le contenu pour previsualisation
                 const res = await apiCall(`models-manager/${id}/import-hierarchy?preview=1`, { method: 'POST', body: JSON.stringify({ use_default: true }) });
                 jsonData = res.data;
             } catch (e) {
@@ -369,7 +458,12 @@ const AdminResourceDetail: React.FC = () => {
                 title: t('Vérification et Édition des données', 'Data Verification and Editing'),
                 html: `<div style="text-align:left; display:flex; flex-direction:column; gap:10px;">
                     <p style="font-size:14px; color:#666">${t('Vous pouvez modifier le JSON directement ci-dessous avant de valider.', 'You can modify the JSON directly below before validating.')}</p>
-                    <textarea id="swal-json-editor" style="width:100%; height:500px; background:#1e1e1e; color:#d4d4d4; padding:15px; border-radius:8px; font-family:monospace; font-size:13px; line-height:1.5; outline:none; border:none;">${JSON.stringify(jsonData, null, 2)}</textarea>
+                    <div style="display:flex; align-items:center; gap:12px; background:#f9fafb; padding:10px 14px; border-radius:8px; border:1px solid #e5e7eb;">
+                        <label style="font-weight:600; font-size:14px; white-space:nowrap;">${t('Version:', 'Version:')}</label>
+                        <input id="swal-version-input" type="number" min="1" value="${asset.version_cache || 1}" style="flex:1; padding:6px 10px; border-radius:6px; border:1px solid #d1d5db; font-size:14px;" />
+                        <span style="font-size:12px; color:#9ca3af; white-space:nowrap;">${t('(actuelle: ' + (asset.version_cache || 1) + ')', '(current: ' + (asset.version_cache || 1) + ')')}</span>
+                    </div>
+                    <textarea id="swal-json-editor" style="width:100%; height:400px; background:#1e1e1e; color:#d4d4d4; padding:15px; border-radius:8px; font-family:monospace; font-size:13px; line-height:1.5; outline:none; border:none;">${JSON.stringify(jsonData, null, 2)}</textarea>
                 </div>`,
                 width: '95%',
                 showCancelButton: true,
@@ -377,8 +471,12 @@ const AdminResourceDetail: React.FC = () => {
                 confirmButtonText: t('Confirmer l\'importation', 'Confirm import'),
                 preConfirm: () => {
                     const editor = document.getElementById('swal-json-editor') as HTMLTextAreaElement;
+                    const versionInput = document.getElementById('swal-version-input') as HTMLInputElement;
                     try {
-                        return JSON.parse(editor.value);
+                        return {
+                            objects: JSON.parse(editor.value),
+                            version_cache: parseInt(versionInput.value) || 1
+                        };
                     } catch (e) {
                         Swal.showValidationMessage(t('JSON invalide ! Veuillez corriger les erreurs de syntaxe.', 'Invalid JSON! Please correct syntax errors.'));
                         return false;
@@ -393,7 +491,10 @@ const AdminResourceDetail: React.FC = () => {
                     const finalData = result.value;
                     await apiCall(`models-manager/${id}/import-hierarchy`, { 
                         method: 'POST', 
-                        body: JSON.stringify({ objects: finalData.objects || finalData }) 
+                        body: JSON.stringify({ 
+                            objects: finalData.objects.objects || finalData.objects,
+                            version_cache: finalData.version_cache 
+                        }) 
                     });
                     Swal.fire(t('Succès', 'Success'), t('Importation réussie', 'Import successful'), 'success');
                     fetchDetails();
@@ -421,12 +522,20 @@ const AdminResourceDetail: React.FC = () => {
                 <div style={{ background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', borderRadius: '16px', padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <ModelNameSection asset={asset} onRenamed={fetchDetails} />
                     
-                    <button 
-                        onClick={handleDeleteAsset}
-                        style={{ padding: '10px 20px', borderRadius: '10px', background: 'rgba(244, 63, 94, 0.1)', color: '#f43f5e', border: '1px solid #f43f5e50', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-                    >
-                        <Trash2 size={18} /> {t("Supprimer le modèle", "Delete model")}
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <button 
+                            onClick={handleEditModel}
+                            style={{ padding: '10px 20px', borderRadius: '10px', background: 'rgba(14, 165, 233, 0.1)', color: '#0ea5e9', border: '1px solid #0ea5e950', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                        >
+                            <Edit2 size={18} /> {t("Modifier", "Edit")}
+                        </button>
+                        <button 
+                            onClick={handleDeleteAsset}
+                            style={{ padding: '10px 20px', borderRadius: '10px', background: 'rgba(244, 63, 94, 0.1)', color: '#f43f5e', border: '1px solid #f43f5e50', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                        >
+                            <Trash2 size={18} /> {t("Supprimer le modèle", "Delete model")}
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -437,11 +546,24 @@ const AdminResourceDetail: React.FC = () => {
                     </div>
                     <div style={{ display: 'flex', gap: '10px' }}>
                         <button onClick={handleImportHierarchy} style={{ padding: '8px 16px', background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Save size={18} /> {t("Importer JSON (Hiérarchie)", "Import JSON (Hierarchy)")}
+                            <Save size={18} /> {t("Import JSON En Max", "Import JSON In Max")}
                         </button>
                         <button onClick={handleAddObject} style={{ padding: '8px 16px', background: '#34d399', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <Plus size={18} /> {t("Ajouter un objet", "Add an object")}
                         </button>
+                    </div>
+                </div>
+
+                <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--dash-border)' }}>
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                        <Search size={18} style={{ position: 'absolute', left: '16px', color: 'var(--dash-text-muted)' }} />
+                        <input 
+                            type="text" 
+                            placeholder={t("Rechercher dans les objets chargés...", "Search in loaded objects...")}
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                            style={{ width: '100%', padding: '10px 16px 10px 44px', borderRadius: '10px', border: '1px solid var(--dash-border)', background: 'transparent', color: 'var(--dash-text)', outline: 'none' }}
+                        />
                     </div>
                 </div>
 
@@ -458,7 +580,25 @@ const AdminResourceDetail: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {objects.map((obj: any) => (
+                            {(() => {
+                                const filtered = objects.filter(obj => 
+                                    obj.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                    obj.three_js_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                    obj.id.toString().includes(searchTerm)
+                                );
+                                if (filtered.length === 0 && searchTerm) {
+                                    return (
+                                        <tr>
+                                            <td colSpan={6} style={{ padding: '60px', textAlign: 'center' }}>
+                                                <div style={{ color: 'var(--dash-text-muted)', fontSize: '15px' }}>
+                                                    <Search size={40} style={{ opacity: 0.1, display: 'block', margin: '0 auto 10px' }} />
+                                                    {t("Aucun objet ne correspond à votre recherche.", "No objects match your search.")}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                }
+                                return filtered.map((obj: any) => (
                                 <tr key={obj.id} style={{ borderBottom: '1px solid var(--dash-border)', transition: '0.2s' }}>
                                     <td style={{ padding: '16px 12px' }}>
                                         {editingObjectId === obj.id ? (
@@ -569,7 +709,7 @@ const AdminResourceDetail: React.FC = () => {
                                         </div>
                                     </td>
                                 </tr>
-                            ))}
+                            ))})()}
                         </tbody>
                     </table>
 

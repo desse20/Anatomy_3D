@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Presentation, Plus, Trash2, X, Edit2, Users, Layout, AlertCircle, Share2, Eye } from 'lucide-react';
+import { Presentation, Plus, Trash2, X, Edit2, Users, Layout, AlertCircle, Share2, Eye, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import App from '../components/layouts/App';
@@ -65,6 +65,7 @@ const TeacherDashboard: React.FC = () => {
     const [editingLab, setEditingLab] = useState<any>(null);
     const [editData, setEditData] = useState({ name: '', description: '' });
     const [editError, setEditError] = useState<string | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
 
     const fetchLabs = async () => {
         setLoading(true);
@@ -174,7 +175,7 @@ const TeacherDashboard: React.FC = () => {
             )}
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
-                <div style={{ display: 'flex', gap: '12px' }}>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                     {selectedIds.length > 0 && isTeacherOrAdmin && activeTab === 'my' && (
                         <button 
                             onClick={handleBulkDelete}
@@ -183,6 +184,16 @@ const TeacherDashboard: React.FC = () => {
                             <Trash2 size={18} /> {t('Supprimer la sélection', 'Delete Selected')} ({selectedIds.length})
                         </button>
                     )}
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                        <Search size={18} style={{ position: 'absolute', left: '16px', color: 'var(--dash-text-muted)' }} />
+                        <input 
+                            type="text" 
+                            placeholder={t('Rechercher une salle...', 'Search a lab...')}
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                            style={{ width: '280px', padding: '10px 16px 10px 44px', borderRadius: '12px', border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text)', outline: 'none' }}
+                        />
+                    </div>
                 </div>
                 {isTeacherOrAdmin && !isAddSectionOpen && activeTab === 'my' && (
                     <button 
@@ -243,7 +254,12 @@ const TeacherDashboard: React.FC = () => {
                                 ) : myLabs.length === 0 ? (
                                     <tr><td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: 'var(--dash-text-muted)' }}>{t('Aucune salle créée.', 'No labs created.')}</td></tr>
                                 ) : (
-                                    myLabs.map(lab => (
+                                    (() => {
+                                        const filtered = myLabs.filter(l => l.name.toLowerCase().includes(searchTerm.toLowerCase()) || (l.description || '').toLowerCase().includes(searchTerm.toLowerCase()));
+                                        if (filtered.length === 0 && searchTerm) {
+                                            return <tr><td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: 'var(--dash-text-muted)' }}>{t('Aucune salle ne correspond à votre recherche.', 'No labs match your search.')}</td></tr>;
+                                        }
+                                        return filtered.map(lab => (
                                         <tr key={lab.id} style={{ borderBottom: '1px solid var(--dash-border)', background: selectedIds.includes(lab.id) ? 'rgba(251, 191, 36, 0.03)' : 'transparent', transition: '0.2s' }}>
                                             <td style={{ padding: '16px 20px' }}>
                                                 <input type="checkbox" checked={selectedIds.includes(lab.id)} onChange={() => toggleSelectOne(lab.id)} style={{ width: '14px', height: '14px', cursor: 'pointer', accentColor: '#fbbf24' }} />
@@ -293,7 +309,8 @@ const TeacherDashboard: React.FC = () => {
                                                 </div>
                                             </td>
                                         </tr>
-                                    ))
+                                    ));
+                                    })()
                                 )}
                             </tbody>
                         </table>
@@ -318,7 +335,12 @@ const TeacherDashboard: React.FC = () => {
                                 {t("Aucune salle trouvée.", "No labs found.")}
                             </div>
                         ) : (
-                            joinedLabs.map((lab, i) => {
+                            (() => {
+                                const filtered = joinedLabs.filter(l => l.name.toLowerCase().includes(searchTerm.toLowerCase()) || (l.description || '').toLowerCase().includes(searchTerm.toLowerCase()));
+                                if (filtered.length === 0 && searchTerm) {
+                                    return <div style={{ padding: '60px 24px', textAlign: 'center', color: 'var(--dash-text-muted)', fontSize: '14px' }}>{t("Aucune salle ne correspond à votre recherche.", "No labs match your search.")}</div>;
+                                }
+                                return filtered.map((lab, i) => {
                                 const date = new Date(lab.created_at);
                                 const now = new Date();
                                 const diffMs = now.getTime() - date.getTime();
@@ -365,6 +387,7 @@ const TeacherDashboard: React.FC = () => {
                                     </div>
                                 );
                             })
+                            })()
                         )}
                     </div>
                 </div>

@@ -73,8 +73,8 @@ Route::prefix('quiz')->middleware(['simple_auth'])->group(function () {
 
 use App\Http\Controllers\Api\Asset3dController;
 
-// Gestion des Actifs 3D (Admin uniquement) - Sécurité bypassée pour debug final
-Route::prefix('models-manager')->group(function () {
+// Gestion des Actifs 3D (Admin uniquement)
+Route::prefix('models-manager')->middleware('simple_auth')->group(function () {
     Route::get('scan',           [Asset3dController::class, 'scanLocalFolder']);
     Route::get('',               [Asset3dController::class, 'index']);
     Route::get('{asset}',        [Asset3dController::class, 'show']);
@@ -87,10 +87,14 @@ Route::prefix('models-manager')->group(function () {
     Route::delete('objects/{object}', [Asset3dController::class, 'destroyObject']);
     Route::post('{asset}/import-hierarchy', [Asset3dController::class, 'importHierarchy']);
     Route::get('{asset}/search-objects', [Asset3dController::class, 'searchObjects']);
-    Route::get('files/{filename}',     [Asset3dController::class, 'serveFile']);
     Route::post('process-local', [Asset3dController::class, 'processLocalFile']);
     Route::post('upload',        [Asset3dController::class, 'upload']);
     Route::post('confirm',       [Asset3dController::class, 'confirm']);
+});
+
+// SANS simple_auth — nécessaire pour le render 3D (vue publique)
+Route::prefix('models-manager')->group(function () {
+    Route::get('files/{filename}', [Asset3dController::class, 'serveFile']);
 });
 
 // Gestion des Labs

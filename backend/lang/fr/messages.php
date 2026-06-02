@@ -48,6 +48,7 @@ return [
         'object_deleted' => 'Objet supprimé.',
         'object_added' => 'Objet ajouté.',
         'no_json' => 'Aucune donnée JSON valide fournie.',
+        'wrong_password' => 'Mot de passe incorrect.',
     ],
     'user' => [
         'admin_role_protected' => 'Impossible de modifier le rôle d\'un administrateur.',

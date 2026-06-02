@@ -58,6 +58,7 @@ const AdminUsers: React.FC = () => {
     const [roleFilter, setRoleFilter] = useState('');
     const [loading, setLoading] = useState(false);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [roleCounts, setRoleCounts] = useState<{total: number; admin: number; teacher: number; student: number} | null>(null);
 
     const currentLoggedUser = (() => {
         try { return JSON.parse(localStorage.getItem('user') || '{}'); }
@@ -101,6 +102,7 @@ const AdminUsers: React.FC = () => {
             const res = await apiCall(url);
             const usersList = Array.isArray(res) ? res : (res.data || []);
             setUsers(usersList);
+            if (res.role_counts) setRoleCounts(res.role_counts);
             setSelectedIds([]);
         } catch (e) { console.error(e); }
         setLoading(false);
@@ -297,6 +299,27 @@ const AdminUsers: React.FC = () => {
                 </button>
             </div>
 
+            {roleCounts && (
+                <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
+                    <div style={{ flex: 1, minWidth: '140px', background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', borderRadius: '12px', padding: '16px 20px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--dash-text)' }}>{roleCounts.total}</div>
+                        <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--dash-text-muted)', marginTop: '4px' }}>{t('Total', 'Total')}</div>
+                    </div>
+                    <div style={{ flex: 1, minWidth: '140px', background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', borderRadius: '12px', padding: '16px 20px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '28px', fontWeight: 800, color: '#10b981' }}>{roleCounts.student}</div>
+                        <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--dash-text-muted)', marginTop: '4px' }}>{t('Étudiant', 'Student')}</div>
+                    </div>
+                    <div style={{ flex: 1, minWidth: '140px', background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', borderRadius: '12px', padding: '16px 20px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '28px', fontWeight: 800, color: '#f59e0b' }}>{roleCounts.teacher}</div>
+                        <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--dash-text-muted)', marginTop: '4px' }}>{t('Prof', 'Teacher')}</div>
+                    </div>
+                    <div style={{ flex: 1, minWidth: '140px', background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', borderRadius: '12px', padding: '16px 20px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '28px', fontWeight: 800, color: '#f87171' }}>{roleCounts.admin}</div>
+                        <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--dash-text-muted)', marginTop: '4px' }}>Admin</div>
+                    </div>
+                </div>
+            )}
+
             {isAddingUser && (
                 <div style={{ background: 'var(--dash-bg)', border: '1px solid #0ea5e950', borderRadius: '16px', padding: '24px', marginBottom: '32px', boxShadow: '0 10px 25px -5px rgba(14, 165, 233, 0.1)' }}>
                     <h3 style={{ margin: '0 0 20px 0', fontSize: '18px', color: '#0ea5e9', display: 'flex', alignItems: 'center', gap: '8px' }}><Plus size={20}/> {t('Créer un compte', 'Create an account')}</h3>
@@ -313,7 +336,7 @@ const AdminUsers: React.FC = () => {
                         <RoleSelector t={t} value={formData.role} onChange={(r)=>setFormData({...formData, role:r})} disabledRoles={[]} isLocked={false}/></div>
                         <div style={{marginBottom:'24px'}}><label style={{display:'block',fontSize:'12px',fontWeight:600,color:'var(--dash-text-muted)',marginBottom:'6px'}}>{t('Mot de passe initial', 'Initial password')}</label>
                         <div style={{display:'flex',gap:'8px'}}><input type="text" required value={formData.password} onChange={(e)=>setFormData({...formData, password:e.target.value})} style={{flex:1,padding:'10px',borderRadius:'8px',border:'1px solid var(--dash-border)',background:'rgba(0,0,0,0.02)',color:'var(--dash-text)',outline:'none',fontFamily:'monospace'}}/>
-                        <button type="button" onClick={()=>setFormData({...formData, password:generateSecurePassword()})} style={{padding:'0 16px',background:'var(--dash-bg)',border:'1px solid var(--dash-border)',borderRadius:'8px',cursor:'pointer'}}>{t('Générer', 'Generate')}</button></div></div>
+                        <button type="button" onClick={()=>setFormData({...formData, password:generateSecurePassword()})} style={{padding:'0 16px',background:'rgba(14,165,233,0.12)',border:'1px solid rgba(14,165,233,0.35)',borderRadius:'8px',cursor:'pointer',color:'#0ea5e9',fontWeight:600,whiteSpace:'nowrap'}}>{t('Régénérer', 'Regenerate')}</button></div></div>
                         <div style={{display:'flex',justifyContent:'flex-end',gap:'12px'}}>
                             <button type="button" onClick={()=>setIsAddingUser(false)} style={{padding:'10px 20px',borderRadius:'8px',border:'1px solid var(--dash-border)',background:'transparent',color:'var(--dash-text)',cursor:'pointer'}}>{t('Annuler', 'Cancel')}</button>
                             <button type="submit" style={{padding:'10px 24px',borderRadius:'8px',border:'none',background:'#0ea5e9',color:'#fff',fontWeight:600,cursor:'pointer'}}>{t("Créer l'utilisateur", "Create user")}</button>
@@ -367,7 +390,7 @@ const AdminUsers: React.FC = () => {
                                                 <div style={{ fontWeight: 600 }}>{u.firstname} {u.lastname}</div>
                                             </td>
                                             <td style={{ padding: '16px 20px' }}>
-                                                <span style={{ padding: '4px 10px', borderRadius: '100px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', background: u.role === 'admin' ? '#f8717115' : u.role === 'teacher' ? '#fbbf2415' : '#34d39915', color: u.role === 'admin' ? '#f87171' : u.role === 'teacher' ? '#f59e0b' : '#10b981' }}>{u.role}</span>
+                                                <span style={{ padding: '4px 10px', borderRadius: '100px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', background: u.role === 'admin' ? '#f8717115' : u.role === 'teacher' ? '#fbbf2415' : '#34d39915', color: u.role === 'admin' ? '#f87171' : u.role === 'teacher' ? '#f59e0b' : '#10b981' }}>{getRoleLabel(u.role)}</span>
                                             </td>
                                             <td style={{ padding: '16px 20px', color: 'var(--dash-text-muted)' }}>{u.email}</td>
                                             <td style={{ padding: '16px 20px', textAlign: 'right' }}>
@@ -393,11 +416,45 @@ const AdminUsers: React.FC = () => {
                         <h3 style={{ margin: '0 0 20px 0' }}>{t("Modifier l'utilisateur", "Edit user")}</h3>
                         <form onSubmit={handleEditWrapper}>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                                <input type="text" value={formData.firstname} onChange={(e)=>setFormData({...formData, firstname:e.target.value})} style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid var(--dash-border)',background:'rgba(0,0,0,0.02)',color:'var(--dash-text)'}}/>
-                                <input type="text" value={formData.lastname} onChange={(e)=>setFormData({...formData, lastname:e.target.value})} style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid var(--dash-border)',background:'rgba(0,0,0,0.02)',color:'var(--dash-text)'}}/>
+                                <div>
+                                    <label style={{display:'block',fontSize:'12px',fontWeight:600,color:'var(--dash-text-muted)',marginBottom:'6px'}}>{t('Prénom', 'First Name')}</label>
+                                    <input type="text" value={formData.firstname} onChange={(e)=>setFormData({...formData, firstname:e.target.value})} style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid var(--dash-border)',background:'rgba(0,0,0,0.02)',color:'var(--dash-text)',outline:'none'}}/>
+                                </div>
+                                <div>
+                                    <label style={{display:'block',fontSize:'12px',fontWeight:600,color:'var(--dash-text-muted)',marginBottom:'6px'}}>{t('Nom', 'Last Name')}</label>
+                                    <input type="text" value={formData.lastname} onChange={(e)=>setFormData({...formData, lastname:e.target.value})} style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid var(--dash-border)',background:'rgba(0,0,0,0.02)',color:'var(--dash-text)',outline:'none'}}/>
+                                </div>
                             </div>
-                            <input type="email" value={formData.email} onChange={(e)=>setFormData({...formData, email:e.target.value})} style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid var(--dash-border)',marginBottom:'16px',background:'rgba(0,0,0,0.02)',color:'var(--dash-text)'}}/>
-                            <div style={{marginBottom:'24px'}}><RoleSelector t={t} value={formData.role} onChange={(r)=>setFormData({...formData, role:r})} disabledRoles={currentUser?.role === 'teacher' ? ['student'] : []} isLocked={currentUser?.role === 'admin'}/></div>
+                            <div style={{marginBottom:'16px'}}>
+                                <label style={{display:'block',fontSize:'12px',fontWeight:600,color:'var(--dash-text-muted)',marginBottom:'6px'}}>{t('Email', 'Email')}</label>
+                                <input type="email" required value={formData.email} onChange={(e)=>setFormData({...formData, email:e.target.value})} style={{width:'100%',padding:'10px',borderRadius:'8px',border:'1px solid var(--dash-border)',background:'rgba(0,0,0,0.02)',color:'var(--dash-text)',outline:'none'}}/>
+                            </div>
+                            <div style={{marginBottom:'16px'}}>
+                                <label style={{display:'block',fontSize:'12px',fontWeight:600,color:'var(--dash-text-muted)',marginBottom:'8px'}}>{t("Rôle de l'utilisateur", "User Role")}</label>
+                                <RoleSelector t={t} value={formData.role} onChange={(r)=>setFormData({...formData, role:r})} disabledRoles={currentUser?.role === 'teacher' ? ['student'] : []} isLocked={currentUser?.role === 'admin'}/>
+                            </div>
+                            <div style={{marginBottom:'24px'}}>
+                                <label style={{display:'block',fontSize:'12px',fontWeight:600,color:'var(--dash-text-muted)',marginBottom:'4px'}}>
+                                    {t('Nouveau mot de passe', 'New password')}&nbsp;
+                                    <span style={{fontWeight:400,fontStyle:'italic',opacity:0.6}}>({t('laisser vide pour ne pas changer', 'leave blank to keep current')})</span>
+                                </label>
+                                <div style={{display:'flex',gap:'8px'}}>
+                                    <input
+                                        type="text"
+                                        value={formData.password}
+                                        onChange={(e) => setFormData({...formData, password: e.target.value})}
+                                        placeholder={t('Nouveau mot de passe...', 'New password...')}
+                                        style={{flex:1,padding:'10px',borderRadius:'8px',border:'1px solid var(--dash-border)',background:'rgba(0,0,0,0.02)',color:'var(--dash-text)',outline:'none',fontFamily:'monospace'}}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({...formData, password: generateSecurePassword()})}
+                                        style={{padding:'0 14px',background:'rgba(14,165,233,0.12)',border:'1px solid rgba(14,165,233,0.35)',borderRadius:'8px',cursor:'pointer',color:'#0ea5e9',fontWeight:600,whiteSpace:'nowrap'}}
+                                    >
+                                        {t('Régénérer', 'Regenerate')}
+                                    </button>
+                                </div>
+                            </div>
                             <div style={{ display: 'flex', gap: '12px' }}>
                                 <button type="button" onClick={() => setIsEditModalOpen(false)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid var(--dash-border)', background: 'transparent', color: 'var(--dash-text)' }}>{t('Annuler', 'Cancel')}</button>
                                 <button type="submit" style={{ flex: 1, padding: '12px', borderRadius: '8px', border: 'none', background: '#0ea5e9', color: '#fff', fontWeight: 600 }}>{t('Enregistrer', 'Save')}</button>
