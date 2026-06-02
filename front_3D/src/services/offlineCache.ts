@@ -6,6 +6,7 @@ interface CacheAsset {
   name: string;
   url_glb: string;
   cached_at: number;
+  version?: number;
 }
 
 interface HierarchyCache {
