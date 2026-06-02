@@ -58,7 +58,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
   function syncEyes() {
     eachMesh(m => {
       const info = m.userData.info; if (!info) return;
-      for (const row of document.querySelectorAll<HTMLElement>('.item-row')) {
+      for (const row of Array.from(document.querySelectorAll<HTMLElement>('.item-row'))) {
         const s = row.querySelector('span:last-child');
         if (s && s.textContent === info.name) {
           const eye = row.querySelector('.eye-btn') as HTMLElement;
@@ -117,9 +117,15 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
         if (mesh.material instanceof THREE.MeshStandardMaterial) mesh.material.emissive.setHex(0x224488);
         row.classList.add('selected-item');
         const info = mesh.userData.info;
-        if (info?.description) desc(info.description, info.name);
-        else desc('<em>Description non disponible.</em>', info?.name || mesh.name);
-      } else desc('', item.name);
+        const itemDesc = info?.description || item.description;
+        const itemName = info?.name || item.name;
+        if (itemDesc) desc(itemDesc, itemName);
+        else desc('<em>Description non disponible.</em>', itemName);
+      } else {
+        // No mesh found (group node) — show description from the item data directly
+        if (item.description) desc(item.description, item.name);
+        else desc('<em>Description non disponible.</em>', item.name);
+      }
       if (children.length) {
         const c = li.querySelector('ul');
         if (c) { c.classList.toggle('active'); span.classList.toggle('caret-down'); }
@@ -279,7 +285,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     const scene = new THREE.Scene(); scene.background = new THREE.Color(0x0a0a0a); sceneRef.current = scene;
     const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 1000);
     camera.position.set(3, 2, 4); cameraRef.current = camera;
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
     renderer.setSize(w, h); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;
     containerRef.current.appendChild(renderer.domElement); rendererRef.current = renderer;
@@ -323,8 +329,20 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
         const m = c as ExtendedMesh;
         m.material = new THREE.MeshStandardMaterial({ color: 0xECE2D0, roughness: 0.4, metalness: 0.1 });
         m.castShadow = true; m.receiveShadow = true;
-        const info = data.find(i => i.three_js_name === c.name);
-        if (info) m.userData.info = info;
+        // 1) Correspondance exacte
+        let info = data.find(i => i.three_js_name === c.name);
+        // 2) Fallback : insensible à la casse
+        if (!info) info = data.find(i => i.three_js_name?.toLowerCase() === c.name?.toLowerCase());
+        // 3) Fallback : sans suffixe Blender (.001, .002, ...)
+        if (!info) {
+          const baseName = c.name.replace(/\.\d+$/, '');
+          info = data.find(i => i.three_js_name === baseName || i.three_js_name?.toLowerCase() === baseName.toLowerCase());
+        }
+        if (info) {
+          m.userData.info = info;
+        } else {
+          console.warn('[AnatomyViewer] Mesh sans correspondance BDD :', c.name);
+        }
       });
 
       const box = new THREE.Box3().setFromObject(model);
@@ -382,7 +400,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
       if (info && obj.visible) {
         deselect(); select(obj);
         if (obj.material instanceof THREE.MeshStandardMaterial) obj.material.emissive.setHex(0x224488);
-        for (const row of document.querySelectorAll<HTMLElement>('.item-row')) {
+        for (const row of Array.from(document.querySelectorAll<HTMLElement>('.item-row'))) {
           const s = row.querySelector('span:last-child');
           if (s && s.textContent === info.name) { row.classList.add('selected-item'); row.scrollIntoView({ behavior: 'smooth', block: 'center' }); break; }
         }
@@ -454,13 +472,14 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
         </div>
         <div ref={hierarchyRef} id="hierarchy-root" />
       </div>
-      <div ref={containerRef} id="canvas-container" />
-        <div className="zoom-buttons">
-          <button className="zoom-btn" onClick={() => zoom(0.3)}>+</button>
-          <button className="zoom-btn" onClick={() => zoom(-0.3)}>−</button>
-          <button className="zoom-btn" onClick={() => rotateOrbit(0.6)}>←</button>
-          <button className="zoom-btn" onClick={() => rotateOrbit(-0.6)}>→</button>
+      <div ref={containerRef} id="canvas-container">
+        <div className="dpad-controls">
+          <button className="zoom-btn dpad-up"    onClick={() => zoom(0.3)}          title="Zoom avant">+</button>
+          <button className="zoom-btn dpad-left"  onClick={() => rotateOrbit(0.6)}   title="Rotation gauche">←</button>
+          <button className="zoom-btn dpad-right" onClick={() => rotateOrbit(-0.6)}  title="Rotation droite">→</button>
+          <button className="zoom-btn dpad-down"  onClick={() => zoom(-0.3)}         title="Zoom arrière">−</button>
         </div>
+      </div>
       <div ref={labelRef} id="label"><span></span></div>
       <div id="description-panel" className="description-panel">
         <div className="description-header"><h3>Description</h3></div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Box, ArrowLeft, Plus, Edit2, Trash2, Save, X, Info, Eye, Loader2 } from 'lucide-react';
+import { Box, ArrowLeft, Plus, Edit2, Trash2, Save, X, Info, Eye, Loader2, Search } from 'lucide-react';
 import App from '../components/layouts/App';
 import { apiCall } from '../services/api';
 import Swal from 'sweetalert2';
@@ -88,6 +88,7 @@ const AdminResourceDetail: React.FC = () => {
     const [loadingMore, setLoadingMore] = useState(false);
     const [totalObjects, setTotalObjects] = useState(0);
     const sentinelRef = useRef<HTMLDivElement>(null);
+    const [searchTerm, setSearchTerm] = useState('');
 
     // Object editing state
     const [editingObjectId, setEditingObjectId] = useState<number | null>(null);
@@ -145,14 +146,15 @@ const AdminResourceDetail: React.FC = () => {
         if (!sentinel) return;
 
         const observer = new IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting && currentPage < lastPage && !loadingMore) {
+            // Empêcher le chargement infini si on est en train de filtrer la vue (éviter boucle infinie)
+            if (entries[0].isIntersecting && currentPage < lastPage && !loadingMore && !searchTerm) {
                 loadMore();
             }
         }, { threshold: 0.1 });
 
         observer.observe(sentinel);
         return () => observer.disconnect();
-    }, [currentPage, lastPage, loadingMore, loadMore]);
+    }, [currentPage, lastPage, loadingMore, loadMore, searchTerm]);
 
     useEffect(() => {
         fetchDetails();
@@ -335,9 +337,7 @@ const AdminResourceDetail: React.FC = () => {
             try {
                 Swal.fire({ title: t('Chargement du JSON...', 'Loading JSON...'), allowOutsideClick: false, didOpen: () => Swal.showLoading() });
                 // On récupère d'abord le contenu pour previsualisation
-                const path = 'storage/app/anatomy_hierarchy.json'; 
-                // Note: On pourrait faire un endpoint pour LIRE le JSON sans importer
-                // Mais pour simuler la demande "Afficher JSON d'abord", on va demander au serveur le contenu
+                // On récupère d'abord le contenu pour previsualisation
                 const res = await apiCall(`models-manager/${id}/import-hierarchy?preview=1`, { method: 'POST', body: JSON.stringify({ use_default: true }) });
                 jsonData = res.data;
             } catch (e) {
@@ -445,6 +445,19 @@ const AdminResourceDetail: React.FC = () => {
                     </div>
                 </div>
 
+                <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--dash-border)' }}>
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                        <Search size={18} style={{ position: 'absolute', left: '16px', color: 'var(--dash-text-muted)' }} />
+                        <input 
+                            type="text" 
+                            placeholder={t("Rechercher dans les objets chargés...", "Search in loaded objects...")}
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                            style={{ width: '100%', padding: '10px 16px 10px 44px', borderRadius: '10px', border: '1px solid var(--dash-border)', background: 'transparent', color: 'var(--dash-text)', outline: 'none' }}
+                        />
+                    </div>
+                </div>
+
                 <div style={{ padding: '24px' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
@@ -458,7 +471,25 @@ const AdminResourceDetail: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {objects.map((obj: any) => (
+                            {(() => {
+                                const filtered = objects.filter(obj => 
+                                    obj.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                    obj.three_js_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                    obj.id.toString().includes(searchTerm)
+                                );
+                                if (filtered.length === 0 && searchTerm) {
+                                    return (
+                                        <tr>
+                                            <td colSpan={6} style={{ padding: '60px', textAlign: 'center' }}>
+                                                <div style={{ color: 'var(--dash-text-muted)', fontSize: '15px' }}>
+                                                    <Search size={40} style={{ opacity: 0.1, display: 'block', margin: '0 auto 10px' }} />
+                                                    {t("Aucun objet ne correspond à votre recherche.", "No objects match your search.")}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                }
+                                return filtered.map((obj: any) => (
                                 <tr key={obj.id} style={{ borderBottom: '1px solid var(--dash-border)', transition: '0.2s' }}>
                                     <td style={{ padding: '16px 12px' }}>
                                         {editingObjectId === obj.id ? (
@@ -569,7 +600,7 @@ const AdminResourceDetail: React.FC = () => {
                                         </div>
                                     </td>
                                 </tr>
-                            ))}
+                            ))})()}
                         </tbody>
                     </table>
 

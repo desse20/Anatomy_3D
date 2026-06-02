@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
     Presentation, User, Calendar, ExternalLink, X,
-    Loader2, Plus, Trash2, Users, Eye, EyeOff
+    Loader2, Plus, Trash2, Users, Eye, EyeOff, Search
 } from 'lucide-react';
 import App from '../components/layouts/App';
 import { apiCall } from '../services/api';
@@ -26,6 +26,7 @@ const LabViewer: React.FC = () => {
     const [myViews, setMyViews]               = useState<any[]>([]);
     const [addingView, setAddingView]         = useState(false);
     const [selectedViewId, setSelectedViewId] = useState('');
+    const [searchTerm, setSearchTerm]         = useState('');
 
     const fetchLab = async () => {
         setLoading(true);
@@ -57,18 +58,22 @@ const LabViewer: React.FC = () => {
     const fetchMyViews = async () => {
         if (!isOwner) return;
         try {
-            const res = await apiCall('labs/my-views');
-            setMyViews(res.data || []);
+            const res = await apiCall('labs/shared-views');
+            const data = Array.isArray(res) ? res : (res.data || []);
+            setMyViews(data);
         } catch (e) { console.error(e); }
     };
 
     useEffect(() => {
         fetchLab();
-        fetchMyViews();
         // Poll pour mettre à jour les participants en temps réel
-        const interval = setInterval(fetchLab, 10000); // Rafraîchir toutes les 10 secondes
+        const interval = setInterval(fetchLab, 10000); 
         return () => clearInterval(interval);
     }, [id]);
+
+    useEffect(() => {
+        if (isOwner) fetchMyViews();
+    }, [isOwner]);
 
     const handleAddView = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -107,6 +112,9 @@ const LabViewer: React.FC = () => {
     };
 
     const sharedViews = lab?.shared_views || [];
+    const filteredViews = sharedViews.filter((v: any) => 
+        (v.teacher_note || "").toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     return (
         <App 
@@ -178,15 +186,27 @@ const LabViewer: React.FC = () => {
                                         {sharedViews.length}
                                     </span>
                                 </h3>
-                                {isOwner && (
-                                    <button
-                                        onClick={() => setAddingView(!addingView)}
-                                        style={{ background: addingView ? 'var(--dash-border)' : '#0ea5e9', color: addingView ? 'var(--dash-text)' : '#fff', border: 'none', padding: '8px 18px', borderRadius: '8px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
-                                    >
-                                        {addingView ? <X size={16} /> : <Plus size={16} />}
-                                        {addingView ? t('Annuler', 'Cancel') : t('Ajouter une vue', 'Add a view')}
-                                    </button>
-                                )}
+                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                        <Search size={16} style={{ position: 'absolute', left: '12px', color: 'var(--dash-text-muted)' }} />
+                                        <input 
+                                            type="text" 
+                                            placeholder={t('Rechercher...', 'Search...')}
+                                            value={searchTerm}
+                                            onChange={e => setSearchTerm(e.target.value)}
+                                            style={{ padding: '8px 12px 8px 36px', borderRadius: '8px', border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text)', fontSize: '13px', outline: 'none', width: '160px' }}
+                                        />
+                                    </div>
+                                    {isOwner && (
+                                        <button
+                                            onClick={() => setAddingView(!addingView)}
+                                            style={{ background: addingView ? 'var(--dash-border)' : '#0ea5e9', color: addingView ? 'var(--dash-text)' : '#fff', border: 'none', padding: '8px 18px', borderRadius: '8px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+                                        >
+                                            {addingView ? <X size={16} /> : <Plus size={16} />}
+                                            {addingView ? t('Annuler', 'Cancel') : t('Ajouter une vue', 'Add a view')}
+                                        </button>
+                                    )}
+                                </div>
                             </div>
 
                             {isOwner && addingView && (
@@ -200,12 +220,15 @@ const LabViewer: React.FC = () => {
                                             style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text)', outline: 'none' }}
                                         >
                                             <option value="">{t('-- Choisir une vue --', '-- Choose a view --')}</option>
-                                            {myViews
-                                                .filter(v => !sharedViews.find((sv: any) => sv.id === v.id))
-                                                .map((v: any) => (
-                                                    <option key={v.id} value={v.id}>{v.teacher_note || t(`Vue #${v.id.substring(0, 8)}`, `View #${v.id.substring(0, 8)}`)}</option>
-                                                ))
-                                            }
+                                            {myViews.filter(v => !sharedViews.find((sv: any) => sv.id === v.id)).length === 0 ? (
+                                                <option disabled>{t('Aucune nouvelle vue disponible', 'No new views available')}</option>
+                                            ) : (
+                                                myViews
+                                                    .filter(v => !sharedViews.find((sv: any) => sv.id === v.id))
+                                                    .map((v: any) => (
+                                                        <option key={v.id} value={v.id}>{v.teacher_note || t(`Vue #${v.id.substring(0, 8)}`, `View #${v.id.substring(0, 8)}`)}</option>
+                                                    ))
+                                            )}
                                         </select>
                                         <button type="submit" style={{ padding: '10px 22px', background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}>
                                             {t('Ajouter', 'Add')}
@@ -215,65 +238,72 @@ const LabViewer: React.FC = () => {
                             )}
 
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
-                                {sharedViews.map((view: any) => {
-                                    const isHidden = view.status === 'hidden';
-                                    return (
-                                    <div key={view.id} style={{
-                                        background: 'var(--dash-bg)',
-                                        border: isHidden ? '2px dashed rgba(244,63,94,0.4)' : '1px solid var(--dash-border)',
-                                        borderRadius: '14px', overflow: 'hidden',
-                                        opacity: isHidden ? 0.8 : 1,
-                                        position: 'relative'
-                                    }}>
-                                        {isHidden && (
-                                            <div style={{
-                                                position: 'absolute', inset: 0, zIndex: 2,
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                background: 'rgba(0,0,0,0.25)', borderRadius: '14px',
-                                                pointerEvents: 'none'
+                                {filteredViews.length === 0 && searchTerm ? (
+                                    <div style={{ gridColumn: '1 / -1', padding: '60px', textAlign: 'center', background: 'rgba(0,0,0,0.01)', borderRadius: '16px', border: '2px dashed var(--dash-border)' }}>
+                                        <Search size={40} style={{ opacity: 0.1, display: 'block', margin: '0 auto 10px' }} />
+                                        <div style={{ color: 'var(--dash-text-muted)', fontSize: '15px' }}>{t("Aucune vue ne correspond à votre recherche.", "No views match your search.")}</div>
+                                    </div>
+                                ) : (
+                                    filteredViews.map((view: any) => {
+                                        const isHidden = view.status === 'hidden';
+                                        return (
+                                            <div key={view.id} style={{
+                                                background: 'var(--dash-bg)',
+                                                border: isHidden ? '2px dashed rgba(244,63,94,0.4)' : '1px solid var(--dash-border)',
+                                                borderRadius: '14px', overflow: 'hidden',
+                                                opacity: isHidden ? 0.8 : 1,
+                                                position: 'relative'
                                             }}>
+                                                {isHidden && (
+                                                    <div style={{
+                                                        position: 'absolute', inset: 0, zIndex: 2,
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        background: 'rgba(0,0,0,0.25)', borderRadius: '14px',
+                                                        pointerEvents: 'none'
+                                                    }}>
+                                                        <div style={{
+                                                            background: 'rgba(244,63,94,0.85)', borderRadius: '50%',
+                                                            width: '48px', height: '48px',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                        }}>
+                                                            <EyeOff size={24} color="#fff" />
+                                                        </div>
+                                                    </div>
+                                                )}
                                                 <div style={{
-                                                    background: 'rgba(244,63,94,0.85)', borderRadius: '50%',
-                                                    width: '48px', height: '48px',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                    height: '140px',
+                                                    background: isHidden ? 'var(--dash-border)' : 'linear-gradient(135deg, rgba(14,165,233,0.08), rgba(14,165,233,0.02))',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative'
                                                 }}>
-                                                    <EyeOff size={24} color="#fff" />
+                                                    <Presentation size={52} color={isHidden ? 'var(--dash-text-muted)' : "rgba(14,165,233,0.25)"} />
+                                                    {isOwner && (
+                                                        <div style={{ position: 'absolute', top: '10px', right: '10px', display: 'flex', gap: '6px', zIndex: 3 }}>
+                                                            <button onClick={() => handleToggleStatus(view)} style={{ background: '#fff', border: '1px solid var(--dash-border)', color: isHidden ? '#f43f5e' : '#34d399', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer' }}>
+                                                                {isHidden ? <EyeOff size={14} /> : <Eye size={14} />}
+                                                            </button>
+                                                            <button onClick={() => handleRemoveView(view.id)} style={{ background: '#fff', border: '1px solid var(--dash-border)', color: '#f43f5e', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer' }}>
+                                                                <Trash2 size={14} />
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div style={{ padding: '16px' }}>
+                                                    <h4 style={{ margin: '0 0 6px 0', fontSize: '15px' }}>{view.teacher_note || t(`Vue 3D #${view.id.substring(0, 8)}`, `3D View #${view.id.substring(0, 8)}`)}</h4>
+                                                    <p style={{ fontSize: '12px', color: isHidden ? '#f43f5e' : 'var(--dash-text-muted)', margin: '0 0 14px 0', fontWeight: isHidden ? 600 : 400 }}>
+                                                        {isHidden ? t('Masquée (étudiants invisibles)', 'Hidden (students cannot see)') : t('Visible', 'Visible')}
+                                                    </p>
+                                                    <button
+                                                        disabled={isHidden && !isOwner}
+                                                        onClick={() => navigate(`/atlas/viewer?view=${view.id}`)}
+                                                        style={{ width: '100%', padding: '10px', background: isHidden ? 'var(--dash-border)' : 'rgba(14, 165, 233, 0.08)', color: isHidden ? 'var(--dash-text-muted)' : '#0ea5e9', border: '1px solid rgba(14, 165, 233, 0.2)', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                                                    >
+                                                        <ExternalLink size={14} /> {t('Rejoindre', 'Join')}
+                                                    </button>
                                                 </div>
                                             </div>
-                                        )}
-                                        <div style={{
-                                            height: '140px',
-                                            background: isHidden ? 'var(--dash-border)' : 'linear-gradient(135deg, rgba(14,165,233,0.08), rgba(14,165,233,0.02))',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative'
-                                        }}>
-                                            <Presentation size={52} color={isHidden ? 'var(--dash-text-muted)' : "rgba(14,165,233,0.25)"} />
-                                            {isOwner && (
-                                                <div style={{ position: 'absolute', top: '10px', right: '10px', display: 'flex', gap: '6px', zIndex: 3 }}>
-                                                    <button onClick={() => handleToggleStatus(view)} style={{ background: '#fff', border: '1px solid var(--dash-border)', color: isHidden ? '#f43f5e' : '#34d399', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer' }}>
-                                                        {isHidden ? <EyeOff size={14} /> : <Eye size={14} />}
-                                                    </button>
-                                                    <button onClick={() => handleRemoveView(view.id)} style={{ background: '#fff', border: '1px solid var(--dash-border)', color: '#f43f5e', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer' }}>
-                                                        <Trash2 size={14} />
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div style={{ padding: '16px' }}>
-                                            <h4 style={{ margin: '0 0 6px 0', fontSize: '15px' }}>{view.teacher_note || t(`Vue 3D #${view.id.substring(0, 8)}`, `3D View #${view.id.substring(0, 8)}`)}</h4>
-                                            <p style={{ fontSize: '12px', color: isHidden ? '#f43f5e' : 'var(--dash-text-muted)', margin: '0 0 14px 0', fontWeight: isHidden ? 600 : 400 }}>
-                                                {isHidden ? t('Masquée (étudiants invisibles)', 'Hidden (students cannot see)') : t('Visible', 'Visible')}
-                                            </p>
-                                            <button
-                                                disabled={isHidden && !isOwner}
-                                                onClick={() => navigate(`/atlas/viewer?view=${view.id}`)}
-                                                style={{ width: '100%', padding: '10px', background: isHidden ? 'var(--dash-border)' : 'rgba(14, 165, 233, 0.08)', color: isHidden ? 'var(--dash-text-muted)' : '#0ea5e9', border: '1px solid rgba(14, 165, 233, 0.2)', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                                            >
-                                                <ExternalLink size={14} /> {t('Rejoindre', 'Join')}
-                                            </button>
-                                        </div>
-                                    </div>
-                                    );
-                                })}
+                                        );
+                                    })
+                                )}
                             </div>
                         </div>
                     </div>
