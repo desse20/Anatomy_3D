@@ -160,6 +160,83 @@ const AdminResourceDetail: React.FC = () => {
         fetchDetails();
     }, [id]);
 
+    const handleEditModel = async () => {
+        const { value: formValues } = await Swal.fire({
+            title: t('Modifier le modèle', 'Edit model'),
+            html: `
+                <div style="text-align:left; display:flex; flex-direction:column; gap:14px;">
+                    <div>
+                        <label style="font-weight:600; font-size:14px; display:block; margin-bottom:4px;">${t('Nom', 'Name')}</label>
+                        <input id="swal-edit-name" value="${asset.name}" style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid #d1d5db; font-size:15px;" />
+                    </div>
+                    <div>
+                        <label style="font-weight:600; font-size:14px; display:block; margin-bottom:4px;">${t('Version', 'Version')}</label>
+                        <input id="swal-edit-version" type="number" min="1" value="${asset.version_cache || 1}" style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid #d1d5db; font-size:15px;" />
+                    </div>
+                    <div style="border-top:1px solid #e5e7eb; padding-top:14px;">
+                        <label style="font-weight:600; font-size:14px; display:block; margin-bottom:4px;">${t('Remplacer le fichier GLB', 'Replace GLB file')}</label>
+                        <input id="swal-edit-file" type="file" accept=".glb" style="width:100%; padding:8px; border-radius:8px; border:1px solid #d1d5db; font-size:14px;" />
+                        <span style="font-size:12px; color:#9ca3af; margin-top:4px; display:block;">${t('Optionnel — laissez vide pour conserver le fichier actuel', 'Optional — leave empty to keep the current file')}</span>
+                    </div>
+                </div>
+            `,
+            focusConfirm: false,
+            showCancelButton: true,
+            cancelButtonText: t('Annuler', 'Cancel'),
+            confirmButtonText: t('Enregistrer', 'Save'),
+            confirmButtonColor: '#0ea5e9',
+            preConfirm: () => {
+                const name = (document.getElementById('swal-edit-name') as HTMLInputElement).value.trim();
+                const version = parseInt((document.getElementById('swal-edit-version') as HTMLInputElement).value) || 1;
+                const fileInput = document.getElementById('swal-edit-file') as HTMLInputElement;
+                const file = fileInput.files?.[0] || null;
+                if (!name) {
+                    Swal.showValidationMessage(t('Le nom est requis', 'Name is required'));
+                    return false;
+                }
+                return { name, version_cache: version, file };
+            }
+        });
+
+        if (formValues) {
+            try {
+                Swal.fire({ title: t('Enregistrement...', 'Saving...'), allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                if (formValues.file) {
+                    const token = localStorage.getItem('token');
+                    const API_BASE_URL = import.meta.env.VITE_API_URL.replace(/\/$/, '');
+                    const fd = new FormData();
+                    fd.append('_method', 'PUT');
+                    fd.append('name', formValues.name);
+                    fd.append('version_cache', String(formValues.version_cache));
+                    fd.append('glb_file', formValues.file);
+                    const res = await fetch(`${API_BASE_URL}/models-manager/${id}`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Accept': 'application/json',
+                            'Accept-Language': localStorage.getItem('app_lang') || 'fr',
+                        },
+                        body: fd,
+                    });
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        throw new Error((err as any).error || t('Échec de la mise à jour', 'Update failed'));
+                    }
+                    await res.json();
+                } else {
+                    await apiCall(`models-manager/${id}`, {
+                        method: 'POST',
+                        body: JSON.stringify({ _method: 'PUT', name: formValues.name, version_cache: formValues.version_cache })
+                    });
+                }
+                Swal.fire(t('Succès', 'Success'), t('Modèle mis à jour', 'Model updated'), 'success');
+                fetchDetails();
+            } catch (e: any) {
+                Swal.fire(t('Erreur', 'Error'), e?.message || t('Échec de la mise à jour', 'Update failed'), 'error');
+            }
+        }
+    };
+
     const handleDeleteAsset = async () => {
         const { value: password } = await Swal.fire({
             title: t('Supprimer le modèle ?', 'Delete model?'),
@@ -445,12 +522,20 @@ const AdminResourceDetail: React.FC = () => {
                 <div style={{ background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', borderRadius: '16px', padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <ModelNameSection asset={asset} onRenamed={fetchDetails} />
                     
-                    <button 
-                        onClick={handleDeleteAsset}
-                        style={{ padding: '10px 20px', borderRadius: '10px', background: 'rgba(244, 63, 94, 0.1)', color: '#f43f5e', border: '1px solid #f43f5e50', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-                    >
-                        <Trash2 size={18} /> {t("Supprimer le modèle", "Delete model")}
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <button 
+                            onClick={handleEditModel}
+                            style={{ padding: '10px 20px', borderRadius: '10px', background: 'rgba(14, 165, 233, 0.1)', color: '#0ea5e9', border: '1px solid #0ea5e950', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                        >
+                            <Edit2 size={18} /> {t("Modifier", "Edit")}
+                        </button>
+                        <button 
+                            onClick={handleDeleteAsset}
+                            style={{ padding: '10px 20px', borderRadius: '10px', background: 'rgba(244, 63, 94, 0.1)', color: '#f43f5e', border: '1px solid #f43f5e50', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                        >
+                            <Trash2 size={18} /> {t("Supprimer le modèle", "Delete model")}
+                        </button>
+                    </div>
                 </div>
             </div>
 

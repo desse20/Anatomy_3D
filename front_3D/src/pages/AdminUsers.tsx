@@ -58,6 +58,7 @@ const AdminUsers: React.FC = () => {
     const [roleFilter, setRoleFilter] = useState('');
     const [loading, setLoading] = useState(false);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [roleCounts, setRoleCounts] = useState<{total: number; admin: number; teacher: number; student: number} | null>(null);
 
     const currentLoggedUser = (() => {
         try { return JSON.parse(localStorage.getItem('user') || '{}'); }
@@ -101,6 +102,7 @@ const AdminUsers: React.FC = () => {
             const res = await apiCall(url);
             const usersList = Array.isArray(res) ? res : (res.data || []);
             setUsers(usersList);
+            if (res.role_counts) setRoleCounts(res.role_counts);
             setSelectedIds([]);
         } catch (e) { console.error(e); }
         setLoading(false);
@@ -297,6 +299,27 @@ const AdminUsers: React.FC = () => {
                 </button>
             </div>
 
+            {roleCounts && (
+                <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
+                    <div style={{ flex: 1, minWidth: '140px', background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', borderRadius: '12px', padding: '16px 20px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--dash-text)' }}>{roleCounts.total}</div>
+                        <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--dash-text-muted)', marginTop: '4px' }}>{t('Total', 'Total')}</div>
+                    </div>
+                    <div style={{ flex: 1, minWidth: '140px', background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', borderRadius: '12px', padding: '16px 20px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '28px', fontWeight: 800, color: '#10b981' }}>{roleCounts.student}</div>
+                        <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--dash-text-muted)', marginTop: '4px' }}>{t('Étudiant', 'Student')}</div>
+                    </div>
+                    <div style={{ flex: 1, minWidth: '140px', background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', borderRadius: '12px', padding: '16px 20px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '28px', fontWeight: 800, color: '#f59e0b' }}>{roleCounts.teacher}</div>
+                        <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--dash-text-muted)', marginTop: '4px' }}>{t('Prof', 'Teacher')}</div>
+                    </div>
+                    <div style={{ flex: 1, minWidth: '140px', background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', borderRadius: '12px', padding: '16px 20px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '28px', fontWeight: 800, color: '#f87171' }}>{roleCounts.admin}</div>
+                        <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--dash-text-muted)', marginTop: '4px' }}>Admin</div>
+                    </div>
+                </div>
+            )}
+
             {isAddingUser && (
                 <div style={{ background: 'var(--dash-bg)', border: '1px solid #0ea5e950', borderRadius: '16px', padding: '24px', marginBottom: '32px', boxShadow: '0 10px 25px -5px rgba(14, 165, 233, 0.1)' }}>
                     <h3 style={{ margin: '0 0 20px 0', fontSize: '18px', color: '#0ea5e9', display: 'flex', alignItems: 'center', gap: '8px' }}><Plus size={20}/> {t('Créer un compte', 'Create an account')}</h3>
@@ -367,7 +390,7 @@ const AdminUsers: React.FC = () => {
                                                 <div style={{ fontWeight: 600 }}>{u.firstname} {u.lastname}</div>
                                             </td>
                                             <td style={{ padding: '16px 20px' }}>
-                                                <span style={{ padding: '4px 10px', borderRadius: '100px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', background: u.role === 'admin' ? '#f8717115' : u.role === 'teacher' ? '#fbbf2415' : '#34d39915', color: u.role === 'admin' ? '#f87171' : u.role === 'teacher' ? '#f59e0b' : '#10b981' }}>{u.role}</span>
+                                                <span style={{ padding: '4px 10px', borderRadius: '100px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', background: u.role === 'admin' ? '#f8717115' : u.role === 'teacher' ? '#fbbf2415' : '#34d39915', color: u.role === 'admin' ? '#f87171' : u.role === 'teacher' ? '#f59e0b' : '#10b981' }}>{getRoleLabel(u.role)}</span>
                                             </td>
                                             <td style={{ padding: '16px 20px', color: 'var(--dash-text-muted)' }}>{u.email}</td>
                                             <td style={{ padding: '16px 20px', textAlign: 'right' }}>

@@ -317,46 +317,82 @@ class Asset3dController extends Controller
 
     public function update(Request $request, Asset3d $asset)
     {
-        $newName = $request->input('name');
-        if (!$newName) {
-            return response()->json(['error' => 'Le nom est requis'], 422);
-        }
-
         try {
-            // Mettre à jour le NOM réel en base (avec accents, etc.)
-            $asset->name = $newName;
+            $changed = false;
 
-            $oldPath = $asset->url_glb;
-            $extension = pathinfo($oldPath, PATHINFO_EXTENSION);
-            
-            // Slugifier le nom pour le fichier PHYSIQUE (sans accents pour le web)
-            $slug = \Illuminate\Support\Str::slug($newName, '_');
-            $newFilename = $slug . '.' . $extension;
-            $newPath = 'Assets_3D/' . $newFilename;
+            // --- Gestion du fichier GLB ---
+            if ($request->hasFile('glb_file')) {
+                $file = $request->file('glb_file');
+                $extension = $file->getClientOriginalExtension();
 
-            // Verifier si le fichier existe deja (different de l'actuel)
-            if ($newPath !== $oldPath && Storage::disk('local')->exists($newPath)) {
-                $counter = 1;
-                while (Storage::disk('local')->exists('Assets_3D/' . $slug . '_' . $counter . '.' . $extension)) {
-                    $counter++;
+                if (strtolower($extension) !== 'glb') {
+                    return response()->json(['error' => 'Seuls les fichiers .glb sont acceptés'], 422);
                 }
-                $newFilename = $slug . '_' . $counter . '.' . $extension;
+
+                // Construire le nouveau nom de fichier
+                $slug = \Illuminate\Support\Str::slug($asset->name, '_');
+                $newFilename = $slug . '_' . time() . '.' . $extension;
                 $newPath = 'Assets_3D/' . $newFilename;
+
+                if (!Storage::disk('local')->putFileAs('Assets_3D', $file, $newFilename)) {
+                    throw new \Exception("Impossible d'enregistrer le fichier.");
+                }
+
+                // Supprimer l'ancien fichier
+                if ($asset->url_glb && Storage::disk('local')->exists($asset->url_glb)) {
+                    Storage::disk('local')->delete($asset->url_glb);
+                }
+
+                $asset->url_glb = $newPath;
+                $changed = true;
             }
 
-            // Renommer physiquement le fichier
-            if ($newPath !== $oldPath) {
-                if (!Storage::disk('local')->move($oldPath, $newPath)) {
-                    throw new \Exception("Impossible de renommer le fichier sur le disque.");
-                }
-                $asset->url_glb = $newPath;
+            if ($request->has('version_cache')) {
+                $asset->version_cache = (int) $request->input('version_cache');
+                $changed = true;
             }
-            
+
+            $newName = $request->input('name');
+            if ($newName) {
+                $asset->name = $newName;
+
+                // Ne renommer le fichier physique que si aucun nouveau fichier n'a été uploadé
+                if (!$request->hasFile('glb_file')) {
+                    $oldPath = $asset->url_glb;
+                    $extension = pathinfo($oldPath, PATHINFO_EXTENSION);
+                    $slug = \Illuminate\Support\Str::slug($newName, '_');
+                    $newFilename = $slug . '.' . $extension;
+                    $newPath = 'Assets_3D/' . $newFilename;
+
+                    if ($newPath !== $oldPath && Storage::disk('local')->exists($newPath)) {
+                        $counter = 1;
+                        while (Storage::disk('local')->exists('Assets_3D/' . $slug . '_' . $counter . '.' . $extension)) {
+                            $counter++;
+                        }
+                        $newFilename = $slug . '_' . $counter . '.' . $extension;
+                        $newPath = 'Assets_3D/' . $newFilename;
+                    }
+
+                    if ($newPath !== $oldPath) {
+                        if (!Storage::disk('local')->move($oldPath, $newPath)) {
+                            throw new \Exception("Impossible de renommer le fichier sur le disque.");
+                        }
+                        $asset->url_glb = $newPath;
+                    }
+                }
+
+                $changed = true;
+            }
+
+            if (!$changed) {
+                return response()->json(['error' => 'Aucune donnée à mettre à jour'], 422);
+            }
+
             $asset->save();
 
             return response()->json([
-                'message' => 'Modèle renommé avec succès',
-                'asset'   => $asset
+                'message' => 'Modèle mis à jour avec succès',
+                'asset'   => $asset->load('anatomicalObjects')
             ]);
 
         } catch (\Exception $e) {

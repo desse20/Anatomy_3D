@@ -31,7 +31,14 @@ class UserController extends Controller
 
         $users = $query->paginate($request->get('per_page', 15));
 
-        return UserResource::collection($users);
+        return UserResource::collection($users)->additional([
+            'role_counts' => [
+                'total'   => User::count(),
+                'admin'   => User::where('role', 'admin')->count(),
+                'teacher' => User::where('role', 'teacher')->count(),
+                'student' => User::where('role', 'student')->count(),
+            ],
+        ]);
     }
 
     public function store(StoreUserRequest $request)
