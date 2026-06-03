@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useLanguage } from '../../contexts/LanguageContext';
+import FloatingActionsDrawer from '../FloatingActionsDrawer';
 import '../../styles/layout.css';
 
 interface AppProps {
@@ -22,7 +23,6 @@ const App: React.FC<AppProps> = ({ children, breadcrumb, title }) => {
     useEffect(() => {
         localStorage.setItem('sidebar_collapsed', String(isCollapsed));
     }, [isCollapsed]);
-
     useEffect(() => {
         setIsMobileMenuOpen(false);
     }, [location.pathname]);
@@ -318,6 +318,9 @@ const App: React.FC<AppProps> = ({ children, breadcrumb, title }) => {
                     <span>{language === 'fr' ? 'Paramètres' : 'Settings'}</span>
                 </Link>
             </nav>
+
+            {/* Global Floating Actions Toggle */}
+            <FloatingActionsDrawer />
         </div>
     );
 };

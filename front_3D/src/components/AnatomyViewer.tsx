@@ -6,14 +6,19 @@ import { offlineCache } from '../services/offlineCache';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { ArrowLeft, Crosshair, EyeOff, Eye, Moon, Sun, Contrast, Camera, Save, X, Loader2, RefreshCcw, Palette } from 'lucide-react';
 import { apiCall } from '../services/api';
+import Swal from 'sweetalert2';
+import { getSwalTheme } from '../services/swalTheme';
+import { useLanguage } from '../contexts/LanguageContext';
 import '../styles/anatomy-viewer.css';
 
 interface AnatomyItem { id: number; name: string; three_js_name: string; parent_id?: number | null; type: string; description?: string; }
 interface ExtendedMesh extends THREE.Mesh { userData: { info?: AnatomyItem; [key: string]: any }; }
 interface SharedViewData { camera_position: { x: number; y: number; z: number }; camera_target: { x: number; y: number; z: number }; scene_state: Array<{ name: string; three_js_name: string; visible: boolean; opacity: number }>; background_color?: string; teacher_note?: string; }
-interface Props { assetId?: string | number; modelPath?: string; initialAnatomicalData?: AnatomyItem[]; isOffline?: boolean; modelName?: string; viewId?: string; sharedViewData?: SharedViewData; readOnly?: boolean; }
+interface Props { assetId?: string | number; modelPath?: string; initialAnatomicalData?: AnatomyItem[]; isOffline?: boolean; modelName?: string; viewId?: string; sharedViewData?: SharedViewData; readOnly?: boolean; onSelect?: (item: AnatomyItem | null) => void; }
 
-const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, initialAnatomicalData, isOffline, modelName, sharedViewData, readOnly }) => {
+const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, initialAnatomicalData, isOffline, modelName, sharedViewData, readOnly, onSelect }) => {
+  const { language } = useLanguage();
+  const t = (fr: string, en: string) => language === 'fr' ? fr : en;
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const labelRef = useRef<HTMLDivElement>(null);
@@ -43,6 +48,25 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
   const raycaster = useRef(new THREE.Raycaster());
   const mouse = useRef(new THREE.Vector2());
   const showLabelsRef = useRef(true);
+  const onSelectRef = useRef(onSelect);
+  const lastLogRef = useRef<Record<number, number>>({});
+
+  const logUsage = async (item: AnatomyItem | null) => {
+    if (!item || isOffline) return;
+    const now = Date.now();
+    const last = lastLogRef.current[item.id] || 0;
+    if (now - last < 10000) return; // Anti-spam 10s
+    lastLogRef.current[item.id] = now;
+    try {
+      await apiCall('anatomy/log', {
+        method: 'POST',
+        body: JSON.stringify({ object_id: item.id })
+      });
+    } catch (e) { console.warn("Analytics error:", e); }
+  };
+
+  useEffect(() => { onSelectRef.current = onSelect; }, [onSelect]);
+
   const onClickRef = useRef<(e: MouseEvent) => void>(() => {});
 
   // ── helpers ──
@@ -79,9 +103,11 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     });
   }
 
-  function select(mesh: ExtendedMesh | null) {
-    selRef.current = mesh;
+  function select(item: AnatomyItem | null, mesh?: ExtendedMesh | null) {
+    selRef.current = mesh || null;
     bump(n => n + 1);
+    if (onSelectRef.current) onSelectRef.current(item);
+    if (item) logUsage(item);
   }
 
   function deselect() {
@@ -180,12 +206,14 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
         }
       });
       syncEyes(); countHidden(); syncLabels();
+      logUsage(item);
     };
 
     row.onclick = (e) => {
       e.stopPropagation();
+      deselect();
       if (mesh) {
-        deselect(); select(mesh);
+        select(mesh.userData.info || item, mesh);
         if (mesh.material instanceof THREE.MeshStandardMaterial) mesh.material.emissive.setHex(0x224488);
         row.classList.add('selected-item');
         const info = mesh.userData.info;
@@ -195,6 +223,8 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
         else desc('<em>Description non disponible.</em>', itemName);
       } else {
         // No mesh found (group node) — show description from the item data directly
+        select(item, null);
+        row.classList.add('selected-item');
         if (item.description) desc(item.description, item.name);
         else desc('<em>Description non disponible.</em>', item.name);
       }
@@ -252,10 +282,12 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     syncEyes();
     countHidden();
     syncLabels();
+    if (t.userData.info) logUsage(t.userData.info);
   }
   function hide() {
     const t = selRef.current; if (!t) return;
     t.visible = false; deselect(); desc('', 'Élément masqué'); syncEyes(); countHidden(); syncLabels();
+    if (t.userData.info) logUsage(t.userData.info);
   }
   function show() {
     const t = selRef.current; if (!t) return;
@@ -265,6 +297,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     const info = t.userData.info;
     if (info?.description) desc(info.description, info.name);
     syncEyes(); countHidden(); syncLabels();
+    if (info) logUsage(info);
   }
   function revealAll() {
     sceneRef.current?.traverse(c => {
@@ -318,6 +351,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     while (p2) { p2.visible = true; p2 = p2.parent; }
 
     syncEyes(); countHidden(); syncLabels();
+    if (t.userData.info) logUsage(t.userData.info);
   }
 
   function zoom(d: number) {
@@ -491,6 +525,17 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
       });
       setShowSaveModal(false);
       setSaveNote('');
+      Swal.fire({
+        icon: 'success',
+        title: t('Vue enregistrée !', 'View saved!'),
+        text: t('La vue a été ajoutée avec succès à votre collection.', 'The view has been successfully added to your collection.'),
+        timer: 2000,
+        showConfirmButton: false,
+        customClass: {
+          container: 'swal2-high-zindex'
+        },
+        ...getSwalTheme()
+      });
     } catch (e: any) {
       console.error(e);
     } finally {
@@ -641,7 +686,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
         cameraRef.current.position.set(sharedViewData.camera_position.x, sharedViewData.camera_position.y, sharedViewData.camera_position.z);
         controlsRef.current.update();
         
-        model.traverse(c => {
+        model.traverse((c: any) => {
           if (c instanceof THREE.Mesh) {
             const state = sharedViewData.scene_state.find(s => s.three_js_name === c.name);
             if (state) {
@@ -710,7 +755,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
       const obj = hits[0].object as ExtendedMesh;
       const info = obj.userData.info;
       if (info && obj.visible) {
-        deselect(); select(obj);
+        deselect(); select(info, obj);
         if (obj.material instanceof THREE.MeshStandardMaterial) obj.material.emissive.setHex(0x224488);
         for (const row of Array.from(document.querySelectorAll<HTMLElement>('.item-row'))) {
           const s = row.querySelector('span:last-child');
@@ -852,7 +897,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
       if (labelDiv && labelDiv.dataset.uuid) {
         const mesh = sceneRef.current?.getObjectByProperty('uuid', labelDiv.dataset.uuid) as ExtendedMesh;
         if (mesh) {
-          deselect(); select(mesh);
+          deselect(); select(mesh.userData.info || null, mesh);
           if (mesh.material instanceof THREE.MeshStandardMaterial) mesh.material.emissive.setHex(0x224488);
           desc(mesh.userData.info?.description || '<em>Pas de description.</em>', mesh.userData.info?.name || mesh.name);
           document.getElementById('btn-isolate')?.setAttribute('disabled', 'false');

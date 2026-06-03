@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Plus, Edit2, Trash2, X, Shield, BookOpen, GraduationCap, FileSpreadsheet, FileText } from 'lucide-react';
+import { Search, Filter, Plus, Edit2, Trash2, X, Shield, BookOpen, GraduationCap, FileSpreadsheet, FileText, User } from 'lucide-react';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -367,7 +367,7 @@ const AdminUsers: React.FC = () => {
                                 <th style={{ padding: '16px 20px', width: '40px' }}>
                                     <input type="checkbox" onChange={toggleSelectAll} checked={users.length > 0 && users.some(u => u.role !== 'admin' && u.id !== currentLoggedUser.id) && selectedIds.length === users.filter(u => u.role !== 'admin' && u.id !== currentLoggedUser.id).length} style={{width:'14px',height:'14px',accentColor:'#0ea5e9'}}/>
                                 </th>
-                                <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>Utilisateur</th>
+                                <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>{t('Utilisateur', 'User')}</th>
                                 <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>Rôle</th>
                                 <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>Email</th>
                                 <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>Actions</th>
@@ -387,7 +387,19 @@ const AdminUsers: React.FC = () => {
                                                 {!isProtected && <input type="checkbox" checked={selectedIds.includes(u.id)} onChange={() => toggleSelectOne(u.id)} style={{width:'14px',height:'14px',accentColor:'#0ea5e9'}}/>}
                                             </td>
                                             <td style={{ padding: '16px 20px' }}>
-                                                <div style={{ fontWeight: 600 }}>{u.firstname} {u.lastname}</div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                    <div className="user-avatar-circle" style={{ 
+                                                        width: '36px', height: '36px', borderRadius: '10px', 
+                                                        background: 'rgba(59, 130, 246, 0.1)',
+                                                        color: '#3b82f6',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        flexShrink: 0,
+                                                        border: '1px solid rgba(59, 130, 246, 0.2)'
+                                                    }}>
+                                                        <User size={18} />
+                                                    </div>
+                                                    <span style={{ fontWeight: 700, fontSize: '14px' }}>{u.firstname} {u.lastname}</span>
+                                                </div>
                                             </td>
                                             <td style={{ padding: '16px 20px' }}>
                                                 <span style={{ padding: '4px 10px', borderRadius: '100px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', background: u.role === 'admin' ? '#f8717115' : u.role === 'teacher' ? '#fbbf2415' : '#34d39915', color: u.role === 'admin' ? '#f87171' : u.role === 'teacher' ? '#f59e0b' : '#10b981' }}>{getRoleLabel(u.role)}</span>

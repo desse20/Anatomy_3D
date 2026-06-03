@@ -10,6 +10,11 @@ use App\Http\Controllers\Api\MasteryController;
 use App\Http\Controllers\Api\QuizController;
 use App\Http\Controllers\Api\ConversationController;
 use App\Http\Controllers\Api\LabController;
+use App\Http\Controllers\Api\ReviewController;
+use App\Http\Controllers\Api\AiCacheController;
+use App\Http\Controllers\Api\AnalyticsController;
+use App\Http\Controllers\Api\BaseDonneesController;
+
 
 Route::prefix('ai')->middleware(['simple_auth', 'role:student'])->group(function () {
     Route::post('generate', [AiController::class, 'generate']);
@@ -59,6 +64,7 @@ Route::prefix('anatomy')->middleware(['simple_auth'])->group(function () {
     Route::get('roots',           [AnatomyController::class, 'roots']);
     Route::get('subtree/{name}',  [AnatomyController::class, 'subtree']);
     Route::get('search',          [AnatomyController::class, 'search']);
+    Route::post('log',            [AnatomyController::class, 'logConsultation']);
 });
 
 // Maîtrise utilisateur (réservé aux étudiants et admins)
@@ -136,7 +142,50 @@ Route::options('{any}', function() {
         ->header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
         ->header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, X-Requested-With');
 })->where('any', '.*');
-use App\Http\Controllers\Api\BaseDonneesController;
 
 Route::get('system/stats', [BaseDonneesController::class, 'stats'])->middleware(['simple_auth', 'role:admin']);
 
+// ── AVIS UTILISATEURS ─────────────────────────────────────────────────────────
+// POST   /reviews          — soumettre un avis (tous les authentifiés)
+// GET    /reviews          — lister les avis (admin uniquement)
+// GET    /reviews/stats    — stats d'un objet ou la plateforme
+// DELETE /reviews/{id}     — supprimer un avis (admin ou auteur)
+Route::prefix('reviews')->middleware('simple_auth')->group(function () {
+    Route::post('',          [ReviewController::class, 'store']);
+    Route::get('stats',      [ReviewController::class, 'stats']);
+    Route::middleware('role:admin')->group(function () {
+        Route::get('',           [ReviewController::class, 'index']);
+        Route::delete('{id}',    [ReviewController::class, 'destroy']);
+    });
+});
+
+// ── CACHE DES RÉPONSES IA ─────────────────────────────────────────────────────
+// POST   /ai-cache/lookup  — rechercher une réponse en cache (tous)
+// POST   /ai-cache         — enregistrer une réponse (tous — appelé après gen. IA)
+// GET    /ai-cache         — liste du cache (admin)
+// DELETE /ai-cache/expired — purge des entrées expirées (admin)
+// DELETE /ai-cache/{id}    — suppression unitaire (admin)
+Route::prefix('ai-cache')->middleware('simple_auth')->group(function () {
+    Route::post('lookup',         [AiCacheController::class, 'lookup']);
+    Route::post('',               [AiCacheController::class, 'store']);
+    Route::middleware('role:admin')->group(function () {
+        Route::get('',            [AiCacheController::class, 'index']);
+        Route::get('active-models', [AiCacheController::class, 'aiModels']);
+        Route::put('{id}',        [AiCacheController::class, 'update']);
+        Route::delete('{id}',     [AiCacheController::class, 'destroy']);
+    });
+});
+
+// ── ANALYTICS ADMIN ───────────────────────────────────────────────────────────
+// GET /analytics/summary   — chiffres clés globaux
+// GET /analytics/objects   — top/flop/moyenne des objets anatomiques visités
+// GET /analytics/models    — modèles 3D les plus utilisés
+// GET /analytics/timeline  — courbe des consultations dans le temps
+Route::prefix('analytics')->middleware(['simple_auth', 'role:admin'])->group(function () {
+    Route::get('summary',   [AnalyticsController::class, 'summary']);
+    Route::get('objects',   [AnalyticsController::class, 'objects']);
+    Route::get('models',    [AnalyticsController::class, 'models']);
+    Route::get('timeline',  [AnalyticsController::class, 'timeline']);
+    Route::get('users',     [AnalyticsController::class, 'users']);
+    Route::get('user/{id}', [AnalyticsController::class, 'userDetails']);
+});

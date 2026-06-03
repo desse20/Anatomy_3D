@@ -5,7 +5,7 @@ type Language = 'fr' | 'en';
 interface LanguageContextType {
     language: Language;
     setLanguage: (lang: Language) => void;
-    t: (path: string) => string;
+    t: (fr: string, en?: string) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -21,8 +21,9 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
 
     // Fonction t fantôme pour éviter les crashs si un fichier l'appelle encore
-    const t = (path: string) => {
-        return path;
+    const t = (fr: string, en?: string) => {
+        if (language === 'en' && en) return en;
+        return fr;
     };
 
     return (

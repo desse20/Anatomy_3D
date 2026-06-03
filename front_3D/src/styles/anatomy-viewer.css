@@ -244,3 +244,8 @@
   letter-spacing: 1px;
   pointer-events: none;
 }
+
+/* Ensure Swal is above the fullscreen viewer (z-index 9999) */
+.swal2-high-zindex {
+  z-index: 100000 !important;
+}

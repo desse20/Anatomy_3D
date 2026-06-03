@@ -69,7 +69,7 @@ const ScoreRing: React.FC<{ score: number }> = ({ score }) => {
     );
 };
 
-const MasteryBar: React.FC<{ notion: NotionStat; variant: 'weak' | 'strong' }> = ({ notion, variant }) => {
+const MasteryBar: React.FC<{ notion: NotionStat; variant: 'weak' | 'strong'; language: string }> = ({ notion, variant, language }) => {
     const total = notion.success + notion.failure;
     const pct   = total > 0 ? Math.round((notion.success / total) * 100) : 0;
     const meta  = LEVEL_META[Math.min(notion.mastery_level, 5)];
@@ -102,6 +102,39 @@ const MasteryBar: React.FC<{ notion: NotionStat; variant: 'weak' | 'strong' }> =
                 {notion.next_review && (
                     <span style={{ color: 'var(--dash-text-muted)', fontSize: '10px', fontStyle: 'italic', marginLeft: 'auto' }}>
                         {notion.next_review}
+                    </span>
+                )}
+            </div>
+
+            {/* Recommendation Message */}
+            <div className="lv-notion-message" style={{ 
+                marginTop: '12px', padding: '10px', borderRadius: '8px', 
+                background: 'rgba(255,255,255,0.03)', borderLeft: `3px solid ${meta.color}`,
+                fontSize: '12px', fontStyle: 'italic'
+            }}>
+                {notion.mastery_level >= 5 ? (
+                    <span style={{ color: meta.color }}>
+                        ✨ {language === 'fr' 
+                            ? "Félicitations ! Vous avez atteint une maîtrise totale de cette structure." 
+                            : "Congratulations! You have achieved total mastery of this structure."}
+                    </span>
+                ) : notion.mastery_level >= 4 ? (
+                    <span style={{ color: meta.color }}>
+                        🎓 {language === 'fr' 
+                            ? "Magnifique, vous êtes digne d'un futur expert en anatomie." 
+                            : "Magnificent, you are worthy of a future anatomy expert."}
+                    </span>
+                ) : notion.mastery_level >= 1 ? (
+                    <span style={{ color: 'var(--dash-text-muted)' }}>
+                        🚀 {language === 'fr' 
+                            ? "Belle progression, continuez vos efforts pour solidifier cet acquis." 
+                            : "Great progress, keep up your efforts to solidify this knowledge."}
+                    </span>
+                ) : (
+                    <span style={{ color: '#f87171' }}>
+                        📚 {language === 'fr' 
+                            ? "Encore quelques efforts ! Avec le carnet de révision et le chat IA, vous allez vous surpasser." 
+                            : "A few more efforts! With the revision log and IA chat, you will surpass yourself."}
                     </span>
                 )}
             </div>
@@ -273,7 +306,7 @@ const Levels: React.FC = () => {
                                                 animate={{ opacity: 1, x: 0 }}
                                                 transition={{ delay: i * 0.05 }}
                                             >
-                                                <MasteryBar notion={n} variant="weak"/>
+                                                <MasteryBar notion={n} variant="weak" language={language}/>
                                             </motion.div>
                                         ))
                                         : <p className="lv-empty-tab">{t('Aucune notion en cours — faites un quiz !', 'No notions in progress — take a quiz!')}</p>
@@ -287,7 +320,7 @@ const Levels: React.FC = () => {
                                                 animate={{ opacity: 1, x: 0 }}
                                                 transition={{ delay: i * 0.05 }}
                                             >
-                                                <MasteryBar notion={n} variant="strong"/>
+                                                <MasteryBar notion={n} variant="strong" language={language}/>
                                             </motion.div>
                                         ))
                                         : <p className="lv-empty-tab">{t('Aucune notion maîtrisée — continuez !', 'No mastered notions — keep going!')}</p>
@@ -301,7 +334,7 @@ const Levels: React.FC = () => {
                                                 animate={{ opacity: 1, x: 0 }}
                                                 transition={{ delay: i * 0.05 }}
                                             >
-                                                <MasteryBar notion={n} variant="strong"/>
+                                                <MasteryBar notion={n} variant="strong" language={language}/>
                                             </motion.div>
                                         ))
                                         : <p className="lv-empty-tab">{t('Atteignez ∑ ≥ 5 pour voir cette section.', 'Reach ∑ ≥ 5 to see this section.')}</p>
@@ -315,7 +348,7 @@ const Levels: React.FC = () => {
                                                 animate={{ opacity: 1, x: 0 }}
                                                 transition={{ delay: i * 0.05 }}
                                             >
-                                                <MasteryBar notion={n} variant="strong"/>
+                                                <MasteryBar notion={n} variant="strong" language={language}/>
                                             </motion.div>
                                         ))
                                         : <p className="lv-empty-tab">{t('Atteignez ∑ ≥ 5 avec ≤ 2 échecs.', 'Reach ∑ ≥ 5 with ≤ 2 failures.')}</p>

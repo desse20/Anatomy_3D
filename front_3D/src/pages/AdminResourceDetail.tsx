@@ -104,6 +104,9 @@ const AdminResourceDetail: React.FC = () => {
         setLoading(true);
         try {
             const res = await apiCall(`models-manager/${id}`);
+            if (!res || typeof res !== 'object' || (!res.name && !res.id)) {
+                throw new Error('Format de données invalide');
+            }
             setAsset(res);
             // La première page d'objets vient avec le show
             if (res.objects_paginated) {
@@ -505,7 +508,7 @@ const AdminResourceDetail: React.FC = () => {
         }
     };
 
-    if (loading) return <App title={t("{t('Chargement...', 'Loading...')}", "Loading...")}><div style={{ padding: '40px', textAlign: 'center' }}>{t("Veuillez patienter...", "Please wait...")}</div></App>;
+    if (loading) return <App title={t('Chargement...', 'Loading...')}><div style={{ padding: '40px', textAlign: 'center' }}>{t("Veuillez patienter...", "Please wait...")}</div></App>;
     if (!asset) return <App title={t("Erreur", "Error")}><div style={{ padding: '40px', textAlign: 'center' }}>{t("Modèle non trouvé.", "Model not found.")}</div></App>;
 
     return (

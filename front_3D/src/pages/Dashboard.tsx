@@ -1,11 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import Swal from 'sweetalert2';
 import { motion } from 'framer-motion';
-import { Calendar, AlertTriangle, CheckCircle, Activity, Database } from 'lucide-react';
+import { Calendar, AlertTriangle, CheckCircle, Activity } from 'lucide-react';
 import App from '../components/layouts/App';
 import { useLanguage } from '../contexts/LanguageContext';
-import { apiCall } from '../services/api';
+import { apiCall, analyticsService } from '../services/api';
 import '../styles/dashboard.css';
+import { 
+    ArrowUpRight, 
+    ArrowDownRight, 
+    Box,
+    MessageSquare,
+    Cpu,
+    Trash2,
+    Edit3,
+    TrendingUp,
+    Users,
+    User
+} from 'lucide-react';
+import { reviewService, aiCacheService } from '../services/api';
 
 const ArrowLg = () => (
     <svg width="33" height="33" viewBox="0 0 33 33" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -88,71 +102,8 @@ const RadarChart: React.FC<{ data: { label: string, value: number, max: number }
     );
 };
 
-const RoleDonut: React.FC<{ roleCounts: {admin:number, teacher:number, student:number} | null }> = ({ roleCounts }) => {
-    const counts = roleCounts || { admin: 0, teacher: 0, student: 0 };
-    const total = counts.admin + counts.teacher + counts.student;
-    const items = [
-        { label: 'Admin',    val: counts.admin,   color: '#6366f1' },
-        { label: 'Prof',     val: counts.teacher,  color: '#0ea5e9' },
-        { label: 'Étudiant', val: counts.student, color: '#34d399' },
-    ];
-    const size = 160, r = 55, stroke = 18, cx = size / 2, cy = size / 2;
-    let offset = 0;
-    const circ = 2 * Math.PI * r;
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-            <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
-                <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={stroke} />
-                {total === 0 ? (
-                    <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={stroke} />
-                ) : items.map((d, i) => {
-                    const dash = (d.val / total) * circ;
-                    const el = <circle key={i} cx={cx} cy={cy} r={r} fill="none" stroke={d.color}
-                        strokeWidth={stroke} strokeDasharray={`${dash} ${circ}`} strokeDashoffset={-offset}
-                        strokeLinecap="round" style={{ transition: 'stroke-dasharray 0.8s ease' }} />;
-                    offset += dash;
-                    return el;
-                })}
-                <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle"
-                    style={{ fill: '#fff', fontSize: '20px', fontWeight: 800, transform: 'rotate(90deg)', transformOrigin: `${cx}px ${cy}px` }}>{total}</text>
-            </svg>
-            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                {items.map(d => (
-                    <div key={d.label} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>
-                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: d.color, flexShrink: 0 }} />
-                        <span>{d.label}</span>
-                        <span style={{ opacity: 0.6 }}>({d.val})</span>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-};
 
-const ChartCard: React.FC<{ title: string, subtitle: string, children: React.ReactNode, color: string }> = ({ title, subtitle, children, color }) => (
-    <>
-        <div className="chart-container-inner" style={{ 
-            background: color || 'var(--dash-accent-hover)', 
-            borderRadius: '12px', 
-            padding: '16px 12px', 
-            marginTop: '-25px', 
-            boxShadow: '0 10px 30px -12px rgba(0,0,0,0.42), 0 4px 25px 0px rgba(0,0,0,0.12), 0 8px 10px -5px rgba(0,0,0,0.2)',
-            marginBottom: '15px',
-            width: '100%',
-            boxSizing: 'border-box',
-        }}>
-            {children}
-        </div>
-        <div style={{ padding: '0 5px' }}>
-            <h4 style={{ margin: '0 0 5px', fontSize: '16px', fontWeight: 700, color: 'var(--dash-text-main)' }}>{title}</h4>
-            <p style={{ margin: 0, fontSize: '13px', color: 'var(--dash-text-muted)' }}>{subtitle}</p>
-            <hr style={{ border: 'none', borderTop: '1px solid var(--dash-border)', margin: '15px 0 10px', opacity: 0.5 }} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: 'var(--dash-text-muted)', fontStyle: 'italic' }}>
-                <span>Données synchronisées</span>
-            </div>
-        </div>
-    </>
-);
+
 
 type EvolutionPoint = { date: string; role: string; count: number };
 
@@ -253,7 +204,7 @@ const PremiumCombinedChart: React.FC<{
         connected: dates.map(date => countFor(allNormalized, date, 'connected')),
     };
 
-    const height = 340;
+    const height = 280;
     const padL = 52;
     const padR = 20;
     const legendH = 36;
@@ -378,46 +329,6 @@ const PremiumCombinedChart: React.FC<{
 
 
 
-const DonutChart: React.FC<{ roleCounts: any, t: any }> = ({ roleCounts, t }) => {
-    if (!roleCounts) return <div style={{height:'150px'}} />;
-    const data = [
-        { label: 'Admin', val: roleCounts.admin || 0, color: '#fff' },
-        { label: 'Prof', val: roleCounts.teacher || 0, color: 'rgba(255,255,255,0.7)' },
-        { label: 'Etudiant', val: roleCounts.student || 0, color: 'rgba(255,255,255,0.4)' }
-    ];
-    const total = data.reduce((a, b) => a + b.val, 0);
-    const size = 150;
-    const r = 50, w = 12, center = size / 2;
-    let acc = -Math.PI / 2;
-
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ overflow: 'visible' }}>
-                {total === 0 ? (
-                    <circle cx={center} cy={center} r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={w} />
-                ) : data.map((d, i) => {
-                    if (d.val === 0) return null;
-                    const angle = (d.val / total) * Math.PI * 2;
-                    const x1 = center + r * Math.cos(acc), y1 = center + r * Math.sin(acc);
-                    const x2 = center + r * Math.cos(acc + angle), y2 = center + r * Math.sin(acc + angle);
-                    const path = `M ${x1} ${y1} A ${r} ${r} 0 ${angle > Math.PI ? 1 : 0} 1 ${x2} ${y2}`;
-                    const res = <motion.path key={i} initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} d={path} fill="none" stroke={d.color} strokeWidth={w} strokeLinecap="round" />;
-                    acc += angle;
-                    return res;
-                })}
-                <text x={center} y={center} textAnchor="middle" dominantBaseline="middle" style={{ fill: '#fff', fontSize: '18px', fontWeight: 800 }}>{total}</text>
-            </svg>
-            <div style={{ display: 'flex', gap: '8px', marginTop: '10px', fontSize: '10px', fontWeight: 700, flexWrap: 'wrap', justifyContent: 'center' }}>
-                {data.map(d => (
-                    <div key={d.label} style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#fff' }}>
-                        <div style={{ width: '6px', height: '6px', background: d.color, borderRadius: '50%' }} />
-                        <span>{d.label === 'Admin' ? t('Admin', 'Admin') : d.label === 'Prof' ? t('Prof', 'Teacher') : t('Etudiant', 'Student')}</span>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-};
 const MiniCalendar = ({ language, dueDays }: { language: string, dueDays: number[] }) => {
     const today = new Date();
     const year = today.getFullYear();
@@ -494,16 +405,120 @@ const SectionCollapseHeading: React.FC<{
 );
 
 const Dashboard: React.FC = () => {
-    const { language } = useLanguage();
+    const { language, t } = useLanguage();
     const [stats, setStats] = useState<any>(null);
     const [roots, setRoots] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [adminStats, setAdminStats] = useState<any>(null);
+    const [usageStats, setUsageStats] = useState<any>({ objects: null, models: null, summary: null });
     const [teacherStats, setTeacherStats] = useState<any>(null);
     const [statRange, setStatRange] = useState('30');
     const [showTeacherSection, setShowTeacherSection] = useState(() => readUserRole() === 'teacher');
     const [showStudentSection, setShowStudentSection] = useState(() => readUserRole() === 'student');
-    const adminStatsRangeReady = useRef(false);
+
+    // New states for feedback and cache management
+    const [latestReviews, setLatestReviews] = useState<any[]>([]);
+    const [latestCache, setLatestCache] = useState<any[]>([]);
+    const [activeAiModels, setActiveAiModels] = useState<any[]>([]);
+    const [activeView, setActiveView] = useState<'main' | 'reviews' | 'cache' | 'analytics_objects' | 'user_analytics' | 'user_detail'>('main');
+    const [analyticsUsers, setAnalyticsUsers] = useState<any[]>([]);
+    const [selectedUserStats, setSelectedUserStats] = useState<any>(null);
+    const [viewFilter, setViewFilter] = useState('all');
+    const [ratingFilter, setRatingFilter] = useState('all');
+    const [cacheModelFilter, setCacheModelFilter] = useState('all');
+    const [cacheSortFilter, setCacheSortFilter] = useState('latest');
+    const [modalData, setModalData] = useState<any[]>([]);
+    const [managementResponse, setManagementResponse] = useState<any>(null);
+    const [modalLoading, setModalLoading] = useState(false);
+    const [editingItem, setEditingItem] = useState<any>(null);
+    const [userSearchQuery, setUserSearchQuery] = useState('');
+
+    const fetchLatestReviews = async () => {
+        try {
+            const res = await reviewService.list({ limit: 3 });
+            setLatestReviews(res.data || []);
+        } catch (err) { console.error("Latest reviews failed", err); }
+    };
+
+    const fetchLatestCache = async () => {
+        try {
+            const res = await aiCacheService.list({ limit: 3 });
+            setLatestCache(res.data || []);
+        } catch (err) { console.error("Latest cache failed", err); }
+    };
+
+    const [activeAiModelsResponse, setActiveAiModelsResponse] = useState<any>(null);
+
+    const fetchActiveAiModels = async () => {
+        try {
+            const res = await aiCacheService.getActiveModels();
+            setActiveAiModelsResponse(res);
+            setActiveAiModels(res?.data || []);
+        } catch (err) { console.error("Active AI models failed", err); }
+    };
+
+    const fetchManagementData = async (type: 'reviews' | 'cache', filter?: string, page: number = 1, rFilter?: string, cModel?: string, cSort?: string) => {
+        setModalLoading(page === 1);
+        const currentTypeFilter = filter || viewFilter;
+        const currentRatingFilter = rFilter || ratingFilter;
+        const currentCacheModel = cModel || cacheModelFilter;
+        const currentCacheSort = cSort || cacheSortFilter;
+
+        try {
+            if (type === 'reviews') {
+                const params: any = { limit: 50, page };
+                if (currentTypeFilter !== 'all') params.type = currentTypeFilter;
+                if (currentRatingFilter === 'positive') params.min_rating = 3;
+                else if (currentRatingFilter === 'negative') params.max_rating = 3;
+                
+                const res = await reviewService.list(params);
+                setManagementResponse(res);
+                if (page === 1) setModalData(res.data || []);
+                else setModalData(prev => [...prev, ...(res.data || [])]);
+            } else {
+                const params: any = { limit: 50, page };
+                if (currentCacheModel !== 'all') params.ai_model = currentCacheModel;
+                if (currentCacheSort === 'most_used') params.sort = 'most_used';
+                
+                const res = await aiCacheService.list(params);
+                setManagementResponse(res);
+                if (page === 1) setModalData(res.data || []);
+                else setModalData(prev => [...prev, ...(res.data || [])]);
+            }
+        } catch (err) { console.error("Fetch management data failed", err); }
+        setModalLoading(false);
+    };
+
+    const fetchAdminUsageAnalytics = async (range: string) => {
+        try {
+            const r = parseInt(range, 10);
+            const [s, o, m] = await Promise.all([
+                analyticsService.getSummary(r),
+                analyticsService.getObjects(r),
+                analyticsService.getModels(r)
+            ]);
+            setUsageStats({ summary: s, objects: o, models: m });
+        } catch (err) {
+            console.error("Analytics fetch failed", err);
+        }
+    };
+
+    const fetchAnalyticsUsers = async () => {
+        try {
+            const res = await analyticsService.getUsers();
+            setAnalyticsUsers(res);
+        } catch (err) { console.error("Fetch analytics users failed", err); }
+    };
+
+    const fetchUserStatsDetail = async (userId: string) => {
+        setModalLoading(true);
+        try {
+            const res = await analyticsService.getUserDetails(userId);
+            setSelectedUserStats(res);
+            setActiveView('user_detail');
+        } catch (err) { console.error("Fetch user details failed", err); }
+        setModalLoading(false);
+    };
 
     const fetchAdminStats = async (range: string) => {
         try {
@@ -511,6 +526,109 @@ const Dashboard: React.FC = () => {
             setAdminStats(data);
         } catch (err) {
             console.error("Admin stats failed", err);
+        }
+    };
+
+    const handleDeleteReview = async (id: string) => {
+        const result = await Swal.fire({
+            title: t('Supprimer ?', 'Delete?'),
+            text: t('Voulez-vous vraiment supprimer cet avis ?', 'Are you sure you want to delete this review?'),
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#94a3b8',
+            confirmButtonText: t('Supprimer', 'Delete'),
+            cancelButtonText: t('Annuler', 'Cancel'),
+            background: 'var(--dash-bg)',
+            color: 'var(--dash-text-main)'
+        });
+
+        if (!result.isConfirmed) return;
+
+        try {
+            await reviewService.delete(id);
+            setModalData(prev => prev.filter(r => r.id !== id));
+            fetchLatestReviews();
+            Swal.fire({
+                title: t('Supprimé', 'Deleted'),
+                icon: 'success',
+                timer: 1500,
+                showConfirmButton: false,
+                background: 'var(--dash-bg)',
+                color: 'var(--dash-text-main)'
+            });
+        } catch (err) { 
+            Swal.fire({
+                title: 'Error',
+                text: t('Erreur lors de la suppression', 'Error during deletion'),
+                icon: 'error',
+                background: 'var(--dash-bg)',
+                color: 'var(--dash-text-main)'
+            });
+        }
+    };
+
+    const handleDeleteCache = async (id: string) => {
+        const result = await Swal.fire({
+            title: t('Supprimer ?', 'Delete?'),
+            text: t('Voulez-vous vraiment supprimer cette entrée ?', 'Are you sure you want to delete this entry?'),
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#94a3b8',
+            confirmButtonText: t('Supprimer', 'Delete'),
+            cancelButtonText: t('Annuler', 'Cancel'),
+            background: 'var(--dash-bg)',
+            color: 'var(--dash-text-main)'
+        });
+
+        if (!result.isConfirmed) return;
+
+        try {
+            await aiCacheService.delete(id);
+            setModalData(prev => prev.filter(c => c.id !== id));
+            fetchLatestCache();
+            Swal.fire({
+                title: t('Supprimé', 'Deleted'),
+                icon: 'success',
+                timer: 1500,
+                showConfirmButton: false,
+                background: 'var(--dash-bg)',
+                color: 'var(--dash-text-main)'
+            });
+        } catch (err) { 
+            Swal.fire({
+                title: 'Error',
+                text: t('Erreur lors de la suppression', 'Error during deletion'),
+                icon: 'error',
+                background: 'var(--dash-bg)',
+                color: 'var(--dash-text-main)'
+            });
+        }
+    };
+
+    const handleUpdateCache = async (id: string, data: any) => {
+        try {
+            await aiCacheService.update(id, data);
+            setEditingItem(null);
+            fetchManagementData('cache');
+            fetchLatestCache();
+            Swal.fire({
+                title: t('Mis à jour', 'Updated'),
+                icon: 'success',
+                timer: 1500,
+                showConfirmButton: false,
+                background: 'var(--dash-bg)',
+                color: 'var(--dash-text-main)'
+            });
+        } catch (err) { 
+            Swal.fire({
+                title: 'Error',
+                text: t('Erreur lors de la mise à jour', 'Error during update'),
+                icon: 'error',
+                background: 'var(--dash-bg)',
+                color: 'var(--dash-text-main)'
+            });
         }
     };
 
@@ -525,9 +643,17 @@ const Dashboard: React.FC = () => {
         ];
 
         if (role === 'admin') {
-            promises.push(apiCall('/system/stats?range=30').catch(() => null));
+            promises.push(apiCall(`/system/stats?range=${statRange}`).catch(() => null));
             promises.push(apiCall('labs').catch(() => ({ data: [] })));
             promises.push(apiCall('mastery/stats').catch(() => null));
+            fetchAdminUsageAnalytics(statRange);
+            fetchLatestReviews();
+            fetchLatestCache();
+            fetchActiveAiModels();
+            if (activeView !== 'main') {
+                if (activeView === 'user_analytics') fetchAnalyticsUsers();
+                else fetchManagementData(activeView === 'reviews' ? 'reviews' : 'cache', viewFilter);
+            }
         } else if (role === 'teacher') {
             promises.push(apiCall('labs').catch(() => ({ data: [] })));
             promises.push(apiCall('mastery/stats').catch(() => null));
@@ -551,19 +677,19 @@ const Dashboard: React.FC = () => {
             }
         })
         .finally(() => setLoading(false));
-    }, []);
+    }, [language]);
 
     useEffect(() => {
         const user = JSON.parse(localStorage.getItem('user') || '{}');
-        if (user.role !== 'admin' || loading) return;
-        if (!adminStatsRangeReady.current) {
-            adminStatsRangeReady.current = true;
-            return;
+        if (user.role !== 'admin') return;
+        
+        // On ne recharge ici que si le loading initial est terminé
+        if (!loading) {
+            fetchAdminStats(statRange);
+            fetchAdminUsageAnalytics(statRange);
         }
-        fetchAdminStats(statRange);
     }, [statRange, loading]);
 
-    const t = (fr: string, en: string) => language === 'fr' ? fr : en;
 
     const navigate = useNavigate();
 
@@ -714,49 +840,431 @@ const Dashboard: React.FC = () => {
                 )}
             </div>
         }>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '16px' }}>
-                <h1 style={{ margin: 0 }}>{t('Tableau de bord', 'Dashboard')}</h1>
-                <Link to="/" className="dash-home-link-hero" style={{ margin: 0 }}>
-                    <span className="home-link-text">{t("Retour au portail d'accueil", "Back to Home Portal")}</span>
-                    <ArrowLg />
-                </Link>
-            </div>
-
             {loading ? (
                 <div style={{ padding: '40px', color: 'var(--dash-text-muted)' }}>{t('Chargement des données biométriques...', 'Loading biometric data...')}</div>
+            ) : activeView !== 'main' ? (
+                <div className="secondary-view">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px', width: '100%', marginBottom: '25px' }}>
+                        <button className="back-btn-dash" onClick={() => {
+                            if (activeView === 'user_detail') setActiveView('user_analytics');
+                            else setActiveView('main');
+                        }}>
+                            ← {activeView === 'user_detail' ? t('Retour à la liste', 'Back to list') : t('Retour au Dashboard', 'Back to Dashboard')}
+                        </button>
+                        <h2 style={{ margin: 0 }}>
+                            {activeView === 'reviews' ? t('Gestion des Avis', 'Reviews Management') : 
+                             activeView === 'cache' ? t('Gestion du Cache IA', 'AI Cache Management') :
+                             activeView === 'user_analytics' ? t('Utilisateurs & Analytics', 'Users & Analytics') :
+                             activeView === 'user_detail' ? t('Détails Utilisateur', 'User Details') :
+                             t('Statistiques d\'Utilisation', 'Usage Statistics')}
+                        </h2>
+                        {activeView === 'reviews' && (
+                            <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px' }}>
+                                <select 
+                                    value={viewFilter} 
+                                    onChange={(e) => { setViewFilter(e.target.value); fetchManagementData('reviews', e.target.value, 1, ratingFilter); }}
+                                        style={{ background: 'var(--dash-bg)', color: 'var(--dash-text-main)', border: '1px solid var(--dash-border)', borderRadius: '8px', padding: '5px 10px', fontSize: '11px' }}
+                                    >
+                                        <option value="all">{t('Toutes cibles', 'All targets')}</option>
+                                        <option value="platform">{t('Plateforme', 'Platform')}</option>
+                                        <option value="object">{t('Objets anatomiques', 'Anatomy objects')}</option>
+                                    </select>
+                                    <select 
+                                        value={ratingFilter} 
+                                        onChange={(e) => { setRatingFilter(e.target.value); fetchManagementData('reviews', viewFilter, 1, e.target.value); }}
+                                        style={{ background: 'var(--dash-bg)', color: 'var(--dash-text-main)', border: '1px solid var(--dash-border)', borderRadius: '8px', padding: '5px 10px', fontSize: '11px' }}
+                                >
+                                    <option value="all">{t('Toutes les notes', 'All ratings')}</option>
+                                    <option value="positive">{t('Positifs (≥ 3★)', 'Positive (≥ 3★)')}</option>
+                                    <option value="negative">{t('Négatifs (< 3★)', 'Negative (< 3★)')}</option>
+                                </select>
+                            </div>
+                        )}
+                        {activeView === 'cache' && (
+                            <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px' }}>
+                                <select 
+                                    value={cacheModelFilter} 
+                                    onChange={(e) => { setCacheModelFilter(e.target.value); fetchManagementData('cache', 'all', 1, 'all', cacheModelFilter, cacheSortFilter); }}
+                                        style={{ background: 'var(--dash-bg)', color: 'var(--dash-text-main)', border: '1px solid var(--dash-border)', borderRadius: '8px', padding: '5px 10px', fontSize: '11px' }}
+                                    >
+                                        <option value="all">{t('Tous les modèles', 'All models')}</option>
+                                        {activeAiModels.map(m => (
+                                            <option key={m.ai_model} value={m.ai_model}>{m.ai_model}</option>
+                                        ))}
+                                    </select>
+                                    <select 
+                                        value={cacheSortFilter} 
+                                        onChange={(e) => { setCacheSortFilter(e.target.value); fetchManagementData('cache', 'all', 1, 'all', cacheModelFilter, e.target.value); }}
+                                        style={{ background: 'var(--dash-bg)', color: 'var(--dash-text-main)', border: '1px solid var(--dash-border)', borderRadius: '8px', padding: '5px 10px', fontSize: '11px' }}
+                                >
+                                    <option value="latest">{t('Plus récents', 'Latest')}</option>
+                                    <option value="most_used">{t('Plus utilisés', 'Most used')}</option>
+                                </select>
+                            </div>
+                        )}
+                    </div>
+
+                    <div style={{ padding: '0px' }}>
+                        {modalLoading ? (
+                            <div style={{ textAlign: 'center', padding: '100px', color: 'var(--dash-text-muted)' }}>{t('Chargement...', 'Loading...')}</div>
+                        ) : (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '20px' }}>
+                                {modalData.map((item: any) => (
+                                    <div key={item.id} className="secondary-item-card" style={{ padding: '24px', background: 'var(--dash-card-bg)', borderRadius: '20px', border: '1px solid var(--dash-border)', position: 'relative', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+                                        <div style={{ position: 'absolute', top: '15px', right: '15px', display: 'flex', gap: '8px' }}>
+                                            {activeView === 'cache' && (
+                                                <button onClick={() => setEditingItem(item)} className="action-icon-btn"><Edit3 size={16} /></button>
+                                            )}
+                                            <button onClick={() => activeView === 'reviews' ? handleDeleteReview(item.id) : handleDeleteCache(item.id)} className="action-icon-btn delete"><Trash2 size={16} /></button>
+                                        </div>
+
+                                        {activeView === 'reviews' ? (
+                                            <>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                                                    <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6' }}>
+                                                        <User size={20} />
+                                                    </div>
+                                                    <div>
+                                                        <div style={{ fontWeight: 800, fontSize: '15px' }}>{item.user?.firstname} {item.user?.lastname}</div>
+                                                        <div style={{ fontSize: '12px', color: '#f59e0b', letterSpacing: '1px' }}>{'★'.repeat(item.rating)}{'☆'.repeat(5-item.rating)}</div>
+                                                    </div>
+                                                </div>
+                                                {item.comment ? (
+                                                    <div style={{ fontSize: '15px', lineHeight: '1.6', color: 'var(--dash-text-main)', marginBottom: '16px', fontStyle: 'italic', opacity: 0.9 }}>"{item.comment}"</div>
+                                                ) : (
+                                                    <div style={{ fontSize: '13px', marginBottom: '16px', color: 'var(--dash-text-muted)', fontStyle: 'italic' }}>({t('Sans commentaire', 'No comment')})</div>
+                                                )}
+                                                <div style={{ padding: '12px', background: 'var(--dash-bg)', borderRadius: '12px', border: '1px solid var(--dash-border)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
+                                                        <span style={{ color: 'var(--dash-text-muted)' }}>{t('Cible', 'Target')}</span>
+                                                        <span style={{ fontWeight: 700 }}>{item.type === 'platform' ? 'Platform' : item.anatomical_object?.name}</span>
+                                                    </div>
+                                                    {item.anatomical_object?.asset3d && (
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
+                                                            <span style={{ color: 'var(--dash-text-muted)' }}>{t('Modèle', 'Model')}</span>
+                                                            <span style={{ fontWeight: 700 }}>{item.anatomical_object.asset3d.name}</span>
+                                                        </div>
+                                                    )}
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', borderTop: '1px solid var(--dash-border)', paddingTop: '6px', marginTop: '4px' }}>
+                                                        <span style={{ color: 'var(--dash-text-muted)' }}>{t('Soumis le', 'Submitted on')}</span>
+                                                        <span>{new Date(item.created_at).toLocaleString()}</span>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div style={{ fontWeight: 800, fontSize: '15px', color: '#a78bfa', marginBottom: '12px', paddingRight: '60px', lineHeight: 1.4 }}>{item.question}</div>
+                                                <div style={{ fontSize: '13px', background: 'var(--dash-accent-hover)', padding: '15px', borderRadius: '12px', marginBottom: '15px', color: 'var(--dash-text-main)', border: '1px solid var(--dash-border)', opacity: 0.8 }}>{item.response}</div>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                                    <div className="mini-stat-info">
+                                                        <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--dash-text-muted)' }}>IA Model</div>
+                                                        <div style={{ fontSize: '12px', fontWeight: 700 }}>{item.ai_model}</div>
+                                                    </div>
+                                                    <div className="mini-stat-info">
+                                                        <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--dash-text-muted)' }}>{t('Utilisations', 'Uses')}</div>
+                                                        <div style={{ fontSize: '12px', fontWeight: 700 }}>{item.use_count}</div>
+                                                    </div>
+                                                    <div className="mini-stat-info">
+                                                        <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--dash-text-muted)' }}>{t('Langue', 'Lang')}</div>
+                                                        <div style={{ fontSize: '12px', fontWeight: 700 }}>{item.language}</div>
+                                                    </div>
+                                                    <div className="mini-stat-info">
+                                                        <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--dash-text-muted)' }}>{t('Date', 'Date')}</div>
+                                                        <div style={{ fontSize: '11px' }}>{new Date(item.created_at).toLocaleDateString()}</div>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                ))}
+                                {modalData.length === 0 && !['user_analytics', 'analytics_objects', 'user_detail'].includes(activeView) && (
+                                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '50px', opacity: 0.5 }}>
+                                        <Activity size={48} style={{ marginBottom: '15px', opacity: 0.2 }} />
+                                        <div>{managementResponse?.empty_message || t('Aucune donnée trouvée', 'No data found')}</div>
+                                    </div>
+                                )}
+                                {managementResponse?.current_page < managementResponse?.last_page && (
+                                    <div style={{ gridColumn: '1 / -1', padding: '20px', display: 'flex', justifyContent: 'center' }}>
+                                        <button 
+                                            onClick={() => fetchManagementData(activeView as any, viewFilter, (managementResponse.current_page || 1) + 1, ratingFilter, cacheModelFilter, cacheSortFilter)}
+                                            className="mini-btn"
+                                            style={{ margin: 0, padding: '12px 30px', borderRadius: '15px' }}
+                                        >
+                                            {t('Charger plus...', 'Load more...')}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        {activeView === 'analytics_objects' && (
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
+                                <div className="table-card-dash top" style={{ height: 'auto' }}>
+                                    <h3 style={{ fontSize: '20px', marginBottom: '24px' }}><ArrowUpRight color="#34d399" size={20} /> {t('Classement Complet - Plus consultés', 'Full Ranking - Most visited')}</h3>
+                                    <div className="list-dash" style={{ gap: '15px' }}>
+                                        {(usageStats.objects?.top || []).map((obj: any, i: number) => (
+                                            <div key={obj.id} className="list-item-dash" style={{ padding: '15px' }}>
+                                                <span className="rank-dash" style={{ fontSize: '18px' }}>#{i+1}</span>
+                                                <div className="info-dash">
+                                                    <span className="name-dash" style={{ fontSize: '16px' }}>{obj.name}</span>
+                                                    <span className="sub-dash">{obj.model_name}</span>
+                                                </div>
+                                                <span className="val-dash" style={{ fontSize: '18px' }}>{obj.visit_count}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="table-card-dash flop" style={{ height: 'auto' }}>
+                                    <h3 style={{ fontSize: '20px', marginBottom: '24px' }}><ArrowDownRight color="#f87171" size={20} /> {t('Moins consultés', 'Least visited')}</h3>
+                                    <div className="list-dash" style={{ gap: '15px' }}>
+                                        {(usageStats.objects?.flop || []).map((obj: any) => (
+                                            <div key={obj.id} className="list-item-dash" style={{ padding: '15px' }}>
+                                                <div className="info-dash">
+                                                    <span className="name-dash" style={{ fontSize: '16px' }}>{obj.name}</span>
+                                                    <span className="sub-dash">{obj.model_name}</span>
+                                                </div>
+                                                <span className="val-dash" style={{ fontSize: '18px' }}>{obj.visit_count}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeView === 'user_analytics' && (
+                            <div className="table-card-dash" style={{ height: 'auto', padding: '0', overflow: 'hidden' }}>
+                                <div style={{ padding: '24px', borderBottom: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+                                    <h3 style={{ fontSize: '20px', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <Users color="#3b82f6" size={24} /> {t('Activité des Utilisateurs', 'User Activity')}
+                                    </h3>
+                                    <div style={{ flex: 1, maxWidth: '400px', position: 'relative' }}>
+                                        <input 
+                                            type="text" 
+                                            placeholder={t('Rechercher un utilisateur...', 'Search a user...')}
+                                            value={userSearchQuery}
+                                            onChange={(e) => setUserSearchQuery(e.target.value)}
+                                            style={{
+                                                width: '100%',
+                                                padding: '10px 15px',
+                                                borderRadius: '12px',
+                                                background: 'var(--dash-bg)',
+                                                border: '1px solid var(--dash-border)',
+                                                color: 'var(--dash-text-main)',
+                                                fontSize: '14px',
+                                                outline: 'none'
+                                            }}
+                                        />
+                                    </div>
+                                    <span style={{ fontSize: '13px', color: 'var(--dash-text-muted)', fontWeight: 600 }}>{analyticsUsers.length} {t('utilisateurs enregistrés', 'registered users')}</span>
+                                </div>
+                                <div style={{ overflowX: 'auto' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                                        <thead>
+                                            <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--dash-border)' }}>
+                                                <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>{t('Utilisateur', 'User')}</th>
+                                                <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>{t('Email', 'Email')}</th>
+                                                <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--dash-text-muted)', textTransform: 'uppercase', textAlign: 'center' }}>{t('Visites', 'Visits')}</th>
+                                                <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>{t('Dernier accès', 'Last access')}</th>
+                                                <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--dash-text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>{t('Actions', 'Actions')}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {analyticsUsers.filter(u => {
+                                                const q = userSearchQuery.toLowerCase();
+                                                return (u.firstname || '').toLowerCase().includes(q) || 
+                                                       (u.lastname || '').toLowerCase().includes(q) || 
+                                                       (u.email || '').toLowerCase().includes(q);
+                                            }).map((u) => (
+                                                <tr key={u.id} style={{ borderBottom: '1px solid var(--dash-border)', transition: 'background 0.2s' }} className="table-row-hover">
+                                                    <td style={{ padding: '16px 24px' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                <User size={18} />
+                                                            </div>
+                                                            <span style={{ fontWeight: 700, fontSize: '14px' }}>{u.firstname} {u.lastname}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td style={{ padding: '16px 24px', fontSize: '13px', color: 'var(--dash-text-muted)' }}>{u.email}</td>
+                                                    <td style={{ padding: '16px 24px', textAlign: 'center' }}>
+                                                        <span style={{ padding: '4px 10px', borderRadius: '8px', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', fontWeight: 800, fontSize: '13px' }}>
+                                                            {u.total_visits}
+                                                        </span>
+                                                    </td>
+                                                    <td style={{ padding: '16px 24px' }}>
+                                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                            <span style={{ fontSize: '13px', fontWeight: 600 }}>{u.last_visit ? new Date(u.last_visit).toLocaleDateString() : t('Jamais', 'Never')}</span>
+                                                            {u.last_visit && <span style={{ fontSize: '10px', color: 'var(--dash-text-muted)' }}>{new Date(u.last_visit).toLocaleTimeString()}</span>}
+                                                        </div>
+                                                    </td>
+                                                    <td style={{ padding: '16px 24px', textAlign: 'right' }}>
+                                                        <button onClick={() => fetchUserStatsDetail(u.id)} className="mini-btn" style={{ padding: '6px 12px', fontSize: '11px' }}>
+                                                            {t('Détails', 'Details')} →
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeView === 'user_detail' && selectedUserStats && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                                <div className="user-profile-header" style={{ padding: '30px', background: 'var(--dash-bg)', borderRadius: '20px', border: '1px solid var(--dash-border)', display: 'flex', gap: '30px', alignItems: 'center' }}>
+                                    <div style={{ width: '80px', height: '80px', borderRadius: '24px', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <User size={40} />
+                                    </div>
+                                    <div>
+                                        <h1 style={{ margin: 0, fontSize: '28px' }}>{selectedUserStats.user.name}</h1>
+                                        <div style={{ color: 'var(--dash-text-muted)', display: 'flex', gap: '15px', marginTop: '5px' }}>
+                                            <span>{selectedUserStats.user.email}</span>
+                                            <span>•</span>
+                                            <span style={{ textTransform: 'uppercase', fontWeight: 700, color: '#3b82f6' }}>{selectedUserStats.user.role}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
+                                    <div className="table-card-dash top" style={{ height: 'auto' }}>
+                                        <h3 style={{ fontSize: '20px', marginBottom: '24px' }}>
+                                            <ArrowUpRight color="#34d399" size={20} /> {t('Ses Objets les plus visités', 'Most visited objects')}
+                                        </h3>
+                                        <div className="list-dash" style={{ gap: '15px' }}>
+                                            {selectedUserStats.top.map((obj: any, i: number) => (
+                                                <div key={obj.id} className="list-item-dash" style={{ padding: '15px' }}>
+                                                    <span className="rank-dash" style={{ fontSize: '18px' }}>#{i+1}</span>
+                                                    <div className="info-dash">
+                                                        <span className="name-dash" style={{ fontSize: '16px' }}>{obj.name}</span>
+                                                        <span className="sub-dash">{obj.model_name}</span>
+                                                    </div>
+                                                    <span className="val-dash" style={{ fontSize: '18px' }}>{obj.visit_count}</span>
+                                                </div>
+                                            ))}
+                                            {selectedUserStats.top.length === 0 && <div style={{ textAlign: 'center', padding: '20px', color: 'var(--dash-text-muted)', fontSize: '14px' }}>{t('aucun objet visité', 'no object visited')}</div>}
+                                        </div>
+                                    </div>
+                                    <div className="table-card-dash flop" style={{ height: 'auto' }}>
+                                        <h3 style={{ fontSize: '20px', marginBottom: '24px' }}>
+                                            <ArrowDownRight color="#f87171" size={20} /> {t('Ses Objets les moins visités', 'Least visited objects')}
+                                        </h3>
+                                        <div className="list-dash" style={{ gap: '15px' }}>
+                                            {selectedUserStats.flop.map((obj: any) => (
+                                                <div key={obj.id} className="list-item-dash" style={{ padding: '15px' }}>
+                                                    <div className="info-dash">
+                                                        <span className="name-dash" style={{ fontSize: '16px' }}>{obj.name}</span>
+                                                        <span className="sub-dash">{obj.model_name}</span>
+                                                    </div>
+                                                    <span className="val-dash" style={{ fontSize: '18px' }}>{obj.visit_count}</span>
+                                                </div>
+                                            ))}
+                                            {selectedUserStats.flop.length === 0 && <div style={{ textAlign: 'center', padding: '20px', color: 'var(--dash-text-muted)', fontSize: '14px' }}>{t('aucun objet visité', 'no object visited')}</div>}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
             ) : (
                 <div className="dash-grid">
+                    <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '16px' }}>
+                        <h1 style={{ margin: 0 }}>{t('Tableau de bord', 'Dashboard')}</h1>
+                        <Link to="/" className="dash-home-link-hero" style={{ margin: 0 }}>
+                            <span className="home-link-text">{t("Retour au portail d'accueil", "Back to Home Portal")}</span>
+                            <ArrowLg />
+                        </Link>
+                    </div>
+
                     {/* --- ADMIN VIEW (ALWAYS PRIMARY) --- */}
                     {isAdmin && (
                         <>
                             <div className="full-width-heading"><span>{t('Contrôle Administrateur', 'Administrator Control')}</span></div>
 
-                            {/* Top 3 cards */}
-                            <div className="dash-card custom-card">
-                                <div className="card-header">
-                                    <span className="card-icon"><Database size={20} color="#6366f1"/></span>
-                                    <h3>{t('Statut Système', 'System Status')}</h3>
-                                </div>
-                                <div className="card-content">
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '10px' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
-                                            <span>{t('Stockage utilisé', 'Used Storage')}</span>
-                                            <strong style={{ color: '#6366f1' }}>{adminStats?.total_size_mb || 0} MB</strong>
+                            <div className="full-width-heading" style={{ marginTop: '0' }}>
+                                <span>{t('Utilisation des Objets Anatomiques', 'Anatomical Objects Usage')}</span>
+                            </div>
+
+                            <div className="full-width" style={{ marginBottom: '30px' }}>
+                                <div className="comparison-grid-dash">
+                                    <div className="table-card-dash top">
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                                            <h3 style={{ margin: 0 }}><ArrowUpRight color="#34d399" size={16} /> {t('Plus consultés', 'Most visited')}</h3>
+                                            {(usageStats.objects?.top?.length > 3) && (
+                                                <button onClick={() => setActiveView('analytics_objects')} className="mini-btn-flat">{t('Voir tout', 'View all')}</button>
+                                            )}
                                         </div>
-                                        <div style={{ width: '100%', height: '6px', background: 'var(--dash-border)', borderRadius: '3px', overflow: 'hidden' }}>
-                                            <div style={{ width: `${Math.min(((adminStats?.total_size_mb || 0) / 500) * 100, 100)}%`, height: '100%', background: '#6366f1', transition: 'width 1s' }}></div>
-                                        </div>
-                                        <div style={{ marginTop: '6px', fontSize: '12px' }}>
-                                            <div style={{ color: 'var(--dash-text-muted)', marginBottom: '6px', fontWeight: 700, textTransform: 'uppercase' }}>{t('Top Tables', 'Top Tables')}</div>
-                                            {adminStats?.top_tables?.slice(0, 3).map((tt: any, idx: number) => (
-                                                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--dash-border)', opacity: 0.8 }}>
-                                                    <span style={{ fontWeight: 600 }}>{tt.label_fr || tt.name}</span>
-                                                    <span style={{ color: 'var(--dash-text-muted)' }}>{tt.rows} {t('lignes', 'rows')}</span>
+                                        <div className="list-dash">
+                                            {(usageStats.objects?.top || []).slice(0, 3).map((obj: any, i: number) => (
+                                                <div key={obj.id} className="list-item-dash">
+                                                    <span className="rank-dash">#{i+1}</span>
+                                                    <div className="info-dash">
+                                                        <span className="name-dash">{obj.name}</span>
+                                                        <span className="sub-dash">{obj.model_name}</span>
+                                                    </div>
+                                                    <span className="val-dash">{obj.visit_count}</span>
                                                 </div>
                                             ))}
                                         </div>
-                                        <Link to="/tech" className="mini-btn" style={{ marginTop: 'auto' }}>{t("Gérer l'infra", 'Manage Infra')} →</Link>
                                     </div>
+                                    <div className="table-card-dash" style={{ height: '360px', overflow: 'hidden' }}>
+                                        <div className="card-header" style={{ marginBottom: '10px', padding: 0 }}>
+                                            <span className="card-icon" style={{ width: '28px', height: '28px' }}><TrendingUp size={16} color="#34d399"/></span>
+                                            <h3 style={{ margin: 0, fontSize: '12px' }}>{t('Analyse de Croissance', 'Growth Analytics')}</h3>
+                                            <div style={{ display: 'flex', gap: '3px', marginLeft: 'auto' }}>
+                                                {[{v:'7', l:'7J'}, {v:'30', l:'1M'}, {v:'90', l:'3M'}, {v:'365', l:'1A'}, {v:'730', l:'2A'}].map(r => (
+                                                    <button key={r.v} onClick={() => setStatRange(r.v)} style={{
+                                                        padding: '2px 5px', fontSize: '9px', fontWeight: 800, border: '1px solid var(--dash-border)', borderRadius: '4px', cursor: 'pointer',
+                                                        background: statRange === r.v ? 'var(--dash-primary)' : 'var(--dash-bg)',
+                                                        color: statRange === r.v ? '#fff' : 'var(--dash-text-muted)',
+                                                        transition: '0.2s'
+                                                    }}>{r.l}</button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div style={{ height: '280px' }}>
+                                            <PremiumCombinedChart
+                                                data={adminStats?.user_evolution || []}
+                                                connectedData={adminStats?.connected_evolution || []}
+                                                range={statRange}
+                                                labels={{
+                                                    total: t('Total', 'Total'),
+                                                    student: t('Utilisateur', 'User'),
+                                                    teacher: t('Prof', 'Teacher'),
+                                                    admin: t('Admin', 'Admin'),
+                                                    connected: t('Connectés', 'Connected'),
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="full-width-heading" style={{ marginTop: '0' }}>
+                                <span>{t('Statut & Santé du Système', 'System Status & Health')}</span>
+                            </div>
+
+                            <div className="dash-card custom-card">
+                                <div className="card-header">
+                                    <span className="card-icon"><Box size={16} color="#34d399"/></span>
+                                    <h3>{usageStats.models?.title || t('Top Modèles 3D', 'Top 3D Models')}</h3>
+                                </div>
+                                <div className="card-content">
+                                    {(usageStats.models?.models || []).slice(0, 5).map((m: any) => (
+                                        <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 0', borderBottom: '1px solid var(--dash-border)' }}>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontWeight: 700, fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.name}</div>
+                                                <div style={{ height: '3px', background: 'var(--dash-border)', borderRadius: '2px', marginTop: '4px', overflow: 'hidden' }}>
+                                                    <div style={{ height: '100%', background: '#0ea5e9', width: `${Math.min((m.visit_count / (usageStats.models?.total || 1)) * 100, 100)}%` }}></div>
+                                                </div>
+                                            </div>
+                                            <span style={{ fontWeight: 800, color: '#0ea5e9', fontSize: '13px', flexShrink: 0 }}>{m.visit_count}</span>
+                                        </div>
+                                    ))}
+                                    {(!usageStats.models?.models || usageStats.models.models.length === 0) && (
+                                        <div style={{ textAlign: 'center', padding: '20px', opacity: 0.5, fontSize: '12px' }}>
+                                            {usageStats.models?.empty_message || t('Aucun modèle 3D consulté', 'No 3D models visited')}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -765,23 +1273,26 @@ const Dashboard: React.FC = () => {
                                     <span className="card-icon"><Activity size={20} color="#0ea5e9"/></span>
                                     <h3>{t('Utilisateurs & Assets', 'Users & Assets')}</h3>
                                 </div>
-                                <div className="card-content" style={{ gap: '16px', marginTop: '10px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                        <div style={{ textAlign: 'center', flex: 1 }}>
-                                            <div style={{ fontSize: '20px', fontWeight: 800 }}>{adminStats?.counts?.users || 0}</div>
-                                            <div style={{ fontSize: '11px', color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>{t('Membres', 'Members')}</div>
+                                <div className="card-content" style={{ gap: '12px', marginTop: '10px' }}>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <div style={{ textAlign: 'center', flex: 1, padding: '10px 0', background: 'var(--dash-accent-hover)', borderRadius: '12px', border: '1px solid var(--dash-border)' }}>
+                                            <div style={{ fontSize: '16px', fontWeight: 800 }}>{adminStats?.counts?.users || 0}</div>
+                                            <div style={{ fontSize: '10px', color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>{t('Membres', 'Members')}</div>
                                         </div>
-                                        <div style={{ width: '1px', height: '30px', background: 'var(--dash-border)' }}></div>
-                                        <div style={{ textAlign: 'center', flex: 1 }}>
-                                            <div style={{ fontSize: '20px', fontWeight: 800 }}>{adminStats?.counts?.assets_3d || 0}</div>
-                                            <div style={{ fontSize: '11px', color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>{t('Modèles', 'Models')}</div>
+                                        <div style={{ textAlign: 'center', flex: 1, padding: '10px 0', background: 'var(--dash-accent-hover)', borderRadius: '12px', border: '1px solid var(--dash-border)' }}>
+                                            <div style={{ fontSize: '16px', fontWeight: 800 }}>{adminStats?.counts?.assets_3d || 0}</div>
+                                            <div style={{ fontSize: '10px', color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>{t('Modèles', 'Models')}</div>
+                                        </div>
+                                        <div style={{ textAlign: 'center', flex: 1, padding: '10px 0', background: 'var(--dash-accent-hover)', borderRadius: '12px', border: '1px solid var(--dash-border)' }}>
+                                            <div style={{ fontSize: '16px', fontWeight: 800, color: '#34d399', lineHeight: 1 }}>{adminStats?.active_sessions || 0}</div>
+                                            <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase', marginTop: '4px' }}>{t('Sessions Actives', 'Active Sessions')}</div>
                                         </div>
                                     </div>
-                                    <div style={{ textAlign: 'center', padding: '15px', background: 'var(--dash-accent-hover)', borderRadius: '12px', border: '1px solid var(--dash-border)' }}>
-                                        <div style={{ fontSize: '28px', fontWeight: 800, color: '#34d399', lineHeight: 1 }}>{adminStats?.active_sessions || 0}</div>
-                                        <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase', marginTop: '4px' }}>{t('Sessions Actives', 'Active Sessions')}</div>
+
+                                    <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
+                                        <button onClick={() => { setActiveView('user_analytics'); fetchAnalyticsUsers(); }} className="mini-btn" style={{ flex: 1, margin: 0, border: 'none', cursor: 'pointer', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6' }}>{t('Analytics', 'Analytics')} →</button>
+                                        <Link to="/utilisateurs" className="mini-btn" style={{ flex: 1, margin: 0, background: 'rgba(14, 165, 233, 0.1)', color: '#0ea5e9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{t('Gérer', 'Manage')} →</Link>
                                     </div>
-                                    <Link to="/utilisateurs" className="mini-btn" style={{ background: 'rgba(14, 165, 233, 0.1)', color: '#0ea5e9' }}>{t('Console Admin', 'Admin Console')} →</Link>
                                 </div>
                             </div>
 
@@ -791,50 +1302,119 @@ const Dashboard: React.FC = () => {
                                     <h3>{t('Actions Rapides', 'Quick Actions')}</h3>
                                 </div>
                                 <div className="card-content" style={{ gap: '12px' }}>
-                                    <Link to="/model" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 15px', borderRadius: '12px', background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', fontSize: '14px', fontWeight: 700, color: 'var(--dash-text-main)', transition: 'all 0.2s' }}>
+                                    <Link to="/model" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '12px', background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-main)', transition: 'all 0.2s' }}>
                                         <span>{t('Importer un nouvel asset', 'Import new asset')}</span>
                                         <ArrowLg />
                                     </Link>
-                                    <Link to="/utilisateurs" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 15px', borderRadius: '12px', background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', fontSize: '14px', fontWeight: 700, color: 'var(--dash-text-main)', transition: 'all 0.2s' }}>
+                                    <Link to="/utilisateurs" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '12px', background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-main)', transition: 'all 0.2s' }}>
                                         <span>{t('Gérer les utilisateurs', 'Manage users')}</span>
                                         <ArrowLg />
                                     </Link>
-                                </div>
-                            </div>
-
-                            {/* Analytics Section — full width */}
-                            <div className="full-width-heading" style={{ marginTop: '10px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                                    <span>{t('Analyse de Croissance', 'Growth Analytics')}</span>
-                                    <div style={{ display: 'flex', gap: '4px', background: 'var(--dash-border)', padding: '3px', borderRadius: '8px' }}>
-                                        {[{v:'7', l:'7J'}, {v:'30', l:'1M'}, {v:'90', l:'3M'}, {v:'365', l:'1A'}, {v:'730', l:'2A'}].map(r => (
-                                            <button key={r.v} onClick={() => setStatRange(r.v)} style={{
-                                                padding: '4px 12px', fontSize: '11px', fontWeight: 800, border: 'none', borderRadius: '6px', cursor: 'pointer',
-                                                background: statRange === r.v ? 'var(--dash-bg)' : 'transparent',
-                                                color: statRange === r.v ? 'var(--dash-primary)' : 'var(--dash-text-muted)',
-                                                transition: '0.2s'
-                                            }}>{r.l}</button>
-                                        ))}
+                                    <div onClick={() => { setActiveView('reviews'); setViewFilter('all'); fetchManagementData('reviews', 'all'); }} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '12px', background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-main)', transition: 'all 0.2s' }}>
+                                        <span>{t('Gestion des avis', 'Manage reviews')}</span>
+                                        <ArrowLg />
+                                    </div>
+                                    <div onClick={() => { setActiveView('cache'); fetchManagementData('cache'); }} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '12px', background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-main)', transition: 'all 0.2s' }}>
+                                        <span>{t('Gestion du cache IA', 'Manage AI Cache')}</span>
+                                        <ArrowLg />
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="full-width" style={{ marginBottom: '30px' }}>
-                                <ChartCard title={t("Analyse de Croissance", "Growth Analytics")} subtitle={t("5 courbes : Total + Utilisateur, Prof, Admin, Connectés", "5 curves: Total + User, Teacher, Admin, Connected")} color="linear-gradient(135deg, #1e293b, #334155)">
-                                    <PremiumCombinedChart
-                                        data={adminStats?.user_evolution || []}
-                                        connectedData={adminStats?.connected_evolution || []}
-                                        range={statRange}
-                                        labels={{
-                                            total: t('Total', 'Total'),
-                                            student: t('Utilisateur', 'User'),
-                                            teacher: t('Prof', 'Teacher'),
-                                            admin: t('Admin', 'Admin'),
-                                            connected: t('Connectés', 'Connected'),
-                                        }}
-                                    />
-                                </ChartCard>
+
+                            <div className="full-width-heading">
+                                <span>{t('Performance des Modèles 3D & Avis', '3D Models Performance & Reviews')}</span>
                             </div>
+
+                            <div className="dash-card custom-card">
+                                <div className="card-header">
+                                    <span className="card-icon"><MessageSquare size={20} color="#0ea5e9"/></span>
+                                    <div style={{ flex: 1 }}>
+                                        <h3 style={{ margin: 0 }}>{t('Derniers Avis', 'Latest Reviews')}</h3>
+                                        <div style={{ fontSize: '11px', color: 'var(--dash-text-muted)' }}>{usageStats.summary?.labels?.rating || t('Note Moyenne', 'Avg Rating')}: <strong style={{ color: '#f59e0b' }}>{usageStats.summary?.avg_rating || 'N/A'}/5</strong></div>
+                                    </div>
+                                    <button onClick={() => { setActiveView('reviews'); setViewFilter('all'); fetchManagementData('reviews', 'all'); }} className="mini-btn">
+                                        {t('Voir tout', 'View all')}
+                                    </button>
+                                </div>
+                                <div className="card-content" style={{ gap: '10px', marginTop: '10px' }}>
+                                    {latestReviews.length === 0 ? (
+                                        <div style={{ padding: '20px', textAlign: 'center', opacity: 0.5 }}>{t('Aucun avis', 'No reviews')}</div>
+                                    ) : latestReviews.map((rev: any) => (
+                                        <div key={rev.id} style={{ padding: '10px', background: 'var(--dash-bg)', borderRadius: '10px', border: '1px solid var(--dash-border)', fontSize: '12px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                                <span style={{ fontWeight: 800 }}>{rev.user?.firstname} {rev.user?.lastname}</span>
+                                                <span style={{ color: '#f59e0b', fontWeight: 900 }}>{rev.rating}/5</span>
+                                            </div>
+                                            <div style={{ color: rev.comment ? 'var(--dash-text-main)' : 'var(--dash-text-muted)', fontStyle: 'italic', marginBottom: '6px', fontSize: rev.comment ? '12px' : '11px' }}>
+                                                {rev.comment ? `"${rev.comment}"` : `(${t('Sans commentaire', 'No comment')})`}
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px' }}>
+                                                <span style={{ color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>
+                                                    {rev.type === 'platform' ? 'Platform' : (rev.anatomical_object?.name + ' (' + rev.anatomical_object?.asset3d?.name + ')')}
+                                                </span>
+                                                <span style={{ color: 'var(--dash-text-muted)' }}>{new Date(rev.created_at).toLocaleDateString()}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="dash-card custom-card">
+                                <div className="card-header">
+                                    <span className="card-icon"><Cpu size={20} color="#a78bfa"/></span>
+                                    <div style={{ flex: 1 }}>
+                                        <h3 style={{ margin: 0 }}>{t('Cache IA Récent', 'Recent AI Cache')}</h3>
+                                        <div style={{ fontSize: '11px', color: 'var(--dash-text-muted)' }}><strong style={{ color: '#a78bfa' }}>{usageStats.summary?.ai_cached_responses || 0}</strong> {usageStats.summary?.labels?.cache || t('entrées actives', 'active entries')}</div>
+                                    </div>
+                                    <button onClick={() => { setActiveView('cache'); fetchManagementData('cache'); }} className="mini-btn">
+                                        {t('Gérer', 'Manage')}
+                                    </button>
+                                </div>
+                                <div className="card-content" style={{ gap: '10px', marginTop: '10px' }}>
+                                    {latestCache.length === 0 ? (
+                                        <div style={{ padding: '20px', textAlign: 'center', opacity: 0.5 }}>{t('Cache vide', 'Empty cache')}</div>
+                                    ) : latestCache.map((c: any) => (
+                                        <div key={c.id} style={{ padding: '10px', background: 'rgba(167, 139, 250, 0.05)', borderRadius: '10px', border: '1px solid rgba(167, 139, 250, 0.1)', fontSize: '12px' }}>
+                                            <div style={{ fontWeight: 700, color: 'var(--dash-text-main)', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                Q: {c.question}
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--dash-text-muted)' }}>
+                                                <span>Modèle: <strong>{c.ai_model || 'N/A'}</strong></span>
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Activity size={10} /> {c.use_count} uses</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+
+
+                            <div className="dash-card custom-card">
+                                <div className="card-header">
+                                    <span className="card-icon"><TrendingUp size={16} color="#34d399"/></span>
+                                    <h3>{t('Modèles IA actifs', 'Active AI Models')}</h3>
+                                </div>
+                                <div className="card-content">
+                                    {activeAiModels.map((m: any) => (
+                                        <div key={m.ai_model} style={{ padding: '8px 10px', background: 'var(--dash-bg)', borderRadius: '8px', border: '1px solid var(--dash-border)' }}>
+                                            <div style={{ fontWeight: 800, fontSize: '12px', color: '#34d399', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.ai_model || 'Inconnu'}</div>
+                                            <div style={{ display: 'flex', gap: '12px', fontSize: '11px' }}>
+                                                <span><strong>{m.cache_count}</strong> <span style={{ color: 'var(--dash-text-muted)' }}>Cache</span></span>
+                                                <span><strong>{m.total_uses}</strong> <span style={{ color: 'var(--dash-text-muted)' }}>{t('Uses', 'Uses')}</span></span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {activeAiModels.length === 0 && (
+                                        <div style={{ textAlign: 'center', padding: '20px', opacity: 0.5, fontSize: '12px' }}>
+                                            {activeAiModelsResponse?.empty_message || t('Aucun modèle IA utilisé', 'No AI models used yet')}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Analytics Section — full width */}
+                            {/* Removed Growth Analytics from here as it was moved up */}
                         </>
                     )}
 
@@ -1029,29 +1609,72 @@ const Dashboard: React.FC = () => {
                 </div>
             )}
 
-            <style>{`
+            {/* AI Cache Edit Modal */}
+            {editingItem && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ background: 'var(--dash-bg)', padding: '24px', borderRadius: '24px', width: '100%', maxWidth: '500px', border: '1px solid var(--dash-border)', boxShadow: '0 20px 40px rgba(0,0,0,0.4)' }}>
+                        <h3 style={{ marginTop: 0, marginBottom: '20px' }}>{t('Modifier Cache IA', 'Edit AI Cache')}</h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '6px', color: 'var(--dash-text-muted)' }}>Question</label>
+                                <textarea 
+                                    defaultValue={editingItem.question}
+                                    style={{ width: '100%', background: 'var(--dash-accent-hover)', color: 'var(--dash-text-main)', border: '1px solid var(--dash-border)', borderRadius: '12px', padding: '12px', minHeight: '80px', fontSize: '13px' }}
+                                    onChange={(e: any) => editingItem._newTitle = e.target.value}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '6px', color: 'var(--dash-text-muted)' }}>Réponse</label>
+                                <textarea 
+                                    defaultValue={editingItem.response}
+                                    style={{ width: '100%', background: 'var(--dash-accent-hover)', color: 'var(--dash-text-main)', border: '1px solid var(--dash-border)', borderRadius: '12px', padding: '12px', minHeight: '120px', fontSize: '13px' }}
+                                    onChange={(e: any) => editingItem._newResponse = e.target.value}
+                                />
+                            </div>
+                            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '10px' }}>
+                                <button onClick={() => setEditingItem(null)} className="mini-btn" style={{ margin: 0, background: 'transparent', color: 'var(--dash-text-muted)' }}>{t('Annuler', 'Cancel')}</button>
+                                <button 
+                                    onClick={() => handleUpdateCache(editingItem.id, { question: editingItem._newTitle || editingItem.question, response: editingItem._newResponse || editingItem.response })} 
+                                    className="mini-btn" 
+                                    style={{ margin: 0, background: 'linear-gradient(135deg, #6366f1, #a78bfa)', color: '#fff', border: 'none' }}
+                                >
+                                    {t('Enregistrer', 'Save')}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <style dangerouslySetInnerHTML={{ __html: `
+
                 .custom-card {
-                    display: flex; flex-direction: column; gap: 16px;
-                    padding: 24px; min-height: 280px;
+                    display: flex; flex-direction: column; gap: 12px;
+                    padding: 15px !important; height: 260px; overflow: hidden;
                 }
                 .custom-card-bottom {
-                    padding: 30px;
+                    padding: 20px !important;
                 }
                 .card-header {
-                    display: flex; align-items: center; gap: 14px;
+                    display: flex; align-items: center; gap: 10px; margin-bottom: 5px;
                 }
                 .card-header h3 {
-                    margin: 0; font-size: 15px; font-weight: 700; color: var(--dash-text);
+                    margin: 0; font-size: 13px; font-weight: 700; color: var(--dash-text);
                     text-transform: uppercase; letter-spacing: 0.5px;
                 }
                 .card-icon {
-                    width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+                    width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
                     background: var(--dash-bg); color: var(--dash-text);
-                    border-radius: 12px; border: 1px solid var(--dash-border);
+                    border-radius: 10px; border: 1px solid var(--dash-border);
                 }
+                .card-icon svg { width: 16px; height: 16px; }
                 .card-content {
-                    flex: 1; display: flex; flex-direction: column;
+                    flex: 1; display: flex; flex-direction: column; overflow-y: auto; gap: 8px;
+                    scrollbar-width: thin;
+                    scrollbar-color: var(--dash-border) transparent;
                 }
+                .card-content::-webkit-scrollbar { width: 4px; }
+                .card-content::-webkit-scrollbar-thumb { background: var(--dash-border); border-radius: 10px; }
                 .empty-text {
                     color: var(--dash-text-muted); font-size: 14px; margin: auto;
                 }
@@ -1092,7 +1715,16 @@ const Dashboard: React.FC = () => {
                     color: #0ea5e9; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 700;
                     transition: 0.2s;
                 }
-                .mini-btn:hover { background: color-mix(in srgb, #0ea5e9 20%, transparent); }                /* Radar Layout */
+                .mini-btn:hover { background: color-mix(in srgb, #0ea5e9 20%, transparent); }
+                .mini-btn-flat {
+                    background: transparent; border: 1px solid var(--dash-border); color: #0ea5e9;
+                    padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;
+                    transition: all 0.2s;
+                }
+                .mini-btn-flat:hover {
+                    background: #0ea5e9; color: white; border-color: #0ea5e9;
+                }
+                /* Radar Layout */
                 .radar-layout {
                     display: flex; gap: 40px; align-items: center; justify-content: center;
                 }
@@ -1245,6 +1877,24 @@ const Dashboard: React.FC = () => {
                     vertical-align: top;
                 }
                 
+                /* Usage Analytics Dash Styles */
+                .comparison-grid-dash { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; width: 100%; }
+                .table-card-dash { background: var(--dash-card-bg); padding: 18px; border-radius: 16px; border: 1px solid var(--dash-border); }
+                .table-card-dash h3 { font-size: 13px; margin: 0 0 15px 0; display: flex; align-items: center; gap: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+                .list-dash { display: flex; flex-direction: column; gap: 10px; }
+                .list-item-dash { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; background: var(--dash-bg); border: 1px solid var(--dash-border); }
+                .rank-dash { font-weight: 800; color: #0ea5e9; font-size: 11px; min-width: 20px; }
+                .info-dash { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+                .name-dash { font-weight: 600; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--dash-text); }
+                .sub-dash { font-size: 10px; color: var(--dash-text-muted); }
+                .val-dash { font-weight: 800; color: #0ea5e9; font-size: 12px; }
+                
+                .models-grid-dash { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; width: 100%; }
+                .model-mini-stat { background: var(--dash-bg); padding: 12px; border-radius: 10px; border: 1px solid var(--dash-border); }
+
+                .table-row-hover:hover { background: rgba(59, 130, 246, 0.05); }
+                .table-row-hover td { transition: all 0.2s; }
+
                 .stat-card-material {
                     position: relative;
                     padding: 15px 20px !important;
@@ -1290,10 +1940,43 @@ const Dashboard: React.FC = () => {
                     margin: 0;
                 }
                 
+                .dash-grid { gap: 6px !important; }
+                .dash-card { padding: 8px !important; }
+                .full-width-heading { padding: 2px 0 !important; margin: 2px 0 !important; border-bottom: 1px solid var(--dash-border); }
+                .full-width-heading span { font-size: 10px !important; letter-spacing: 0.5px; opacity: 0.7; font-weight: 800; }
+                .card-header h3 { font-size: 11px !important; }
+
                 @media (max-width: 1000px) {
                     .dash-grid { grid-template-columns: 1fr; }
                 }
-            `}</style>
+
+                .secondary-view {
+                    animation: fadeIn 0.4s ease-out;
+                }
+                .back-btn-dash {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    padding: 6px 14px;
+                    background: var(--dash-bg);
+                    border: 1px solid var(--dash-border);
+                    border-radius: 8px;
+                    color: var(--dash-text-main);
+                    font-size: 12px;
+                    font-weight: 700;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                .back-btn-dash:hover {
+                    background: var(--dash-accent-hover);
+                    border-color: var(--dash-primary);
+                    color: var(--dash-primary);
+                }
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateY(10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+            ` }} />
         </App>
     );
 };

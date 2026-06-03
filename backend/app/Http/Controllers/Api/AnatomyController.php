@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\AnatomicalObject;
+use App\Models\ConsultationLog;
 
 class AnatomyController extends Controller
 {
@@ -167,6 +168,7 @@ class AnatomyController extends Controller
 
                 if (!$isExcluded) {
                     $results[] = [
+                        'id' => $node->id,
                         'name' => $cleanName,
                         'raw_name' => $name,
                         'type' => strtolower($node->mesh ?? '') === 'mesh' ? 'mesh' : 'group',
@@ -179,5 +181,39 @@ class AnatomyController extends Controller
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * POST /api/anatomy/log
+     * Enregistre une consultation d'objet anatomique
+     */
+    public function logConsultation(Request $request)
+    {
+        $request->validate([
+            'object_id' => 'required_without:object_name|integer',
+            'object_name' => 'required_without:object_id|string',
+        ]);
+
+        $user = $request->user();
+        if (!$user) return response()->json(['error' => 'Unauthenticated'], 401);
+
+        $objectId = $request->object_id;
+        if (!$objectId && $request->object_name) {
+            $obj = AnatomicalObject::where('name', $request->object_name)->first();
+            if ($obj) $objectId = $obj->id;
+        }
+
+        if (!$objectId) {
+            return response()->json(['error' => 'Object not found'], 404);
+        }
+
+        // Créer l'entrée dans le journal
+        ConsultationLog::create([
+            'user_id' => $user->id,
+            'anatomical_object_id' => $objectId,
+            'viewed_at' => now(),
+        ]);
+
+        return response()->json(['success' => true]);
     }
 }

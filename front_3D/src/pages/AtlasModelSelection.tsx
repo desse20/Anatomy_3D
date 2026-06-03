@@ -33,6 +33,7 @@ const AtlasModelSelection: React.FC = () => {
     const navigate = useNavigate();
     const [assets, setAssets] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(false);
     const [downloadedIds, setDownloadedIds] = useState<Set<string>>(new Set(getDownloaded()));
     const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set());
     const [downloadProgress, setDownloadProgress] = useState<Record<string, number>>({});
@@ -48,9 +49,11 @@ const AtlasModelSelection: React.FC = () => {
     const fetchAssets = async () => {
         try {
             const res = await apiCall('models-manager');
-            setAssets(res);
+            setAssets(Array.isArray(res) ? res : []);
+            setError(false);
         } catch (e) {
             console.error(e);
+            setError(true);
         } finally {
             setLoading(false);
         }
@@ -279,12 +282,20 @@ const AtlasModelSelection: React.FC = () => {
                     );
                 })}
 
-                {assets.length === 0 && (
+                {assets.length === 0 && !error && (
                     <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px', color: 'var(--dash-text-muted)' }}>
+                        <Box size={48} style={{ marginBottom: '16px', opacity: 0.1 }} />
+                        <p style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>{t('Aucun modèle disponible', 'No models available')}</p>
+                        <p style={{ fontSize: '14px' }}>{t('La bibliothèque est vide pour le moment.', 'The library is currently empty.')}</p>
+                    </div>
+                )}
+
+                {error && (
+                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px', color: '#ef4444' }}>
                         <Info size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
-                        <p style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>{t('En mode Maintenance pour le moment', 'Currently in Maintenance Mode')}</p>
-                        <p style={{ fontSize: '14px', marginBottom: '4px' }}>{t('Patientez quelques instants', 'Please wait a moment')}</p>
-                        <p style={{ fontSize: '14px' }}>{t('ou contactez-nous via le support', 'or contact us via support')}</p>
+                        <p style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>{t('Erreur de connexion', 'Connection Error')}</p>
+                        <p style={{ fontSize: '14px' }}>{t('Impossible de charger les modèles. Vérifiez votre connexion.', 'Unable to load models. Check your connection.')}</p>
+                        <button onClick={fetchAssets} style={{ marginTop: '20px', padding: '10px 20px', background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>{t('Réessayer', 'Retry')}</button>
                     </div>
                 )}
             </div>

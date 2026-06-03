@@ -6,6 +6,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { authService } from './services/api';
 import { useLanguage } from './contexts/LanguageContext';
+import FloatingActionsDrawer from './components/FloatingActionsDrawer';
 import './styles/landing.css';
 
 /* ── SVGs ── */
@@ -378,9 +379,9 @@ const TestPage: React.FC = () => {
               <img decoding="async" src="https://storage.googleapis.com/dev_resources_voka_io_303011/common/PaintBucket-iframe.webp" alt="Background" />
               <h4>{language === 'fr' ? 'Arrière-plan' : 'Background'}</h4>
             </div>
-            <div className="visual-item">
-              <img decoding="async" src="https://storage.googleapis.com/dev_resources_voka_io_303011/common/circles-iframe.webp" alt="Color schemes & fonts" />
-              <h4>{language === 'fr' ? 'Thèmes & Polices' : 'Color schemes & fonts'}</h4>
+            <div className="visual-item" style={{ overflow: 'hidden' }}>
+              <img decoding="async" src="https://i.pinimg.com/1200x/94/c1/11/94c111322afcd50995a071043a1d9614.jpg" alt="Isolation & Hiding" style={{ objectFit: 'cover', height: '100%' }} />
+              <h4>{language === 'fr' ? 'Isolation & Masquage' : 'Isolation & Hiding'}</h4>
             </div>
             <div className="visual-item">
               <img decoding="async" src="https://storage.googleapis.com/dev_resources_voka_io_303011/common/toggle-iframe.webp" alt="Light/dark mode" />
@@ -639,6 +640,7 @@ const TestPage: React.FC = () => {
           </div>
         </div>
       </footer>
+      {token && <FloatingActionsDrawer />}
     </div>
   );
 };

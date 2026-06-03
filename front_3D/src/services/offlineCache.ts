@@ -9,17 +9,6 @@ interface CacheAsset {
   version?: number;
 }
 
-interface HierarchyCache {
-  asset_id: string;
-  data: unknown[];
-  cached_at: number;
-}
-
-interface GlbCache {
-  asset_id: string;
-  data: ArrayBuffer;
-  cached_at: number;
-}
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {

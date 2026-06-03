@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Chat\StoreChatRequest;
 use App\Models\Chat;
 use App\Models\Conversation;
+use App\Models\AiCache;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -105,8 +106,8 @@ class AiController extends Controller
         $binary = config('services.ollama.binary');
         $home = config('services.ollama.home');
         $timeout = $isExplanation
-            ? config('services.ollama.timeout_explain', 90)
-            : config('services.ollama.timeout_quiz', 60);
+            ? config('services.ollama.timeout_explain', 45)
+            : config('services.ollama.timeout_quiz', 30);
         $prompt = $this->buildOllamaPrompt($systemPrompt, $enrichedPrompt);
 
         foreach ($this->resolveOllamaModels($requestedModel) as $localModel) {
@@ -177,6 +178,49 @@ class AiController extends Controller
 
         return response()->json($payload);
     }
+
+    /**
+     * Sauvegarde une réponse IA réussie dans la table ai_cache.
+     * Appelé uniquement pour les sources réelles (cloud_api, local_ollama).
+     */
+    private function saveToAiCache(
+        string $question,
+        string $response,
+        string $model,
+        ?string $boneName,
+        bool $isExplanation
+    ): void {
+        try {
+            // Détecter la langue via l'input (fr par défaut)
+            $language = str_contains($question, 'Agis comme') ? 'fr' : 'en';
+
+            // Récupérer l'ID de l'objet anatomique si on a un nom
+            $objectId = null;
+            if ($boneName) {
+                $obj = \App\Models\AnatomicalObject::where('name', 'LIKE', '%' . $boneName . '%')->first();
+                $objectId = $obj?->id;
+            }
+
+            // Ne cacher que les explications (pas les quiz — trop spécifiques/aléatoires)
+            if (!$isExplanation) return;
+
+            AiCache::create([
+                'question'   => mb_substr($question, 0, 2000),
+                'response'   => $response,
+                'language'   => $language,
+                'use_count'  => 0,
+                'object_id'  => $objectId,
+                'ai_model'   => $model,
+                'expires_at' => null, // Ne jamais expirer par défaut
+                'created_at' => now(),
+            ]);
+
+            Log::info("💾 AI CACHE SAVED — model={$model}, object_id={$objectId}");
+        } catch (\Throwable $e) {
+            // Ne jamais bloquer la réponse principale à cause du cache
+            Log::warning("⚠️ AI CACHE SAVE FAILED: " . $e->getMessage());
+        }
+}
 
     /**
      * Appelle l'API Hugging Face avec bascule automatique entre les tokens.
@@ -337,6 +381,7 @@ class AiController extends Controller
             $cloudResult = $this->callCloudApi($cloudModels, $systemPrompt, $enrichedPrompt, $maxTokens, $isExplanation);
 
             if ($cloudResult !== null) {
+                $this->saveToAiCache($enrichedPrompt, $cloudResult['output'], $cloudResult['model'], $boneName, $isExplanation);
                 return $this->persistAndRespond(
                     $conversation,
                     $userInput,
@@ -355,6 +400,7 @@ class AiController extends Controller
         // --- ÉTAPE 2 : Ollama local ---
         $localResult = $this->callOllama($requestedModel, $systemPrompt, $enrichedPrompt, $isExplanation);
         if ($localResult !== null) {
+            $this->saveToAiCache($enrichedPrompt, $localResult['output'], $localResult['model'], $boneName, $isExplanation);
             return $this->persistAndRespond(
                 $conversation,
                 $userInput,
@@ -411,6 +457,38 @@ class AiController extends Controller
             }
         } catch (\Throwable $e) { 
             Log::error("❌ DATABASE FALLBACK ERROR: " . $e->getMessage()); 
+        }
+
+        // --- ÉTAPE 4 : Cache IA (dernier recours absolu) ---
+        Log::warning("🔁 AI CACHE FALLBACK...");
+        try {
+            $lang    = str_contains($enrichedPrompt, 'Agis comme') ? 'fr' : 'en';
+            $cached  = AiCache::where('language', $lang)
+                ->where(function ($q) use ($boneName) {
+                    if ($boneName) {
+                        $q->whereHas('anatomicalObject', fn($sq) => $sq->where('name', 'LIKE', '%' . $boneName . '%'));
+                    }
+                })
+                ->where(function ($q) {
+                    $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+                })
+                ->orderByDesc('use_count')
+                ->first();
+
+            if ($cached) {
+                $cached->increment('use_count');
+                Log::info("💾 AI CACHE EMERGENCY HIT — id={$cached->id}");
+
+                return $this->persistAndRespond(
+                    $conversation,
+                    $userInput,
+                    $cached->response,
+                    $cached->ai_model ?? 'ai_cache',
+                    'ai_cache'
+                );
+            }
+        } catch (\Throwable $e) {
+            Log::error("❌ AI CACHE FALLBACK ERROR: " . $e->getMessage());
         }
 
         return response()->json(['error' => __('messages.ai.error_all_failed')], 500);

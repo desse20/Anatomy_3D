@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import AnatomyViewer from '../components/AnatomyViewer';
+import FloatingActionsDrawer from '../components/FloatingActionsDrawer';
 import { apiCall } from '../services/api';
 import { offlineCache } from '../services/offlineCache';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -17,6 +18,7 @@ const AnatomyViewerPage: React.FC = () => {
 
     const [resolvedAssetId, setResolvedAssetId] = useState<string | null>(null);
     const [sharedViewData, setSharedViewData] = useState<any>(null);
+    const [selectedItem, setSelectedItem] = useState<any>(null);
     const [isOffline, setIsOffline] = useState(!navigator.onLine);
     const [cachedHierarchy, setCachedHierarchy] = useState<AnatomyItem[] | null>(null);
     const [cachedGlbUrl, setCachedGlbUrl] = useState<string | null>(null);
@@ -46,6 +48,14 @@ const AnatomyViewerPage: React.FC = () => {
             setInitializing(false);
         }
     }, []);
+
+    // Sync with prop when it changes (from 3D click)
+    React.useEffect(() => {
+        console.log("AnatomyViewerPage: Selected item changed", selectedItem);
+        if (selectedItem) {
+            console.log("AnatomyViewerPage: Updating FloatingReview with", selectedItem);
+        }
+    }, [selectedItem]);
 
     // Phase 2 : charger le nom du modèle
     useEffect(() => {
@@ -88,7 +98,12 @@ const AnatomyViewerPage: React.FC = () => {
         <div className="viewer-fullscreen">
             <AnatomyViewer key={isOffline ? 'off' : 'on'} assetId={resolvedAssetId || undefined} modelPath={cachedGlbUrl || undefined}
                 initialAnatomicalData={cachedHierarchy || undefined} isOffline={isOffline} modelName={modelName || undefined}
-                viewId={viewId || undefined} sharedViewData={sharedViewData} readOnly={!!viewId} />
+                viewId={viewId || undefined} sharedViewData={sharedViewData} readOnly={!!viewId} 
+                onSelect={(it) => {
+                    console.log("AnatomyViewerPage: Object selected", it);
+                    setSelectedItem(it);
+                }} />
+            <FloatingActionsDrawer selectedItem={selectedItem} />
         </div>
     );
 };

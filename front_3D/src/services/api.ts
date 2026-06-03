@@ -23,6 +23,7 @@ export const apiCall = async (endpoint: string, options: RequestInit = {}) => {
         const response = await fetch(fullUrl, {
             ...options,
             headers,
+            cache: 'no-store',
         });
 
         const lang = localStorage.getItem('app_lang') || 'fr';
@@ -129,4 +130,61 @@ export const anatomyService = {
     getSubtree: (name: string) => apiCall(`/anatomy/subtree/${encodeURIComponent(name)}`),
     /** Recherche des structures anatomiques */
     search: (query: string) => apiCall(`/anatomy/search?q=${encodeURIComponent(query)}`),
+};
+
+export const reviewService = {
+    /** Soumet un nouvel avis */
+    store: (data: { type: 'platform' | 'object', object_id?: number, object_name?: string, rating: number, comment?: string }) => 
+        apiCall('/reviews', { method: 'POST', body: JSON.stringify(data) }),
+    /** Récupère les stats d'avis pour un objet ou la plateforme */
+    getStats: (type?: string, object_id?: number) => {
+        let url = `/reviews/stats?type=${type || ''}`;
+        if (object_id) url += `&object_id=${object_id}`;
+        return apiCall(url);
+    },
+    /** Liste les avis (admin) */
+    list: (params: any = {}) => {
+        const searchParams = new URLSearchParams(params);
+        return apiCall(`/reviews?${searchParams.toString()}`);
+    },
+    /** Supprime un avis (admin) */
+    delete: (id: string) => apiCall(`/reviews/${id}`, { 
+        method: 'POST', 
+        body: JSON.stringify({ _method: 'DELETE' }) 
+    }),
+};
+
+export const aiCacheService = {
+    /** Liste les entrées de cache */
+    list: (params: any = {}) => {
+        const searchParams = new URLSearchParams(params);
+        return apiCall(`/ai-cache?${searchParams.toString()}`);
+    },
+    /** Recherche (déjà géré via AiController.php dans le backend mais dispo ici aussi) */
+    lookup: (data: { question: string, language: string, object_id?: number }) =>
+        apiCall('/ai-cache/lookup', { method: 'POST', body: JSON.stringify(data) }),
+    /** Met à jour un cache */
+    update: (id: string, data: any) => 
+        apiCall(`/ai-cache/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    /** Supprime un cache */
+    delete: (id: string) => apiCall(`/ai-cache/${id}`, { 
+        method: 'POST', 
+        body: JSON.stringify({ _method: 'DELETE' }) 
+    }),
+    /** Purge les expirés */
+    purgeExpired: () => apiCall('/ai-cache/expired', { 
+        method: 'POST', 
+        body: JSON.stringify({ _method: 'DELETE' }) 
+    }),
+    /** Modèles IA les plus actifs */
+    getActiveModels: () => apiCall('/ai-cache/active-models')
+};
+
+export const analyticsService = {
+    getSummary: (range: number = 30) => apiCall(`/analytics/summary?range=${range}`),
+    getObjects: (range: number = 30) => apiCall(`/analytics/objects?range=${range}`),
+    getModels: (range: number = 30) => apiCall(`/analytics/models?range=${range}`),
+    getTimeline: (range: number = 30) => apiCall(`/analytics/timeline?range=${range}`),
+    getUsers: () => apiCall('/analytics/users'),
+    getUserDetails: (id: string) => apiCall(`/analytics/user/${id}`)
 };

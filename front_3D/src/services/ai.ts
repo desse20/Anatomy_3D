@@ -77,10 +77,10 @@ export const aiService = {
         });
         return data.data;
     },
-    
+
     /** Supprime une conversation (et ses messages en cascade). */
     deleteConversation: async (id: string): Promise<void> => {
-        await apiCall(`/conversations/${id}`, { 
+        await apiCall(`/conversations/${id}`, {
             method: 'POST',
             body: JSON.stringify({ _method: 'DELETE' }),
         });

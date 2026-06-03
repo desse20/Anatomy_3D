@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Copy, Pencil, Trash2, MessageSquare, Plus, Send, Menu, X } from 'lucide-react';
+import { Copy, Pencil, Trash2, MessageSquare, Plus, Send, Menu } from 'lucide-react';
 import App from '../components/layouts/App';
 import { apiCall } from '../services/api';
 import { useLanguage } from '../contexts/LanguageContext';
