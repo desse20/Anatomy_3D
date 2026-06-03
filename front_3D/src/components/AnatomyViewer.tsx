@@ -8,6 +8,7 @@ import { ArrowLeft, Crosshair, EyeOff, Eye, Moon, Sun, Contrast, Camera, Save, X
 import { apiCall } from '../services/api';
 import Swal from 'sweetalert2';
 import { getSwalTheme } from '../services/swalTheme';
+import { motion } from 'framer-motion';
 import { useLanguage } from '../contexts/LanguageContext';
 import '../styles/anatomy-viewer.css';
 
@@ -104,6 +105,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
   }
 
   function select(item: AnatomyItem | null, mesh?: ExtendedMesh | null) {
+    if (selRef.current === mesh && mesh !== null) return;
     selRef.current = mesh || null;
     bump(n => n + 1);
     if (onSelectRef.current) onSelectRef.current(item);
@@ -114,7 +116,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     if (selRef.current && selRef.current.material instanceof THREE.MeshStandardMaterial) {
       selRef.current.material.emissive.setHex(0x000000);
     }
-    select(null);
+    select(null, null);
     document.querySelectorAll('.item-row').forEach(el => el.classList.remove('selected-item'));
   }
 
@@ -172,7 +174,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
           if (!m.visible && selRef.current === m) deselect();
         }
       });
-      syncEyes(); countHidden(); syncLabels();
+      syncEyes(); countHidden(); rebuildLabels();
     };
 
     iso.onclick = (e) => {
@@ -205,16 +207,20 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
           m.visible = false;
         }
       });
-      syncEyes(); countHidden(); syncLabels();
+      syncEyes(); countHidden(); rebuildLabels();
       logUsage(item);
     };
 
     row.onclick = (e) => {
       e.stopPropagation();
-      deselect();
       if (mesh) {
+        if (selRef.current === mesh) return;
+        if (selRef.current && selRef.current.material instanceof THREE.MeshStandardMaterial) {
+          selRef.current.material.emissive.setHex(0x000000);
+        }
         select(mesh.userData.info || item, mesh);
         if (mesh.material instanceof THREE.MeshStandardMaterial) mesh.material.emissive.setHex(0x224488);
+        document.querySelectorAll('.item-row').forEach(el => el.classList.remove('selected-item'));
         row.classList.add('selected-item');
         const info = mesh.userData.info;
         const itemDesc = info?.description || item.description;
@@ -222,8 +228,10 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
         if (itemDesc) desc(itemDesc, itemName);
         else desc('<em>Description non disponible.</em>', itemName);
       } else {
-        // No mesh found (group node) — show description from the item data directly
+        // No mesh found (group node)
+        deselect();
         select(item, null);
+        document.querySelectorAll('.item-row').forEach(el => el.classList.remove('selected-item'));
         row.classList.add('selected-item');
         if (item.description) desc(item.description, item.name);
         else desc('<em>Description non disponible.</em>', item.name);
@@ -281,12 +289,12 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
 
     syncEyes();
     countHidden();
-    syncLabels();
+    rebuildLabels();
     if (t.userData.info) logUsage(t.userData.info);
   }
   function hide() {
     const t = selRef.current; if (!t) return;
-    t.visible = false; deselect(); desc('', 'Élément masqué'); syncEyes(); countHidden(); syncLabels();
+    t.visible = false; deselect(); desc('', 'Élément masqué'); syncEyes(); countHidden(); rebuildLabels();
     if (t.userData.info) logUsage(t.userData.info);
   }
   function show() {
@@ -296,7 +304,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     if (t.material instanceof THREE.MeshStandardMaterial) t.material.emissive.setHex(0x224488);
     const info = t.userData.info;
     if (info?.description) desc(info.description, info.name);
-    syncEyes(); countHidden(); syncLabels();
+    syncEyes(); countHidden(); rebuildLabels();
     if (info) logUsage(info);
   }
   function revealAll() {
@@ -311,7 +319,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
       }
     });
     deselect(); desc('Cliquez sur un os pour voir sa description.');
-    syncLabels(); // Clear labels on revealAll
+    rebuildLabels(); // Rebuild labels on revealAll
     syncEyes(); setHiddenCount(0);
   }
   function fade() {
@@ -350,7 +358,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     let p2 = t.parent;
     while (p2) { p2.visible = true; p2 = p2.parent; }
 
-    syncEyes(); countHidden(); syncLabels();
+    syncEyes(); countHidden(); rebuildLabels();
     if (t.userData.info) logUsage(t.userData.info);
   }
 
@@ -365,10 +373,8 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     const next = !showLabels;
     setShowLabels(next);
     showLabelsRef.current = next;
-    if (labelsOverlayRef.current) {
-      labelsOverlayRef.current.style.opacity = next ? '1' : '0';
-      labelsOverlayRef.current.style.pointerEvents = 'none'; // Garder à none pour laisser passer les clics/drag
-    }
+    // On force la synchronisation des étiquettes (création des divs)
+    setTimeout(rebuildLabels, 0);
   }
 
   function rotateOrbit(angle: number) {
@@ -543,11 +549,6 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     }
   }
 
-  function openSaveModal() {
-    if (readOnly) return;
-    setSaveNote('');
-    setShowSaveModal(true);
-  }
 
   // ── Three.js ──
   function init() {
@@ -703,13 +704,16 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
 
         syncEyes();
         countHidden();
-        syncLabels();
+        rebuildLabels();
       } else if (controlsRef.current) {
         controlsRef.current.target.set(0, 0.2, 0); 
         controlsRef.current.update();
       }
       if (hierarchyRef.current) { hierarchyRef.current.innerHTML = ''; buildTree(data, hierarchyRef.current); }
       if (descRef.current) descRef.current.innerHTML = 'Cliquez sur un os pour voir sa description.';
+      
+      // Ensure labels are visible on first load
+      setTimeout(rebuildLabels, 100);
     } catch (e: any) {
       console.error(e); setError(e.message);
       if (descRef.current) descRef.current.innerHTML = `<span style="color:#ff8888">Erreur : ${e.message}</span>`;
@@ -744,7 +748,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
   }
 
   function onClick(e: MouseEvent) {
-    if (e.target instanceof Element && e.target.closest('.hierarchy-panel, #description-panel')) return;
+    if (e.target instanceof Element && e.target.closest('.hierarchy-panel, #description-panel, .label-text, .anatomy-label-pin')) return;
     if (!modelRef.current || !rendererRef.current || !cameraRef.current) return;
     const r = rendererRef.current.domElement.getBoundingClientRect();
     mouse.current.x = ((e.clientX - r.left) / r.width) * 2 - 1;
@@ -755,11 +759,24 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
       const obj = hits[0].object as ExtendedMesh;
       const info = obj.userData.info;
       if (info && obj.visible) {
-        deselect(); select(info, obj);
+        if (selRef.current === obj) return;
+        
+        // Reset previous selection emissive without triggering onSelect(null)
+        if (selRef.current && selRef.current.material instanceof THREE.MeshStandardMaterial) {
+          selRef.current.material.emissive.setHex(0x000000);
+        }
+        
+        select(info, obj);
         if (obj.material instanceof THREE.MeshStandardMaterial) obj.material.emissive.setHex(0x224488);
+        
+        document.querySelectorAll('.item-row').forEach(el => el.classList.remove('selected-item'));
         for (const row of Array.from(document.querySelectorAll<HTMLElement>('.item-row'))) {
           const s = row.querySelector('span:last-child');
-          if (s && s.textContent === info.name) { row.classList.add('selected-item'); row.scrollIntoView({ behavior: 'smooth', block: 'center' }); break; }
+          if (s && s.textContent === info.name) { 
+            row.classList.add('selected-item'); 
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' }); 
+            break;
+          }
         }
         desc(info.description || '<em>Description non disponible.</em>', info.name);
       } else if (obj.visible) {
@@ -779,38 +796,75 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     }
   }
 
-  function syncLabels() {
+  // Called only when visibility changes (hide/show/reveal/isolate) — NOT on selection
+  function rebuildLabels() {
     if (!labelsOverlayRef.current) return;
-    
-    // Animation de visibilité
-    labelsOverlayRef.current.style.opacity = showLabels ? '1' : '0';
+
+    labelsOverlayRef.current.style.opacity = showLabelsRef.current ? '1' : '0';
     labelsOverlayRef.current.style.pointerEvents = 'none';
     labelsOverlayRef.current.style.transition = 'opacity 0.3s ease-in-out';
 
     labelsOverlayRef.current.innerHTML = '';
     
-    if (!showLabels) return;
+    if (!showLabelsRef.current) return;
     
-    // On n'affiche des labels que si on est en mode "isolé/filtré" 
-    // ou si on a moins de 15 objets visibles
     let visibleMeshes: ExtendedMesh[] = [];
     eachMesh(m => { if (m.visible && m.userData.info) visibleMeshes.push(m); });
 
-    if (visibleMeshes.length > 0 && visibleMeshes.length < 20) {
-      visibleMeshes.forEach((m) => {
+    const targetMeshes = visibleMeshes.length < 150 
+      ? visibleMeshes 
+      : visibleMeshes.filter(m => m === selRef.current);
+
+    if (targetMeshes.length > 0) {
+      const frag = document.createDocumentFragment();
+      targetMeshes.forEach((m) => {
         const el = document.createElement('div');
         el.className = 'anatomy-label-pin';
         el.dataset.uuid = m.uuid;
-        // SVG for the line and text container
+        el.style.left = '-9999px';
+        el.style.top = '-9999px';
         el.innerHTML = `
           <svg class="label-svg" width="150" height="150" viewBox="0 0 150 150" style="position:absolute; pointer-events:none; overflow:visible;">
             <line x1="0" y1="0" x2="0" y2="0" stroke="#fbbf24" stroke-width="1.5" />
             <circle cx="0" cy="0" r="3" fill="#fbbf24" />
           </svg>
-          <div class="label-text" style="pointer-events:auto; cursor:pointer;" data-uuid="${m.uuid}">${m.userData.info?.name}</div>
         `;
-        labelsOverlayRef.current?.appendChild(el);
+        // Create clickable label text with DIRECT onclick handler
+        const labelText = document.createElement('div');
+        labelText.className = 'label-text';
+        labelText.textContent = m.userData.info?.name || m.name;
+        labelText.onclick = (ev) => {
+          ev.stopPropagation();
+          ev.preventDefault();
+          console.log('[Label Click]', m.userData.info?.name);
+          
+          if (selRef.current === m) return;
+          // Reset previous selection
+          if (selRef.current && selRef.current.material instanceof THREE.MeshStandardMaterial) {
+            selRef.current.material.emissive.setHex(0x000000);
+          }
+          // Select the new mesh
+          select(m.userData.info || null, m);
+          if (m.material instanceof THREE.MeshStandardMaterial) m.material.emissive.setHex(0x224488);
+          desc(m.userData.info?.description || '<em>Pas de description.</em>', m.userData.info?.name || m.name);
+          
+          // Sync hierarchy selection
+          document.querySelectorAll('.item-row').forEach(r => r.classList.remove('selected-item'));
+          const boneName = m.userData.info?.name || m.name;
+          for (const row of Array.from(document.querySelectorAll<HTMLElement>('.item-row'))) {
+            const s = row.querySelector('span:last-child');
+            if (s && s.textContent === boneName) { 
+              row.classList.add('selected-item'); 
+              row.scrollIntoView({ behavior: 'smooth', block: 'center' }); 
+              break;
+            }
+          }
+        };
+        el.appendChild(labelText);
+        frag.appendChild(el);
       });
+      labelsOverlayRef.current.appendChild(frag);
+      updateLabelsPositions();
     }
   }
 
@@ -846,18 +900,24 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
       }
     });
 
-    // Séparation Gauche / Droite
-    const leftSide = visibleData.filter(d => d.posX <= 0).sort((a,b) => a.y - b.y);
-    const rightSide = visibleData.filter(d => d.posX > 0).sort((a,b) => a.y - b.y);
+    // Séparation Gauche / Droite équilibrée pour éviter l'encombrement d'un seul côté
+    const sortedByX = [...visibleData].sort((a, b) => a.posX - b.posX);
+    const mid = Math.ceil(sortedByX.length / 2);
+    const leftSide = sortedByX.slice(0, mid).sort((a, b) => a.y - b.y);
+    const rightSide = sortedByX.slice(mid).sort((a, b) => a.y - b.y);
 
     const arrange = (list: any[], edgeX: number, isRight: boolean) => {
       const total = list.length;
       if (total === 0) return;
       
-      // Espacement vertical
-      const step = h / (total + 1);
+      // Zone de sécurité verticale (évite le D-Pad en bas à droite et les bords)
+      const marginTop = 60;
+      const marginBottom = isRight ? 220 : 60; 
+      const availableHeight = Math.max(h - marginTop - marginBottom, 100);
+      const step = availableHeight / (total + 1);
+
       list.forEach((d, i) => {
-        const targetY = step * (i + 1);
+        const targetY = marginTop + step * (i + 1);
         const targetX = edgeX;
         
         d.pin.style.display = 'block';
@@ -895,12 +955,28 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
       const target = e.target as HTMLElement;
       const labelDiv = target.closest('.label-text') as HTMLElement;
       if (labelDiv && labelDiv.dataset.uuid) {
+        e.stopPropagation();
         const mesh = sceneRef.current?.getObjectByProperty('uuid', labelDiv.dataset.uuid) as ExtendedMesh;
         if (mesh) {
-          deselect(); select(mesh.userData.info || null, mesh);
+          if (selRef.current === mesh) return;
+          if (selRef.current && selRef.current.material instanceof THREE.MeshStandardMaterial) {
+            selRef.current.material.emissive.setHex(0x000000);
+          }
+          select(mesh.userData.info || null, mesh);
           if (mesh.material instanceof THREE.MeshStandardMaterial) mesh.material.emissive.setHex(0x224488);
           desc(mesh.userData.info?.description || '<em>Pas de description.</em>', mesh.userData.info?.name || mesh.name);
-          document.getElementById('btn-isolate')?.setAttribute('disabled', 'false');
+          
+          // Sync hierarchy selection
+          document.querySelectorAll('.item-row').forEach(el => el.classList.remove('selected-item'));
+          const boneName = mesh.userData.info?.name || mesh.name;
+          for (const row of Array.from(document.querySelectorAll<HTMLElement>('.item-row'))) {
+            const s = row.querySelector('span:last-child');
+            if (s && s.textContent === boneName) { 
+              row.classList.add('selected-item'); 
+              row.scrollIntoView({ behavior: 'smooth', block: 'center' }); 
+              break;
+            }
+          }
         }
       }
     };
@@ -908,18 +984,22 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     window.addEventListener('resize', onResize); 
     window.addEventListener('pointermove', onMove); 
     window.addEventListener('click', handler);
-    labelsOverlayRef.current?.addEventListener('click', labelClickHandler);
+    c?.addEventListener('click', labelClickHandler);
 
     return () => {
       window.removeEventListener('resize', onResize); 
       window.removeEventListener('pointermove', onMove); 
       window.removeEventListener('click', handler);
-      labelsOverlayRef.current?.removeEventListener('click', labelClickHandler);
+      c?.removeEventListener('click', labelClickHandler);
       if (rendererRef.current && c) { c.removeChild(rendererRef.current.domElement); rendererRef.current.dispose(); }
     };
   }, []);
 
   useEffect(() => { setTimeout(load, 0); }, []);
+
+  useEffect(() => {
+    rebuildLabels();
+  }, [showLabels]);
 
   useEffect(() => {
     if (!sharedViewData || !controlsRef.current || !cameraRef.current) return;
@@ -967,12 +1047,50 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
             </div>
           )}
           <button className="ha-btn" onClick={cycleBg} title="Changer la couleur de fond"><Palette size={14} /></button>
-          <button className={`ha-btn ${!showLabels ? 'is-off' : ''}`} onClick={toggleLabels} title="Afficher/Masquer les étiquettes">
+          <button className={`ha-btn ${showLabels ? 'active' : ''}`} onClick={toggleLabels} title="Afficher/Masquer les étiquettes">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
           </button>
           <button className="ha-btn" onClick={captureView} title="Capturer la vue"><Camera size={14} /></button>
-          {!readOnly && <button className="ha-btn" onClick={openSaveModal} title="Sauvegarder la vue 3D"><Save size={14} /></button>}
+          {!readOnly && <button className={`ha-btn ${showSaveModal ? 'active' : ''}`} onClick={() => setShowSaveModal(!showSaveModal)} title="Sauvegarder la vue 3D"><Save size={14} /></button>}
         </div>
+
+        {showSaveModal && (
+            <motion.div 
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                style={{ background: 'rgba(251, 191, 36, 0.05)', borderBottom: '1px solid rgba(251, 191, 36, 0.2)', padding: '15px' }}
+            >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Save size={14} /> {t('Sauvegarder cette vue', 'Save this view')}
+                    </div>
+                    <textarea 
+                        value={saveNote}
+                        onChange={e => setSaveNote(e.target.value)}
+                        placeholder={t('Note ou nom de la vue...', 'Note or view name...')}
+                        rows={2}
+                        style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '8px', color: '#fff', fontSize: '13px', outline: 'none' }}
+                    />
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <button 
+                            className="ha-btn" 
+                            style={{ flex: 1, background: '#fbbf24', color: '#000', fontWeight: 700, borderRadius: '8px', height: '32px' }}
+                            onClick={saveView}
+                            disabled={saving}
+                        >
+                           {saving ? <Loader2 size={16} className="spin" /> : t('Enregistrer', 'Save')}
+                        </button>
+                        <button 
+                            className="ha-btn" 
+                            style={{ width: '32px', height: '32px', borderRadius: '8px' }}
+                            onClick={() => setShowSaveModal(false)}
+                        >
+                            <X size={14} />
+                        </button>
+                    </div>
+                </div>
+            </motion.div>
+        )}
         <div ref={hierarchyRef} id="hierarchy-root" />
       </div>
       <div ref={containerRef} id="canvas-container">
@@ -990,77 +1108,6 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
         <div ref={descRef} id="desc-text">{loading ? 'Chargement...' : error ? `Erreur: ${error}` : 'Cliquez sur un os pour voir sa description.'}</div>
       </div>
 
-      {showSaveModal && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-        }}>
-          <div style={{
-            background: 'var(--dash-bg, #1a1a2e)', width: '100%', maxWidth: '420px',
-            borderRadius: '20px', overflow: 'hidden',
-            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)'
-          }}>
-            <div style={{
-              padding: '20px 24px',
-              borderBottom: '1px solid var(--dash-border, #2a2a4a)',
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-            }}>
-              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Save size={18} color="#fbbf24" />
-                Sauvegarder la vue 3D
-              </h3>
-              <button onClick={() => setShowSaveModal(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--dash-text-muted, #888)', cursor: 'pointer' }}>
-                <X size={22} />
-              </button>
-            </div>
-            <div style={{ padding: '24px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '13px', color: 'var(--dash-text-muted, #aaa)' }}>
-                Note / Nom de la vue
-              </label>
-              <textarea
-                value={saveNote}
-                onChange={e => setSaveNote(e.target.value)}
-                placeholder="Ex: Vue antérieure du crâne"
-                rows={3}
-                style={{
-                  width: '100%', padding: '12px', borderRadius: '10px',
-                  border: '1px solid var(--dash-border, #2a2a4a)',
-                  background: 'var(--dash-bg, #1a1a2e)', color: 'var(--dash-text, #eee)',
-                  outline: 'none', resize: 'none', fontFamily: 'inherit', fontSize: '14px'
-                }}
-              />
-            </div>
-            <div style={{
-              padding: '16px 24px',
-              background: 'rgba(0,0,0,0.15)',
-              display: 'flex', gap: '12px', justifyContent: 'flex-end'
-            }}>
-              <button onClick={() => setShowSaveModal(false)}
-                style={{
-                  padding: '10px 20px', borderRadius: '10px',
-                  border: '1px solid var(--dash-border, #2a2a4a)',
-                  background: 'transparent', color: 'var(--dash-text, #eee)',
-                  fontWeight: 600, cursor: 'pointer'
-                }}>
-                Annuler
-              </button>
-              <button onClick={saveView} disabled={saving}
-                style={{
-                  padding: '10px 24px', borderRadius: '10px',
-                  border: 'none', background: saving ? '#888' : '#fbbf24',
-                  color: saving ? '#555' : '#fff',
-                  fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer',
-                  display: 'flex', alignItems: 'center', gap: '8px'
-                }}>
-                {saving && <Loader2 size={16} className="spin" />}
-                {saving ? 'Sauvegarde...' : 'Sauvegarder'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

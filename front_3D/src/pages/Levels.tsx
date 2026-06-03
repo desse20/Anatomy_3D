@@ -3,6 +3,19 @@ import { motion } from 'framer-motion';
 import App from '../components/layouts/App';
 import { apiCall } from '../services/api';
 import { useLanguage } from '../contexts/LanguageContext';
+import { 
+    Sparkles, 
+    GraduationCap, 
+    Rocket, 
+    BookOpen, 
+    Brain,
+    Trophy,
+    Target,
+    Zap,
+    CheckCircle2,
+    Star,
+    Smile
+} from 'lucide-react';
 
 interface MasteryLevel {
     level: number;
@@ -110,32 +123,44 @@ const MasteryBar: React.FC<{ notion: NotionStat; variant: 'weak' | 'strong'; lan
             <div className="lv-notion-message" style={{ 
                 marginTop: '12px', padding: '10px', borderRadius: '8px', 
                 background: 'rgba(255,255,255,0.03)', borderLeft: `3px solid ${meta.color}`,
-                fontSize: '12px', fontStyle: 'italic'
+                fontSize: '12px', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '8px'
             }}>
                 {notion.mastery_level >= 5 ? (
-                    <span style={{ color: meta.color }}>
-                        ✨ {language === 'fr' 
-                            ? "Félicitations ! Vous avez atteint une maîtrise totale de cette structure." 
-                            : "Congratulations! You have achieved total mastery of this structure."}
-                    </span>
+                    <>
+                        <Trophy size={14} color={meta.color} />
+                        <span style={{ color: meta.color }}>
+                            {language === 'fr' 
+                                ? "Félicitations ! Vous avez atteint une maîtrise totale de cette structure." 
+                                : "Congratulations! You have achieved total mastery of this structure."}
+                        </span>
+                    </>
                 ) : notion.mastery_level >= 4 ? (
-                    <span style={{ color: meta.color }}>
-                        🎓 {language === 'fr' 
-                            ? "Magnifique, vous êtes digne d'un futur expert en anatomie." 
-                            : "Magnificent, you are worthy of a future anatomy expert."}
-                    </span>
+                    <>
+                        <GraduationCap size={14} color={meta.color} />
+                        <span style={{ color: meta.color }}>
+                            {language === 'fr' 
+                                ? "Magnifique, vous êtes digne d'un futur expert en anatomie." 
+                                : "Magnificent, you are worthy of a future anatomy expert."}
+                        </span>
+                    </>
                 ) : notion.mastery_level >= 1 ? (
-                    <span style={{ color: 'var(--dash-text-muted)' }}>
-                        🚀 {language === 'fr' 
-                            ? "Belle progression, continuez vos efforts pour solidifier cet acquis." 
-                            : "Great progress, keep up your efforts to solidify this knowledge."}
-                    </span>
+                    <>
+                        <Rocket size={14} color="var(--dash-text-muted)" />
+                        <span style={{ color: 'var(--dash-text-muted)' }}>
+                            {language === 'fr' 
+                                ? "Belle progression, continuez vos efforts pour solidifier cet acquis." 
+                                : "Great progress, keep up your efforts to solidify this knowledge."}
+                        </span>
+                    </>
                 ) : (
-                    <span style={{ color: '#f87171' }}>
-                        📚 {language === 'fr' 
-                            ? "Encore quelques efforts ! Avec le carnet de révision et le chat IA, vous allez vous surpasser." 
-                            : "A few more efforts! With the revision log and IA chat, you will surpass yourself."}
-                    </span>
+                    <>
+                        <BookOpen size={14} color="#f87171" strokeWidth={3} />
+                        <span style={{ color: '#f87171' }}>
+                            {language === 'fr' 
+                                ? "Encore quelques efforts ! Avec le carnet de révision et le chat IA, vous allez vous surpasser." 
+                                : "A few more efforts! With the revision log and IA chat, you will surpass yourself."}
+                        </span>
+                    </>
                 )}
             </div>
         </div>
@@ -191,7 +216,7 @@ const Levels: React.FC = () => {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                     >
-                        <div className="lv-empty-icon">🧠</div>
+                        <div className="lv-empty-icon"><Brain size={56} color="var(--dash-text-muted)" opacity={0.3} /></div>
                         <h2>{t('Aucune donnée encore', 'No data yet')}</h2>
                         <p>
                             {t(
@@ -267,31 +292,31 @@ const Levels: React.FC = () => {
                                 <div className="lv-tabs">
                                     <button
                                         className={`lv-tab ${tab === 'en_cours' ? 'active' : ''}`}
-                                        style={{ '--tab-color': '#f97316' } as any}
+                                        style={{ '--tab-color': '#f97316', display: 'flex', alignItems: 'center', gap: '6px' } as any}
                                         onClick={() => setTab('en_cours')}
                                     >
-                                        ⚡ {t('En cours (∑ ≤ 0)', 'In Progress (∑ ≤ 0)')}
+                                        <Zap size={14} /> {t('En cours (∑ ≤ 0)', 'In Progress (∑ ≤ 0)')}
                                     </button>
                                     <button
                                         className={`lv-tab ${tab === 'maitrisees' ? 'active' : ''}`}
-                                        style={{ '--tab-color': '#22d3ee' } as any}
+                                        style={{ '--tab-color': '#22d3ee', display: 'flex', alignItems: 'center', gap: '6px' } as any}
                                         onClick={() => setTab('maitrisees')}
                                     >
-                                        ✓ {t('Maîtrisées (∑ 1-4)', 'Mastered (∑ 1-4)')}
+                                        <CheckCircle2 size={14} /> {t('Maîtrisées (∑ 1-4)', 'Mastered (∑ 1-4)')}
                                     </button>
                                     <button
                                         className={`lv-tab ${tab === 'totalement' ? 'active' : ''}`}
-                                        style={{ '--tab-color': '#34d399' } as any}
+                                        style={{ '--tab-color': '#34d399', display: 'flex', alignItems: 'center', gap: '6px' } as any}
                                         onClick={() => setTab('totalement')}
                                     >
-                                        ★ {t('Total. (∑ ≥ 5)', 'Total (∑ ≥ 5)')}
+                                        <Star size={14} /> {t('Total. (∑ ≥ 5)', 'Total (∑ ≥ 5)')}
                                     </button>
                                     <button
                                         className={`lv-tab ${tab === 'cultivees' ? 'active' : ''}`}
-                                        style={{ '--tab-color': '#a78bfa' } as any}
+                                        style={{ '--tab-color': '#a78bfa', display: 'flex', alignItems: 'center', gap: '6px' } as any}
                                         onClick={() => setTab('cultivees')}
                                     >
-                                        🤖 {t('Cultivées', 'Cultivated')}
+                                        <Smile size={14} /> {t('Cultivées', 'Cultivated')}
                                     </button>
                                 </div>
                             </div>

@@ -138,7 +138,13 @@
   transition: background 0.15s, border-color 0.15s;
   flex-shrink: 0; position: relative;
 }
-.ha-btn:hover:not(:disabled) { background: rgba(14,165,233,0.25) !important; border-color: rgba(14,165,233,0.4); }
+.ha-btn:hover:not(:disabled) { background: rgba(14,165,233,0.25) !important; border-color: rgba(14,165,233,0.4); color: #fff; }
+.ha-btn.active { 
+  background: rgba(251, 191, 36, 0.2) !important; 
+  border-color: #fbbf24 !important; 
+  color: #fbbf24 !important;
+  transform: scale(0.95);
+}
 .ha-btn:disabled { opacity: 0.35; cursor: default; }
 .ha-badge {
   position: absolute; top: -4px; right: -4px;
@@ -242,7 +248,15 @@
   box-shadow: 0 4px 15px rgba(0,0,0,0.8);
   text-transform: uppercase;
   letter-spacing: 1px;
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, transform 0.15s;
+}
+
+.label-text:hover {
+  background: #1a1a2e;
+  border-color: #f59e0b;
+  transform: scale(1.05);
 }
 
 /* Ensure Swal is above the fullscreen viewer (z-index 9999) */
