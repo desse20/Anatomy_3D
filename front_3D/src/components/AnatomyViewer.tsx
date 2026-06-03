@@ -113,6 +113,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
   }
 
   function deselect() {
+    console.log('[AnatomyViewer] deselect called');
     if (selRef.current && selRef.current.material instanceof THREE.MeshStandardMaterial) {
       selRef.current.material.emissive.setHex(0x000000);
     }
@@ -263,6 +264,8 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
 
     const descendants = new Set<string>();
     t.traverse(c => descendants.add(c.uuid));
+    
+    console.log(`[isolate] Tool active for: ${t.name || 'unnamed'} (${t.userData.info?.name || 'no info'}). Descendants: ${descendants.size}`);
     
     const targetUuid = t.uuid;
     sceneRef.current?.traverse(obj => {
@@ -656,29 +659,38 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
         console.warn("[Cache] Échec complet, repli direct", err);
         gltf = await new Promise<any>((res, rej) => new GLTFLoader().load(path, res, undefined, rej));
       }
-      const model = gltf.scene; modelRef.current = model;
-      model.traverse((c: THREE.Object3D) => {
-        if (!(c instanceof THREE.Mesh)) return;
-        const m = c as ExtendedMesh;
+      const model = gltf.scene;
+      let matchedCount = 0;
+      let totalMeshes = 0;
+      
+      const clean = (s: string) => s.toLowerCase().replace(/[\s\._-]/g, '').replace(/\d+$/, '');
+        
+      model.traverse((obj: THREE.Object3D) => {
+        if (!(obj instanceof THREE.Mesh)) return;
+        totalMeshes++;
+        const m = obj as ExtendedMesh;
         m.material = new THREE.MeshStandardMaterial({ color: 0xECE2D0, roughness: 0.4, metalness: 0.1 });
         m.castShadow = true; m.receiveShadow = true;
 
-        let info = data.find(i => i.three_js_name === c.name);
-        if (!info) info = data.find(i => i.three_js_name?.toLowerCase() === c.name?.toLowerCase());
-        if (!info) {
-          const baseName = c.name.replace(/\.\d+$/, '');
-          info = data.find(i => i.three_js_name === baseName || i.three_js_name?.toLowerCase() === baseName.toLowerCase());
-        }
-
+        const targetName = clean(obj.name);
+        // On essaye de matcher sur three_js_name d'abord, puis sur le nom simple
+        let info = data.find(i => (i.three_js_name && clean(i.three_js_name) === targetName) || (i.name && clean(i.name) === targetName));
+        
         if (info) {
           m.userData.info = info;
+          matchedCount++;
         }
       });
+      console.log(`[Load] Model structure verified. Matched: ${matchedCount}/${totalMeshes} meshes.`);
 
       const box = new THREE.Box3().setFromObject(model);
       const center = box.getCenter(new THREE.Vector3()); model.position.sub(center);
       const s = 1.6 / Math.max(box.getSize(new THREE.Vector3()).x, box.getSize(new THREE.Vector3()).y, box.getSize(new THREE.Vector3()).z);
       model.scale.set(s, s, s);
+
+      // Nettoyer l'ancien modèle si présent pour éviter les doublons
+      if (modelRef.current && sceneRef.current) sceneRef.current.remove(modelRef.current);
+      modelRef.current = model;
       sceneRef.current?.add(model);
       
       // Application immédiate des états de la vue si présents
@@ -758,7 +770,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     if (hits.length) {
       const obj = hits[0].object as ExtendedMesh;
       const info = obj.userData.info;
-      if (info && obj.visible) {
+      if (obj.visible) {
         if (selRef.current === obj) return;
         
         // Reset previous selection emissive without triggering onSelect(null)
@@ -766,21 +778,23 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
           selRef.current.material.emissive.setHex(0x000000);
         }
         
-        select(info, obj);
+        select(info || null, obj);
         if (obj.material instanceof THREE.MeshStandardMaterial) obj.material.emissive.setHex(0x224488);
         
         document.querySelectorAll('.item-row').forEach(el => el.classList.remove('selected-item'));
-        for (const row of Array.from(document.querySelectorAll<HTMLElement>('.item-row'))) {
-          const s = row.querySelector('span:last-child');
-          if (s && s.textContent === info.name) { 
-            row.classList.add('selected-item'); 
-            row.scrollIntoView({ behavior: 'smooth', block: 'center' }); 
-            break;
+        if (info) {
+          for (const row of Array.from(document.querySelectorAll<HTMLElement>('.item-row'))) {
+            const s = row.querySelector('span:last-child');
+            if (s && s.textContent === info.name) { 
+              row.classList.add('selected-item'); 
+              row.scrollIntoView({ behavior: 'smooth', block: 'center' }); 
+              break;
+            }
           }
+          desc(info.description || '<em>Description non disponible.</em>', info.name);
+        } else {
+          desc('<em>Description non disponible pour cet élément.</em>', obj.name);
         }
-        desc(info.description || '<em>Description non disponible.</em>', info.name);
-      } else if (obj.visible) {
-        desc('<em>Description non disponible pour cet élément.</em>', obj.name);
       }
     } else deselect();
   }
@@ -809,11 +823,21 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     if (!showLabelsRef.current) return;
     
     let visibleMeshes: ExtendedMesh[] = [];
-    eachMesh(m => { if (m.visible && m.userData.info) visibleMeshes.push(m); });
+    eachMesh(m => { if (m.visible && (m.userData.info || m === selRef.current)) visibleMeshes.push(m); });
 
-    const targetMeshes = visibleMeshes.length < 150 
-      ? visibleMeshes 
-      : visibleMeshes.filter(m => m === selRef.current);
+    // Regrouper par ID anatomique pour éviter les doublons d'étiquettes
+    // Cela permet d'afficher plus de parties différentes sans surcharger l'écran
+    const uniqueMap = new Map<number | string, ExtendedMesh>();
+    visibleMeshes.forEach(m => {
+      const key = m.userData.info?.id || m.uuid;
+      // On garde la première mesh trouvée pour cet ID, ou celle sélectionnée
+      if (!uniqueMap.has(key) || m === selRef.current) {
+        uniqueMap.set(key, m);
+      }
+    });
+
+    const targetMeshes = Array.from(uniqueMap.values()).slice(0, 150);
+    console.log(`[rebuildLabels] Parts: ${uniqueMap.size}, Meshes: ${visibleMeshes.length}, Showing: ${targetMeshes.length}`);
 
     if (targetMeshes.length > 0) {
       const frag = document.createDocumentFragment();
@@ -941,8 +965,8 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
       });
     };
 
-    arrange(leftSide, 100, false); // 100px du bord gauche
-    arrange(rightSide, w - 100, true); // 100px du bord droit
+    arrange(leftSide, 150, false); // 150px du bord gauche
+    arrange(rightSide, w - 150, true); // 150px du bord droit
   }
 
   useEffect(() => {
