@@ -663,8 +663,18 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
       let matchedCount = 0;
       let totalMeshes = 0;
       
-      const clean = (s: string) => s.toLowerCase().replace(/[\s\._-]/g, '').replace(/\d+$/, '');
+      const clean = (s: string) => {
+        if (!s) return '';
+        return s.toLowerCase()
+          .replace(/_bone$/, '')        // Hamate_bone -> Hamate
+          .replace(/_bone_\d+$/, '')    // Hamate_bone_1 -> Hamate
+          .replace(/cle$/, 'cule')       // Clavicle -> Clavicule
+          .replace(/[\s\._-]/g, '')     // Enlever tout séparateur
+          .replace(/\d+$/, '')          // Enlever les nombres finaux
+          .trim();
+      };
         
+      const unmatchedNames: string[] = [];
       model.traverse((obj: THREE.Object3D) => {
         if (!(obj instanceof THREE.Mesh)) return;
         totalMeshes++;
@@ -679,9 +689,14 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
         if (info) {
           m.userData.info = info;
           matchedCount++;
+        } else {
+          unmatchedNames.push(obj.name);
         }
       });
-      console.log(`[Load] Model structure verified. Matched: ${matchedCount}/${totalMeshes} meshes.`);
+      console.log(`[Load] Matched: ${matchedCount}/${totalMeshes} meshes.`);
+      console.log(`[DEBUG] Noms GLTF non-reconnus (échantillon) :`, unmatchedNames.slice(0, 30));
+      console.log(`[DEBUG] Noms attendus en DB (échantillon) :`, data.slice(0, 20).map(i => i.three_js_name || i.name));
+
 
       const box = new THREE.Box3().setFromObject(model);
       const center = box.getCenter(new THREE.Vector3()); model.position.sub(center);

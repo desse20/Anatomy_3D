@@ -14,8 +14,7 @@ class StoreReviewRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'type'      => ['required', 'in:platform,object'],
-            'object_id' => ['nullable', 'integer', 'exists:anatomical_objects,id'],
+            'type'      => ['required', 'in:platform,model_3d,object'],
             'rating'    => ['required', 'integer', 'min:1', 'max:5'],
             'comment'   => ['nullable', 'string', 'max:2000'],
         ];
@@ -28,8 +27,7 @@ class StoreReviewRequest extends FormRequest
 
         return [
             'type.required'   => $isFr ? 'Le type est requis.' : 'Type is required.',
-            'type.in'         => $isFr ? 'Le type doit être "platform" ou "object".' : 'Type must be "platform" or "object".',
-            'object_id.exists'=> $isFr ? 'Objet anatomique introuvable.' : 'Anatomical object not found.',
+            'type.in'         => $isFr ? 'Type invalide.' : 'Invalid type.',
             'rating.required' => $isFr ? 'La note est requise.' : 'Rating is required.',
             'rating.min'      => $isFr ? 'La note minimale est 1.' : 'Minimum rating is 1.',
             'rating.max'      => $isFr ? 'La note maximale est 5.' : 'Maximum rating is 5.',

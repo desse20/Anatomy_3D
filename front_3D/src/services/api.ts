@@ -134,12 +134,12 @@ export const anatomyService = {
 
 export const reviewService = {
     /** Soumet un nouvel avis */
-    store: (data: { type: 'platform' | 'object', object_id?: number, object_name?: string, rating: number, comment?: string }) => 
+    store: (data: { type: 'platform' | 'model_3d' | 'object', target_id?: string, rating: number, comment?: string }) => 
         apiCall('/reviews', { method: 'POST', body: JSON.stringify(data) }),
-    /** Récupère les stats d'avis pour un objet ou la plateforme */
-    getStats: (type?: string, object_id?: number) => {
+    /** Récupère les stats d'avis */
+    getStats: (type?: string, target_id?: string) => {
         let url = `/reviews/stats?type=${type || ''}`;
-        if (object_id) url += `&object_id=${object_id}`;
+        if (target_id) url += `&target_id=${target_id}`;
         return apiCall(url);
     },
     /** Liste les avis (admin) */

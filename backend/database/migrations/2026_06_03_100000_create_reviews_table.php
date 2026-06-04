@@ -11,10 +11,7 @@ return new class extends Migration {
             $table->foreignUuid('user_id')->constrained('users')->cascadeOnDelete();
             // 'platform' = avis global sur la plateforme (bugs, chargement, etc.)
             // 'object'   = avis sur un objet anatomique (et son modèle par déduction)
-            $table->enum('type', ['platform', 'object']);
-            // NULL si type = 'platform', sinon ID de l'objet anatomique concerné
-            $table->integer('object_id')->nullable();
-            $table->foreign('object_id')->references('id')->on('anatomical_objects')->cascadeOnDelete();
+            $table->enum('type', ['platform', 'object', 'model_3d']);
             $table->tinyInteger('rating'); // 1 à 5
             $table->text('comment')->nullable();
             $table->timestamp('created_at')->useCurrent();

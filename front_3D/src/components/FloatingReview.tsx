@@ -1,18 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { Star, MessageSquareQuote, X, Send, Search, Loader2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Star, MessageSquareQuote, X, Send } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLanguage } from '../contexts/LanguageContext';
-import { reviewService, anatomyService } from '../services/api';
+import { reviewService } from '../services/api';
 import Swal from 'sweetalert2';
 
 interface FloatingReviewProps {
-    contextualObject?: { id: number; name: string } | null;
-    required?: boolean;
     isOpen?: boolean;
     onToggle?: (open: boolean) => void;
 }
 
-const FloatingReview: React.FC<FloatingReviewProps> = ({ contextualObject, required, isOpen: propIsOpen, onToggle }) => {
+const FloatingReview: React.FC<FloatingReviewProps> = ({ isOpen: propIsOpen, onToggle }) => {
     const { language } = useLanguage();
     const t = (fr: string, en: string) => language === 'fr' ? fr : en;
 
@@ -22,43 +20,12 @@ const FloatingReview: React.FC<FloatingReviewProps> = ({ contextualObject, requi
         if (onToggle) onToggle(val);
         else setInternalIsOpen(val);
     };
+
+    const [type, setType] = useState<'platform' | 'model_3d' | 'object'>('platform');
     const [rating, setRating] = useState(0);
     const [comment, setComment] = useState('');
     const [hover, setHover] = useState(0);
     const [isSubmitting, setIsSubmitting] = useState(false);
-
-    // Search object logic
-    const [localSelectedObject, setLocalSelectedObject] = useState<{id: number, name: string} | null>(contextualObject || null);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [searchResults, setSearchResults] = useState<any[]>([]);
-    const [isSearching, setIsSearching] = useState(false);
-
-    // Sync with prop when it changes (from 3D click)
-    useEffect(() => {
-        console.log("FloatingReview: Prop contextualObject changed", contextualObject);
-        if (contextualObject) {
-            setLocalSelectedObject(contextualObject);
-        }
-    }, [contextualObject]);
-
-    const handleSearch = async (query: string) => {
-        setSearchQuery(query);
-        if (query.length < 2) {
-            setSearchResults([]);
-            return;
-        }
-        setIsSearching(true);
-        try {
-            const data = await anatomyService.search(query);
-            console.log("FloatingReview Search Data:", data);
-            const results = data.results || [];
-            setSearchResults(Array.isArray(results) ? results.slice(0, 8) : []);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setIsSearching(false);
-        }
-    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -67,11 +34,9 @@ const FloatingReview: React.FC<FloatingReviewProps> = ({ contextualObject, requi
         setIsSubmitting(true);
         try {
             await reviewService.store({
-                type: localSelectedObject ? 'object' : 'platform',
+                type,
                 rating,
-                comment,
-                object_id: localSelectedObject?.id ?? undefined,
-                object_name: localSelectedObject?.name ?? undefined
+                comment
             });
             
             setIsOpen(false);
@@ -124,64 +89,40 @@ const FloatingReview: React.FC<FloatingReviewProps> = ({ contextualObject, requi
                     >
                         <div className="review-header">
                             <div className="review-title">
-                                {required 
-                                    ? t("Avis sur une partie de l'anatomy", "Review on a part of anatomy")
-                                    : t('Avis & Feedback', 'Review & Feedback')
-                                }
+                                {t('Avis & Feedback', 'Review & Feedback')}
                             </div>
                             <button onClick={() => setIsOpen(false)}><X size={18} /></button>
                         </div>
 
                         <form className="review-form" onSubmit={handleSubmit}>
-                            <div className="review-target-selector">
-                                {localSelectedObject ? (
-                                    <div className="selected-target-badge">
-                                        <span>{localSelectedObject.name}</span>
-                                        <button type="button" onClick={() => setLocalSelectedObject(null)}><X size={12} /></button>
-                                    </div>
-                                ) : (
-                                    /* Ne montrer la recherche que sur les pages de visualisation */
-                                    (window.location.pathname.includes('/viewer') || window.location.pathname.includes('/salle')) && (
-                                        <div className="search-box-container">
-                                            <div className="search-input-wrapper">
-                                                <Search size={14} className="search-icon" />
-                                                <input 
-                                                    type="text" 
-                                                    placeholder={t('Rechercher une partie...', 'Search for a part...')}
-                                                    value={searchQuery}
-                                                    onChange={(e) => handleSearch(e.target.value)}
-                                                />
-                                                {isSearching && <Loader2 size={14} className="spin" />}
-                                            </div>
-                                            {searchResults.length > 0 && (
-                                                <div className="search-results-dropdown">
-                                                    {searchResults.map(res => (
-                                                        <div 
-                                                            key={res.id} 
-                                                            className="search-res-item"
-                                                            onClick={() => {
-                                                                setLocalSelectedObject(res);
-                                                                setSearchQuery('');
-                                                                setSearchResults([]);
-                                                              }}
-                                                        >
-                                                            {res.name}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                              )}
-                                        </div>
-                                    )
-                                )}
+                            <div className="review-type-selector">
+                                <button 
+                                    type="button" 
+                                    className={`type-btn ${type === 'platform' ? 'active' : ''}`}
+                                    onClick={() => setType('platform')}
+                                >
+                                    {t('Plateforme', 'Platform')}
+                                </button>
+                                <button 
+                                    type="button" 
+                                    className={`type-btn ${type === 'model_3d' ? 'active' : ''}`}
+                                    onClick={() => setType('model_3d')}
+                                >
+                                    {t('Modèle 3D', '3D Model')}
+                                </button>
+                                <button 
+                                    type="button" 
+                                    className={`type-btn ${type === 'object' ? 'active' : ''}`}
+                                    onClick={() => setType('object')}
+                                >
+                                    {t('Objet', 'Object')}
+                                </button>
                             </div>
 
                             <p className="review-intro">
-                                {localSelectedObject
-                                    ? t(`Donnez votre avis sur cet élément :`, `Rate this anatomical item:`)
-                                    : (required 
-                                        ? t('Veuillez choisir ou cliquer sur un objet', 'Please choose or click on an object')
-                                        : t('Que pensez-vous de la plateforme ?', 'What do you think of the platform?'))
-                                }
+                                {type === 'platform' && t('Que pensez-vous de la plateforme ?', 'What do you think of the platform?')}
+                                {type === 'model_3d' && t('Que pensez-vous de nos modèles 3D ?', 'What do you think of our 3D models?')}
+                                {type === 'object' && t('Un avis sur les pièces anatomiques ?', 'Any feedback on anatomical parts?')}
                             </p>
                             
                             <div className="star-rating">
@@ -208,7 +149,7 @@ const FloatingReview: React.FC<FloatingReviewProps> = ({ contextualObject, requi
                             <button 
                                 type="submit" 
                                 className="submit-btn" 
-                                disabled={rating === 0 || isSubmitting || (required && !localSelectedObject)}
+                                disabled={rating === 0 || isSubmitting}
                             >
                                 {isSubmitting ? t('Envoi...', 'Sending...') : (
                                     <>
@@ -243,9 +184,7 @@ const FloatingReview: React.FC<FloatingReviewProps> = ({ contextualObject, requi
                     justify-content: center;
                     transition: 0.2s;
                 }
-                /* En mode sombre, le bouton devient blanc avec icône noire */
-                :global(.dark) .review-toggle-btn,
-                .dark .review-toggle-btn {
+                :global(.dark) .review-toggle-btn, .dark .review-toggle-btn {
                     background: #ffffff;
                     color: #000000;
                     box-shadow: 0 4px 15px rgba(255, 255, 255, 0.2);
@@ -255,7 +194,7 @@ const FloatingReview: React.FC<FloatingReviewProps> = ({ contextualObject, requi
                     opacity: 0.9;
                 }
                 .floating-review-window {
-                    width: 280px;
+                    width: 300px;
                     background: #1a1f2e;
                     border: 1px solid rgba(255,255,255,0.1);
                     border-radius: 16px;
@@ -276,80 +215,51 @@ const FloatingReview: React.FC<FloatingReviewProps> = ({ contextualObject, requi
                 .review-header button {
                     background: transparent; border: none; color: white; cursor: pointer;
                 }
-                .review-target-selector {
-                    padding: 12px 16px 0;
-                }
-                .selected-target-badge {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    background: rgba(59, 130, 246, 0.2);
-                    border: 1px solid #3b82f6;
-                    border-radius: 8px;
-                    padding: 8px 12px;
-                    color: #3b82f6;
-                    font-size: 12px;
-                    font-weight: 700;
-                }
-                .selected-target-badge button {
-                    background: none; border: none; color: #3b82f6; cursor: pointer; display: flex;
-                }
-                .search-box-container {
-                    position: relative;
-                }
-                .search-input-wrapper {
-                    display: flex;
-                    align-items: center;
-                    background: #0f131e;
-                    border: 1px solid rgba(255,255,255,0.1);
-                    border-radius: 8px;
-                    padding: 0 10px;
-                    gap: 8px;
-                }
-                .search-input-wrapper input {
-                    flex: 1;
-                    background: none;
-                    border: none;
-                    color: white;
-                    padding: 8px 0;
-                    font-size: 12px;
-                    outline: none;
-                }
-                .search-icon { color: rgba(255,255,255,0.4); }
-                .search-results-dropdown {
-                    position: absolute;
-                    top: calc(100% + 4px);
-                    left: 0; right: 0;
-                    background: #1f2937;
-                    border: 1px solid rgba(255,255,255,0.2);
-                    border-radius: 8px;
-                    z-index: 99999;
-                    box-shadow: 0 10px 25px rgba(0,0,0,0.6);
-                    max-height: 200px;
-                    overflow-y: auto;
-                }
-                .search-res-item {
-                    padding: 8px 12px;
-                    color: white;
-                    font-size: 12px;
-                    cursor: pointer;
-                    transition: 0.15s;
-                }
-                .search-res-item:hover {
-                    background: rgba(59, 130, 246, 0.2);
-                    color: #3b82f6;
-                }
                 .review-form {
-                    padding: 12px 16px 20px;
+                    padding: 16px;
                     display: flex;
                     flex-direction: column;
                     gap: 16px;
                 }
-                .review-intro {
-                    font-size: 13px;
+                .review-type-selector {
+                    display: flex;
+                    background: rgba(0,0,0,0.2);
+                    border-radius: 10px;
+                    padding: 4px;
+                    gap: 4px;
+                }
+                .type-btn {
+                    flex: 1;
+                    padding: 6px;
+                    border: none;
+                    background: transparent;
+                    color: rgba(255,255,255,0.5);
+                    font-size: 10px;
+                    font-weight: 700;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    transition: 0.2s;
+                    text-transform: uppercase;
+                    white-space: nowrap;
+                }
+                .type-btn:hover { color: white; }
+                .type-btn.active {
+                    background: #3b82f6;
                     color: white;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                }
+                .review-intro {
+                    font-size: 12px;
+                    color: rgba(255,255,255,0.6);
                     margin: 0;
-                    font-weight: 500;
+                    text-align: center;
+                }
+                .target-name {
+                    display: block;
+                    font-size: 14px;
+                    color: white;
+                    font-weight: 700;
+                    margin-top: 4px;
                 }
                 .star-rating {
                     display: flex;
@@ -365,7 +275,7 @@ const FloatingReview: React.FC<FloatingReviewProps> = ({ contextualObject, requi
                     padding: 0;
                 }
                 .star-btn.active {
-                    color: #3b82f6;
+                    color: #fbbf24;
                 }
                 .review-form textarea {
                     width: 100%;

@@ -18,7 +18,6 @@ const AnatomyViewerPage: React.FC = () => {
 
     const [resolvedAssetId, setResolvedAssetId] = useState<string | null>(null);
     const [sharedViewData, setSharedViewData] = useState<any>(null);
-    const [selectedItem, setSelectedItem] = useState<any>(null);
     const [isOffline, setIsOffline] = useState(!navigator.onLine);
     const [cachedHierarchy, setCachedHierarchy] = useState<AnatomyItem[] | null>(null);
     const [cachedGlbUrl, setCachedGlbUrl] = useState<string | null>(null);
@@ -48,14 +47,6 @@ const AnatomyViewerPage: React.FC = () => {
             setInitializing(false);
         }
     }, []);
-
-    // Sync with prop when it changes (from 3D click)
-    React.useEffect(() => {
-        console.log("AnatomyViewerPage: Selected item changed", selectedItem);
-        if (selectedItem) {
-            console.log("AnatomyViewerPage: Updating FloatingReview with", selectedItem);
-        }
-    }, [selectedItem]);
 
     // Phase 2 : charger le nom du modèle
     useEffect(() => {
@@ -101,9 +92,8 @@ const AnatomyViewerPage: React.FC = () => {
                 viewId={viewId || undefined} sharedViewData={sharedViewData} readOnly={!!viewId} 
                 onSelect={(it) => {
                     console.log("AnatomyViewerPage: Object selected", it);
-                    setSelectedItem(it);
                 }} />
-            <FloatingActionsDrawer selectedItem={selectedItem} />
+            <FloatingActionsDrawer />
         </div>
     );
 };

@@ -12,18 +12,15 @@ class ReviewController extends Controller
 {
     /**
      * Liste les avis (admin uniquement).
-     * Paramètre optionnel : ?type=platform|object  ?object_id=X  ?limit=20
+     * Paramètre optionnel : ?type=platform|model_3d|object  ?target_id=X  ?limit=20
      */
     public function index(Request $request)
     {
-        $query = Review::with(['user:id,firstname,lastname', 'anatomicalObject.asset3d:id,name'])
+        $query = Review::with(['user:id,firstname,lastname'])
             ->latest('created_at');
 
         if ($request->filled('type')) {
             $query->where('type', $request->type);
-        }
-        if ($request->filled('object_id')) {
-            $query->where('object_id', $request->object_id);
         }
         if ($request->filled('min_rating')) {
             $query->where('rating', '>=', $request->min_rating);
@@ -49,11 +46,6 @@ class ReviewController extends Controller
     {
         $validated = $request->validated();
 
-        // Cohérence : si type = 'platform', object_id doit être null
-        if ($validated['type'] === 'platform') {
-            $validated['object_id'] = null;
-        }
-
         $review = Review::create([
             ...$validated,
             'user_id'    => auth()->id(),
@@ -67,8 +59,8 @@ class ReviewController extends Controller
     }
 
     /**
-     * Statistiques des avis pour un objet ou la plateforme.
-     * GET /reviews/stats?type=object&object_id=42
+     * Statistiques des avis.
+     * GET /reviews/stats?type=platform|model_3d|object
      */
     public function stats(Request $request)
     {
@@ -76,9 +68,6 @@ class ReviewController extends Controller
 
         if ($request->filled('type')) {
             $query->where('type', $request->type);
-        }
-        if ($request->filled('object_id')) {
-            $query->where('object_id', $request->object_id);
         }
 
         $total       = $query->count();

@@ -5,10 +5,9 @@ import FloatingChat from './FloatingChat';
 import FloatingReview from './FloatingReview';
 
 interface FloatingActionsDrawerProps {
-    selectedItem?: any;
 }
 
-const FloatingActionsDrawer: React.FC<FloatingActionsDrawerProps> = ({ selectedItem }) => {
+const FloatingActionsDrawer: React.FC<FloatingActionsDrawerProps> = () => {
     const { language } = useLanguage();
     const location = useLocation();
     const t = (fr: string, en: string) => language === 'fr' ? fr : en;
@@ -44,8 +43,6 @@ const FloatingActionsDrawer: React.FC<FloatingActionsDrawerProps> = ({ selectedI
                     <FloatingReview 
                         isOpen={activeWidget === 'review'} 
                         onToggle={(open) => setActiveWidget(open ? 'review' : null)}
-                        contextualObject={selectedItem}
-                        required={selectedItem ? true : false}
                     />
                 </div>
             </div>
