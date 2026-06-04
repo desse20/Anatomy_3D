@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { offlineCache } from '../services/offlineCache';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { ArrowLeft, Crosshair, EyeOff, Eye, Moon, Sun, Contrast, Camera, Save, X, Loader2, RefreshCcw, Palette } from 'lucide-react';
+import { ArrowLeft, Crosshair, EyeOff, Eye, Moon, Sun, Contrast, Camera, Save, X, Loader2, RefreshCcw, Palette, RotateCcw, RotateCw } from 'lucide-react';
 import { apiCall } from '../services/api';
 import Swal from 'sweetalert2';
 import { getSwalTheme } from '../services/swalTheme';
@@ -14,6 +14,10 @@ import '../styles/anatomy-viewer.css';
 
 interface AnatomyItem { id: number; name: string; three_js_name: string; parent_id?: number | null; type: string; description?: string; }
 interface ExtendedMesh extends THREE.Mesh { userData: { info?: AnatomyItem; [key: string]: any }; }
+interface SceneSnapshot {
+    camera: { pos: { x: number; y: number; z: number }; target: { x: number; y: number; z: number } };
+    scene: Array<{ name: string; three_js_name: string; visible: boolean; opacity: number }>;
+}
 interface SharedViewData { camera_position: { x: number; y: number; z: number }; camera_target: { x: number; y: number; z: number }; scene_state: Array<{ name: string; three_js_name: string; visible: boolean; opacity: number }>; background_color?: string; teacher_note?: string; }
 interface Props { assetId?: string | number; modelPath?: string; initialAnatomicalData?: AnatomyItem[]; isOffline?: boolean; modelName?: string; viewId?: string; sharedViewData?: SharedViewData; readOnly?: boolean; onSelect?: (item: AnatomyItem | null) => void; }
 
@@ -33,6 +37,9 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
   const controlsRef = useRef<OrbitControls | null>(null);
   const modelRef = useRef<THREE.Group | null>(null);
 
+  const [history, setHistory] = useState<SceneSnapshot[]>([]);
+  const [future, setFuture] = useState<SceneSnapshot[]>([]);
+  
   // ── Selection: ref for imperative code, state for React re-renders ──
   const selRef = useRef<ExtendedMesh | null>(null);
   const [, bump] = useState(0);
@@ -90,6 +97,87 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
   function countHidden() {
     let n = 0; eachMesh(m => { if (!m.visible) n++; }); setHiddenCount(n);
   }
+
+  const takeSnapshot = () => {
+    if (!cameraRef.current || !controlsRef.current) return;
+    const sceneState: any[] = [];
+    eachMesh(m => {
+      sceneState.push({ name: m.name, three_js_name: m.name, visible: m.visible, opacity: m.material instanceof THREE.Material ? m.material.opacity : 1 });
+    });
+
+    const snap: SceneSnapshot = {
+        camera: {
+            pos: { x: cameraRef.current.position.x, y: cameraRef.current.position.y, z: cameraRef.current.position.z },
+            target: { x: controlsRef.current.target.x, y: controlsRef.current.target.y, z: controlsRef.current.target.z }
+        },
+        scene: sceneState
+    };
+
+    setHistory(prev => [...prev.slice(-19), snap]); // Keep last 20
+    setFuture([]);
+  };
+
+  const applySnapshot = (snap: SceneSnapshot) => {
+    if (!cameraRef.current || !controlsRef.current || !sceneRef.current) return;
+    
+    // Camera
+    cameraRef.current.position.set(snap.camera.pos.x, snap.camera.pos.y, snap.camera.pos.z);
+    controlsRef.current.target.set(snap.camera.target.x, snap.camera.target.y, snap.camera.target.z);
+    controlsRef.current.update();
+
+    // Scene
+    const map = new Map(snap.scene.map(s => [s.name, s]));
+    eachMesh(m => {
+        const s = map.get(m.name);
+        if (s) {
+            m.visible = s.visible;
+            if (m.material instanceof THREE.Material) {
+                m.material.opacity = s.opacity;
+                m.material.transparent = s.opacity < 1;
+            }
+        }
+    });
+    countHidden();
+    syncEyes();
+    bump(v => v + 1);
+  };
+
+  const undo = () => {
+    if (history.length === 0) return;
+    
+    // Save current to future
+    const currentSnap: SceneSnapshot = {
+        camera: {
+            pos: { x: cameraRef.current!.position.x, y: cameraRef.current!.position.y, z: cameraRef.current!.position.z },
+            target: { x: controlsRef.current!.target.x, y: controlsRef.current!.target.y, z: controlsRef.current!.target.z }
+        },
+        scene: []
+    };
+    eachMesh(m => { currentSnap.scene.push({ name: m.name, three_js_name: m.name, visible: m.visible, opacity: (m.material instanceof THREE.Material ? (m.material as any).opacity : 1) }); });
+
+    const prev = history[history.length - 1];
+    setFuture(f => [currentSnap, ...f]);
+    setHistory(h => h.slice(0, -1));
+    applySnapshot(prev);
+  };
+
+  const redo = () => {
+    if (future.length === 0) return;
+    const next = future[0];
+    
+    const currentSnap: SceneSnapshot = {
+        camera: {
+            pos: { x: cameraRef.current!.position.x, y: cameraRef.current!.position.y, z: cameraRef.current!.position.z },
+            target: { x: controlsRef.current!.target.x, y: controlsRef.current!.target.y, z: controlsRef.current!.target.z }
+        },
+        scene: []
+    };
+    eachMesh(m => { currentSnap.scene.push({ name: m.name, three_js_name: m.name, visible: m.visible, opacity: (m.material instanceof THREE.Material ? (m.material as any).opacity : 1) }); });
+
+    setHistory(h => [...h, currentSnap]);
+    setFuture(f => f.slice(1));
+    applySnapshot(next);
+  };
 
   function syncEyes() {
     eachMesh(m => {
@@ -160,17 +248,24 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
 
     eye.onclick = (e) => {
       e.stopPropagation();
-      // On bascule la visibilité de TOUS les éléments ayant cet ID (ou enfants du groupe)
+      takeSnapshot();
+      const getAllIds = (it: AnatomyItem): number[] => {
+        let ids = [it.id];
+        data.filter(c => c.parent_id === it.id).forEach(c => { ids = ids.concat(getAllIds(c)); });
+        return ids;
+      };
+      const targetIds = new Set(getAllIds(item));
+
+      // On bascule la visibilité de TOUS les éléments ayant ces IDs
       let targetState = true;
       if (mesh) targetState = !mesh.visible;
       else {
-        // Pour un groupe sans mesh direct, on regarde le premier enfant
         const firstRow = ul.querySelector(`.item-row[data-id="${item.id}"]`) as HTMLElement;
         targetState = !firstRow.classList.contains('is-hidden');
       }
 
       eachMesh(m => {
-        if (m.userData.info?.id === item.id) {
+        if (m.userData.info && targetIds.has(m.userData.info.id)) {
           m.visible = targetState;
           if (!m.visible && selRef.current === m) deselect();
         }
@@ -180,6 +275,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
 
     iso.onclick = (e) => {
       e.stopPropagation();
+      takeSnapshot();
       const getAllIds = (it: AnatomyItem): number[] => {
         let ids = [it.id];
         data.filter(c => c.parent_id === it.id).forEach(c => { ids = ids.concat(getAllIds(c)); });
@@ -583,13 +679,24 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
       let path = initialModelPath || 'Squelette_complet.glb';
       const assetIdStr = assetId ? String(assetId) : null;
 
-      // 1. Récupérer les métadonnées pour la version (asynchrone, optionnel)
+      // 1. Récupérer les métadonnées de l'asset
       let assetMeta: any = null;
       if (assetIdStr && !isOffline) {
-        try { assetMeta = await apiCall(`models-manager/${assetIdStr}`); } catch (e) { console.warn("[Cache] Impossible de joindre le backend pour la version", e); }
+        try { 
+          assetMeta = await apiCall(`models-manager/${assetIdStr}`); 
+          // Mettre à jour le chemin avec l'URL officielle de la DB si présente
+          if (assetMeta?.url_glb) {
+            path = assetMeta.url_glb;
+            if (path.includes('Assets_3D/')) {
+              path = `${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/models-manager/files/${path.split('/').pop()}`;
+            }
+          }
+        } catch (e) { 
+          console.warn("[Cache] Impossible de joindre le backend pour les métadonnées", e); 
+        }
       }
 
-      const remoteVersion = assetMeta?.version || 0;
+      const remoteVersion = assetMeta?.version || assetMeta?.version_cache || 0;
       let cachedAsset: any = null;
       let cachedHierarchyData: any = null;
       let cachedGlb: ArrayBuffer | undefined = undefined;
@@ -603,7 +710,10 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
       }
 
       const localVersion = cachedAsset?.version || 0;
-      const isUpToDate = assetIdStr && cachedAsset && cachedHierarchyData && cachedGlb && (remoteVersion <= localVersion || isOffline || !assetMeta);
+      const hasLocalData = !!(cachedGlb && cachedHierarchyData);
+      const isUpToDate = assetIdStr && hasLocalData && (isOffline || !assetMeta || localVersion >= remoteVersion);
+
+      console.log(`[Cache Debug] ID: ${assetIdStr}, hasLocal: ${hasLocalData}, vLocal: ${localVersion}, vRemote: ${remoteVersion}, isUpToDate: ${isUpToDate}`);
 
       // 2. Charger la hiérarchie
       if (initialAnatomicalData?.length) {
@@ -618,7 +728,6 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
              const updates: AnatomyItem[] = await apiCall(ep);
              
              if (lastSync && cachedHierarchyData) {
-               // Fusionner les mises à jour avec les données existantes
                const existing = [...(cachedHierarchyData as any[])];
                updates.forEach(upd => {
                  const idx = existing.findIndex(o => o.id === upd.id);
@@ -626,31 +735,27 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
                  else existing.push(upd);
                });
                data = existing as AnatomyItem[];
-               console.log(`[Sync] ${updates.length} objets mis à jour.`);
              } else {
                data = updates;
              }
              
-             // On met à jour le cache de hiérarchie
+             // Mettre à jour le cache de hiérarchie et les métadonnées
              offlineCache.storeHierarchy(assetIdStr, data).catch(() => {});
              
-             // Mettre à jour le timestamp de sync dans les métadonnées de l'asset
-             if (data.length > 0) {
-                const latest = data.reduce((max, obj: any) => {
-                  if (!obj.updated_at) return max;
-                  return obj.updated_at > max ? obj.updated_at : max;
-                }, lastSync || '1970-01-01 00:00:00');
-                
-                offlineCache.storeAsset({
-                  ...cachedAsset,
-                  id: assetIdStr,
-                  name: modelName || assetMeta?.name || cachedAsset?.name || 'Asset',
-                  url_glb: path,
-                  cached_at: Date.now(),
-                  version: assetMeta?.version || cachedAsset?.version || 1,
-                  hierarchy_updated_at: latest
-                }).catch(() => {});
-             }
+             const latestSyncTime = data.reduce((max, obj: any) => {
+               if (!obj.updated_at) return max;
+               return obj.updated_at > max ? obj.updated_at : max;
+             }, lastSync || '1970-01-01 00:00:00');
+             
+             offlineCache.storeAsset({
+               ...cachedAsset,
+               id: assetIdStr,
+               name: modelName || assetMeta?.name || cachedAsset?.name || 'Asset',
+               url_glb: path,
+               cached_at: Date.now(),
+               version: remoteVersion || localVersion || 1,
+               hierarchy_updated_at: latestSyncTime
+             }).catch(() => {});
           } else {
              throw new Error("Offline mode");
           }
@@ -664,15 +769,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
         }
       }
 
-      // 3. Déterminer le chemin du GLB (Meta -> Default)
-      if (assetMeta?.url_glb) {
-        path = assetMeta.url_glb;
-        if (path.includes('Assets_3D/')) {
-          path = `${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/models-manager/files/${path.split('/').pop()}`;
-        }
-      }
-
-      // 4. Charger le binaire GLB
+      // 3. Charger le binaire GLB
       let gltf;
       if (isUpToDate && cachedGlb) {
         console.log(`[Cache DB] GLB chargé depuis le cache (v${localVersion})`);
@@ -682,21 +779,21 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
           new GLTFLoader().load(blobUrl, (g) => { URL.revokeObjectURL(blobUrl); res(g); }, undefined, rej)
         );
       } else {
-        // 5. Téléchargement si nécessaire
+        // Téléchargement si nécessaire
         console.log(`[Network] Téléchargement GLB depuis ${path}...`);
         const response = await fetch(path);
         if (!response.ok) throw new Error(t("Échec du téléchargement du modèle.", "Failed to download model."));
         const arrayBuffer = await response.arrayBuffer();
         
         if (assetIdStr) {
-          const v = assetMeta?.version || 1;
           offlineCache.storeGlb(assetIdStr, arrayBuffer).catch(() => {});
           offlineCache.storeAsset({ 
+            ...cachedAsset,
             id: assetIdStr, 
-            name: modelName || assetMeta?.name || 'Asset', 
+            name: modelName || assetMeta?.name || cachedAsset?.name || 'Asset', 
             url_glb: path, 
             cached_at: Date.now(),
-            version: v
+            version: remoteVersion || localVersion || 1
           }).catch(() => {});
         }
 
@@ -786,6 +883,9 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
       }
       if (hierarchyRef.current) { hierarchyRef.current.innerHTML = ''; buildTree(data, hierarchyRef.current); }
       if (descRef.current) descRef.current.innerHTML = 'Cliquez sur un os pour voir sa description.';
+      
+      syncEyes();
+      countHidden();
       
       // Ensure labels are visible on first load
       setTimeout(rebuildLabels, 100);
@@ -1082,6 +1182,18 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     };
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        if (e.shiftKey) redo(); else undo();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+        redo();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [history, future]); // Re-bind when stacks change to have fresh refs if needed, or use functional refs
+
   useEffect(() => { setTimeout(load, 0); }, []);
 
   useEffect(() => {
@@ -1120,19 +1232,26 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
         <div className="hierarchy-actions">
           {(!readOnly || isOffline) ? (
             <>
-              <button className="ha-btn" onClick={isolate} disabled={!hasSel} title="Isoler la sélection"><Crosshair size={14} /></button>
-              <button className="ha-btn" onClick={hide} disabled={!hasSel} title="Masquer l'élément"><EyeOff size={14} /></button>
-              <button className="ha-btn" onClick={show} disabled={!hasSel} title="Réafficher l'élément"><Eye size={14} /></button>
-              <button className="ha-btn" onClick={revealAll} title="Tout réafficher"><RefreshCcw size={14} /><span className="ha-badge">{hiddenCount || ''}</span></button>
-              <button className="ha-btn" onClick={fade} disabled={!hasSel} title="Mode translucide (Fantôme)"><Moon size={14} /></button>
-              <button className="ha-btn" onClick={unfade} disabled={!hasSel} title="Rendre opaque"><Sun size={14} /></button>
-              <button className="ha-btn" onClick={fadeOthers} disabled={!hasSel} title="Isoler en transparence"><Contrast size={14} /></button>
+              <button className="ha-btn" onClick={() => { takeSnapshot(); isolate(); }} disabled={!hasSel} title="Isoler la sélection"><Crosshair size={14} /></button>
+              <button className="ha-btn" onClick={() => { takeSnapshot(); hide(); }} disabled={!hasSel} title="Masquer l'élément"><EyeOff size={14} /></button>
+              <button className="ha-btn" onClick={() => { takeSnapshot(); show(); }} disabled={!hasSel} title="Réafficher l'élément"><Eye size={14} /></button>
+              <button className="ha-btn" onClick={() => { takeSnapshot(); revealAll(); }} title="Tout réafficher">
+                <RefreshCcw size={14} />
+                {hiddenCount > 0 && <span className="ha-badge">{hiddenCount}</span>}
+              </button>
+              <button className="ha-btn" onClick={() => { takeSnapshot(); fade(); }} disabled={!hasSel} title="Mode translucide (Fantôme)"><Moon size={14} /></button>
+              <button className="ha-btn" onClick={() => { takeSnapshot(); unfade(); }} disabled={!hasSel} title="Rendre opaque"><Sun size={14} /></button>
+              <button className="ha-btn" onClick={() => { takeSnapshot(); fadeOthers(); }} disabled={!hasSel} title="Isoler en transparence"><Contrast size={14} /></button>
             </>
           ) : (
             <div style={{ padding: '4px 8px', fontSize: '11px', color: 'var(--dash-text-muted)', fontWeight: 600 }}>
               MODE LECTURE SEULE
             </div>
           )}
+          <div style={{ width: '1px', height: '24px', background: 'var(--dash-border)', margin: '0 4px' }} />
+          <button className="ha-btn" onClick={undo} disabled={history.length === 0} title={t("Annuler (Ctrl+Z)", "Undo (Ctrl+Z)")}><RotateCcw size={14} /></button>
+          <button className="ha-btn" onClick={redo} disabled={future.length === 0} title={t("Rétablir (Ctrl+Y)", "Redo (Ctrl+Y)")}><RotateCw size={14} /></button>
+          <div style={{ width: '1px', height: '24px', background: 'var(--dash-border)', margin: '0 4px' }} />
           <button className="ha-btn" onClick={cycleBg} title="Changer la couleur de fond"><Palette size={14} /></button>
           <button className={`ha-btn ${showLabels ? 'active' : ''}`} onClick={toggleLabels} title="Afficher/Masquer les étiquettes">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>

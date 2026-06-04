@@ -319,8 +319,16 @@ class Asset3dController extends Controller
     {
         try {
             $changed = false;
+            $newName = $request->input('name');
+            $oldUrl = $asset->url_glb;
 
-            // --- Gestion du fichier GLB ---
+            // 1. Mise à jour du nom (si fourni)
+            if ($newName && $newName !== $asset->name) {
+                $asset->name = $newName;
+                $changed = true;
+            }
+
+            // 2. Gestion du fichier GLB (Nouveau fichier)
             if ($request->hasFile('glb_file')) {
                 $file = $request->file('glb_file');
                 $extension = $file->getClientOriginalExtension();
@@ -329,18 +337,17 @@ class Asset3dController extends Controller
                     return response()->json(['error' => 'Seuls les fichiers .glb sont acceptés'], 422);
                 }
 
-                // Construire le nouveau nom de fichier
-                $slug = \Illuminate\Support\Str::slug($asset->name, '_');
-                $newFilename = $slug . '_' . time() . '.' . $extension;
+                // Pour le nouveau fichier, on utilise l'ID de l'asset pour le nom de fichier
+                $newFilename = $asset->id . '.glb';
                 $newPath = 'Assets_3D/' . $newFilename;
 
                 if (!Storage::disk('local')->putFileAs('Assets_3D', $file, $newFilename)) {
                     throw new \Exception("Impossible d'enregistrer le fichier.");
                 }
 
-                // Supprimer l'ancien fichier
-                if ($asset->url_glb && Storage::disk('local')->exists($asset->url_glb)) {
-                    Storage::disk('local')->delete($asset->url_glb);
+                // Supprimer l'ancien fichier s'il est différent du nouveau
+                if ($oldUrl && $oldUrl !== $newPath && Storage::disk('local')->exists($oldUrl)) {
+                    Storage::disk('local')->delete($oldUrl);
                 }
 
                 $asset->url_glb = $newPath;
@@ -349,38 +356,6 @@ class Asset3dController extends Controller
 
             if ($request->has('version_cache')) {
                 $asset->version_cache = (int) $request->input('version_cache');
-                $changed = true;
-            }
-
-            $newName = $request->input('name');
-            if ($newName) {
-                $asset->name = $newName;
-
-                // Ne renommer le fichier physique que si aucun nouveau fichier n'a été uploadé
-                if (!$request->hasFile('glb_file')) {
-                    $oldPath = $asset->url_glb;
-                    $extension = pathinfo($oldPath, PATHINFO_EXTENSION);
-                    $slug = \Illuminate\Support\Str::slug($newName, '_');
-                    $newFilename = $slug . '.' . $extension;
-                    $newPath = 'Assets_3D/' . $newFilename;
-
-                    if ($newPath !== $oldPath && Storage::disk('local')->exists($newPath)) {
-                        $counter = 1;
-                        while (Storage::disk('local')->exists('Assets_3D/' . $slug . '_' . $counter . '.' . $extension)) {
-                            $counter++;
-                        }
-                        $newFilename = $slug . '_' . $counter . '.' . $extension;
-                        $newPath = 'Assets_3D/' . $newFilename;
-                    }
-
-                    if ($newPath !== $oldPath) {
-                        if (!Storage::disk('local')->move($oldPath, $newPath)) {
-                            throw new \Exception("Impossible de renommer le fichier sur le disque.");
-                        }
-                        $asset->url_glb = $newPath;
-                    }
-                }
-
                 $changed = true;
             }
 
@@ -569,21 +544,20 @@ class Asset3dController extends Controller
             }
 
             return DB::transaction(function () use ($tmpPath, $objects, $user, $request) {
-                // Créer un nouveau nom de fichier basé sur le nom fourni par l'utilisateur
+                // Créer l'Asset3D d'abord pour avoir son ID
                 $customName = $request->input('name', 'Model');
-                $slug = str_replace(' ', '_', strtolower($customName));
-                $newFileName = 'Assets_3D/' . $slug . '_' . time() . '.glb';
+                $adminId = $user ? $user->id : \App\Models\User::where('role', 'admin')->first()?->id;
 
-                // Déplacer/Renommer le fichier physique
+                $assetId = (string) \Illuminate\Support\Str::uuid();
+                $newFileName = 'Assets_3D/' . $assetId . '.glb';
+
+                // Déplacer/Renommer le fichier physique vers le nom définitif (ID.glb)
                 if (Storage::disk('local')->exists($tmpPath)) {
                     Storage::disk('local')->move($tmpPath, $newFileName);
                 }
 
-                // Trouver un admin par défaut si non connecté (mode debug)
-                $adminId = $user ? $user->id : \App\Models\User::where('role', 'admin')->first()?->id;
-
-                // Créer l'Asset3D
                 $asset = Asset3d::create([
+                    'id'            => $assetId,
                     'name'          => $customName,
                     'url_glb'       => $newFileName,
                     'version_cache' => 1,
