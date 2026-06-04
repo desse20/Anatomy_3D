@@ -52,7 +52,7 @@ const FloatingActionsDrawer: React.FC<FloatingActionsDrawerProps> = () => {
                     position: fixed;
                     right: -80px;
                     bottom: 100px;
-                    z-index: 99999;
+                    z-index: 1000;
                     display: flex;
                     align-items: center;
                     transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);

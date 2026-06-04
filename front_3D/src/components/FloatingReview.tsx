@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useLanguage } from '../contexts/LanguageContext';
 import { reviewService } from '../services/api';
 import Swal from 'sweetalert2';
+import 'sweetalert2/dist/sweetalert2.min.css';
 
 interface FloatingReviewProps {
     isOpen?: boolean;
@@ -29,36 +30,63 @@ const FloatingReview: React.FC<FloatingReviewProps> = ({ isOpen: propIsOpen, onT
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (rating === 0 || isSubmitting) return;
+        console.log('[Review] Submit started', { type, rating, comment });
+
+        if (rating === 0) {
+            console.warn('[Review] Rating is 0, blocking submit');
+            return;
+        }
+        if (isSubmitting) {
+            console.warn('[Review] Already submitting, blocking');
+            return;
+        }
 
         setIsSubmitting(true);
         try {
-            await reviewService.store({
+            console.log('[Review] Calling backend...');
+            const response = await reviewService.store({
                 type,
                 rating,
                 comment
             });
+            console.log('[Review] Backend success:', response);
             
             setIsOpen(false);
             setRating(0);
             setComment('');
             
-            Swal.fire({
-                icon: 'success',
-                title: t('Merci !', 'Thank you!'),
-                text: t('Votre avis a été enregistré.', 'Your review has been saved.'),
-                timer: 2000,
-                showConfirmButton: false
+            console.log('[Review] Showing success Toast');
+            const Toast = Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true,
+                customClass: {
+                    container: 'swal2-high-zindex'
+                },
+                didOpen: (toast) => {
+                    toast.addEventListener('mouseenter', Swal.stopTimer)
+                    toast.addEventListener('mouseleave', Swal.resumeTimer)
+                }
             });
-        } catch (error) {
-            console.error(error);
+
+            Toast.fire({
+                icon: 'success',
+                title: t('Avis enregistré !', 'Review saved!')
+            });
+
+        } catch (error: any) {
+            console.error('[Review] Submission failed:', error);
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: t('Impossible d\'enregistrer l\'avis.', 'Could not save review.')
+                text: error.message || t('Impossible d\'enregistrer l\'avis.', 'Could not save review.'),
+                confirmButtonColor: '#3b82f6'
             });
         } finally {
             setIsSubmitting(false);
+            console.log('[Review] Submit flow finished');
         }
     };
 
@@ -131,7 +159,10 @@ const FloatingReview: React.FC<FloatingReviewProps> = ({ isOpen: propIsOpen, onT
                                         key={star}
                                         type="button"
                                         className={`star-btn ${(hover || rating) >= star ? 'active' : ''}`}
-                                        onClick={() => setRating(star)}
+                                        onClick={() => {
+                                            console.log('[Review] Star clicked:', star);
+                                            setRating(star);
+                                        }}
                                         onMouseEnter={() => setHover(star)}
                                         onMouseLeave={() => setHover(0)}
                                     >
