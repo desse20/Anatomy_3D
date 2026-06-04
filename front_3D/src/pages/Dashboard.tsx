@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation, useParams } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import { motion } from 'framer-motion';
 import { Calendar, AlertTriangle, CheckCircle, Activity } from 'lucide-react';
@@ -417,10 +417,25 @@ const Dashboard: React.FC = () => {
     const [showStudentSection, setShowStudentSection] = useState(() => readUserRole() === 'student');
 
     // New states for feedback and cache management
+    const location = useLocation();
+    const { id: routeId } = useParams();
     const [latestReviews, setLatestReviews] = useState<any[]>([]);
     const [latestCache, setLatestCache] = useState<any[]>([]);
     const [activeAiModels, setActiveAiModels] = useState<any[]>([]);
     const [activeView, setActiveView] = useState<'main' | 'reviews' | 'cache' | 'analytics_objects' | 'user_analytics' | 'user_detail'>('main');
+
+    // Sync activeView with URL path
+    useEffect(() => {
+        if (location.pathname === '/reviews') setActiveView('reviews');
+        else if (location.pathname === '/cache-ia') setActiveView('cache');
+        else if (location.pathname === '/analytics') setActiveView('user_analytics');
+        else if (location.pathname === '/analytics-objects') setActiveView('analytics_objects');
+        else if (location.pathname.startsWith('/analytics/user/')) {
+            setActiveView('user_detail');
+            if (routeId) fetchUserStatsDetail(routeId);
+        }
+        else if (location.pathname === '/dash') setActiveView('main');
+    }, [location.pathname, routeId]);
     const [analyticsUsers, setAnalyticsUsers] = useState<any[]>([]);
     const [selectedUserStats, setSelectedUserStats] = useState<any>(null);
     const [viewFilter, setViewFilter] = useState('all');
@@ -432,6 +447,14 @@ const Dashboard: React.FC = () => {
     const [modalLoading, setModalLoading] = useState(false);
     const [editingItem, setEditingItem] = useState<any>(null);
     const [userSearchQuery, setUserSearchQuery] = useState('');
+    const [reviewStats, setReviewStats] = useState<any>(null);
+
+    const fetchReviewStats = async () => {
+        try {
+            const res = await reviewService.getStats();
+            setReviewStats(res);
+        } catch (err) { console.error("Fetch review stats failed", err); }
+    };
 
     const fetchLatestReviews = async () => {
         try {
@@ -549,6 +572,7 @@ const Dashboard: React.FC = () => {
             await reviewService.delete(id);
             setModalData(prev => prev.filter(r => r.id !== id));
             fetchLatestReviews();
+            fetchReviewStats();
             Swal.fire({
                 title: t('Supprimé', 'Deleted'),
                 icon: 'success',
@@ -646,14 +670,9 @@ const Dashboard: React.FC = () => {
             promises.push(apiCall(`/system/stats?range=${statRange}`).catch(() => null));
             promises.push(apiCall('labs').catch(() => ({ data: [] })));
             promises.push(apiCall('mastery/stats').catch(() => null));
-            fetchAdminUsageAnalytics(statRange);
             fetchLatestReviews();
             fetchLatestCache();
             fetchActiveAiModels();
-            if (activeView !== 'main') {
-                if (activeView === 'user_analytics') fetchAnalyticsUsers();
-                else fetchManagementData(activeView === 'reviews' ? 'reviews' : 'cache', viewFilter);
-            }
         } else if (role === 'teacher') {
             promises.push(apiCall('labs').catch(() => ({ data: [] })));
             promises.push(apiCall('mastery/stats').catch(() => null));
@@ -679,16 +698,23 @@ const Dashboard: React.FC = () => {
         .finally(() => setLoading(false));
     }, [language]);
 
+    // Fetch view-specific data when activeView changes
     useEffect(() => {
         const user = JSON.parse(localStorage.getItem('user') || '{}');
         if (user.role !== 'admin') return;
-        
-        // On ne recharge ici que si le loading initial est terminé
-        if (!loading) {
-            fetchAdminStats(statRange);
-            fetchAdminUsageAnalytics(statRange);
+
+        fetchAdminStats(statRange);
+        fetchAdminUsageAnalytics(statRange);
+
+        if (activeView === 'user_analytics') {
+            fetchAnalyticsUsers();
+        } else if (activeView === 'reviews') {
+            fetchManagementData('reviews', viewFilter);
+            fetchReviewStats();
+        } else if (activeView === 'cache') {
+            fetchManagementData('cache');
         }
-    }, [statRange, loading]);
+    }, [activeView, statRange]);
 
 
     const navigate = useNavigate();
@@ -846,8 +872,8 @@ const Dashboard: React.FC = () => {
                 <div className="secondary-view">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '20px', width: '100%', marginBottom: '25px' }}>
                         <button className="back-btn-dash" onClick={() => {
-                            if (activeView === 'user_detail') setActiveView('user_analytics');
-                            else setActiveView('main');
+                            if (activeView === 'user_detail') navigate('/analytics');
+                            else navigate('/dash');
                         }}>
                             ← {activeView === 'user_detail' ? t('Retour à la liste', 'Back to list') : t('Retour au Dashboard', 'Back to Dashboard')}
                         </button>
@@ -863,20 +889,20 @@ const Dashboard: React.FC = () => {
                                 <select 
                                     value={viewFilter} 
                                     onChange={(e) => { setViewFilter(e.target.value); fetchManagementData('reviews', e.target.value, 1, ratingFilter); }}
-                                        style={{ background: 'var(--dash-bg)', color: 'var(--dash-text-main)', border: '1px solid var(--dash-border)', borderRadius: '8px', padding: '5px 10px', fontSize: '11px' }}
-                                    >
-                                        <option value="all">{t('Toutes cibles', 'All targets')}</option>
-                                        <option value="platform">{t('Plateforme', 'Platform')}</option>
-                                        <option value="object">{t('Objets anatomiques', 'Anatomy objects')}</option>
-                                    </select>
-                                    <select 
-                                        value={ratingFilter} 
-                                        onChange={(e) => { setRatingFilter(e.target.value); fetchManagementData('reviews', viewFilter, 1, e.target.value); }}
-                                        style={{ background: 'var(--dash-bg)', color: 'var(--dash-text-main)', border: '1px solid var(--dash-border)', borderRadius: '8px', padding: '5px 10px', fontSize: '11px' }}
+                                    style={{ background: 'var(--dash-bg)', color: 'var(--dash-text-main)', border: '1px solid var(--dash-border)', borderRadius: '8px', padding: '5px 10px', fontSize: '11px' }}
+                                >
+                                    <option value="all">{t('Toutes cibles', 'All targets')} ({reviewStats?.total || 0})</option>
+                                    <option value="platform">{t('Plateforme', 'Platform')} ({reviewStats?.by_type?.platform || 0})</option>
+                                    <option value="object">{t('Objets anatomiques', 'Anatomy objects')} ({reviewStats?.by_type?.object || 0})</option>
+                                </select>
+                                <select 
+                                    value={ratingFilter} 
+                                    onChange={(e) => { setRatingFilter(e.target.value); fetchManagementData('reviews', viewFilter, 1, e.target.value); }}
+                                    style={{ background: 'var(--dash-bg)', color: 'var(--dash-text-main)', border: '1px solid var(--dash-border)', borderRadius: '8px', padding: '5px 10px', fontSize: '11px' }}
                                 >
                                     <option value="all">{t('Toutes les notes', 'All ratings')}</option>
-                                    <option value="positive">{t('Positifs (≥ 3★)', 'Positive (≥ 3★)')}</option>
-                                    <option value="negative">{t('Négatifs (< 3★)', 'Negative (< 3★)')}</option>
+                                    <option value="positive">{t('Positifs (≥ 3★)', 'Positive (≥ 3★)')} ({reviewStats?.counts?.positive || 0})</option>
+                                    <option value="negative">{t('Négatifs (< 3★)', 'Negative (< 3★)')} ({reviewStats?.counts?.negative || 0})</option>
                                 </select>
                             </div>
                         )}
@@ -1096,7 +1122,7 @@ const Dashboard: React.FC = () => {
                                                         </div>
                                                     </td>
                                                     <td style={{ padding: '16px 24px', textAlign: 'right' }}>
-                                                        <button onClick={() => fetchUserStatsDetail(u.id)} className="mini-btn" style={{ padding: '6px 12px', fontSize: '11px' }}>
+                                                        <button onClick={() => navigate(`/analytics/user/${u.id}`)} className="mini-btn" style={{ padding: '6px 12px', fontSize: '11px' }}>
                                                             {t('Détails', 'Details')} →
                                                         </button>
                                                     </td>
@@ -1190,7 +1216,7 @@ const Dashboard: React.FC = () => {
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                                             <h3 style={{ margin: 0 }}><ArrowUpRight color="#34d399" size={16} /> {t('Plus consultés', 'Most visited')}</h3>
                                             {(usageStats.objects?.top?.length > 3) && (
-                                                <button onClick={() => setActiveView('analytics_objects')} className="mini-btn-flat">{t('Voir tout', 'View all')}</button>
+                                                <button onClick={() => navigate('/analytics-objects')} className="mini-btn-flat">{t('Voir tout', 'View all')}</button>
                                             )}
                                         </div>
                                         <div className="list-dash">
@@ -1290,7 +1316,7 @@ const Dashboard: React.FC = () => {
                                     </div>
 
                                     <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
-                                        <button onClick={() => { setActiveView('user_analytics'); fetchAnalyticsUsers(); }} className="mini-btn" style={{ flex: 1, margin: 0, border: 'none', cursor: 'pointer', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6' }}>{t('Analytics', 'Analytics')} →</button>
+                                        <button onClick={() => navigate('/analytics')} className="mini-btn" style={{ flex: 1, margin: 0, border: 'none', cursor: 'pointer', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6' }}>{t('Analytics', 'Analytics')} →</button>
                                         <Link to="/utilisateurs" className="mini-btn" style={{ flex: 1, margin: 0, background: 'rgba(14, 165, 233, 0.1)', color: '#0ea5e9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{t('Gérer', 'Manage')} →</Link>
                                     </div>
                                 </div>
@@ -1310,11 +1336,11 @@ const Dashboard: React.FC = () => {
                                         <span>{t('Gérer les utilisateurs', 'Manage users')}</span>
                                         <ArrowLg />
                                     </Link>
-                                    <div onClick={() => { setActiveView('reviews'); setViewFilter('all'); fetchManagementData('reviews', 'all'); }} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '12px', background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-main)', transition: 'all 0.2s' }}>
+                                    <div onClick={() => navigate('/reviews')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '12px', background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-main)', transition: 'all 0.2s' }}>
                                         <span>{t('Gestion des avis', 'Manage reviews')}</span>
                                         <ArrowLg />
                                     </div>
-                                    <div onClick={() => { setActiveView('cache'); fetchManagementData('cache'); }} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '12px', background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-main)', transition: 'all 0.2s' }}>
+                                    <div onClick={() => navigate('/cache-ia')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '12px', background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-main)', transition: 'all 0.2s' }}>
                                         <span>{t('Gestion du cache IA', 'Manage AI Cache')}</span>
                                         <ArrowLg />
                                     </div>
@@ -1333,7 +1359,7 @@ const Dashboard: React.FC = () => {
                                         <h3 style={{ margin: 0 }}>{t('Derniers Avis', 'Latest Reviews')}</h3>
                                         <div style={{ fontSize: '11px', color: 'var(--dash-text-muted)' }}>{usageStats.summary?.labels?.rating || t('Note Moyenne', 'Avg Rating')}: <strong style={{ color: '#f59e0b' }}>{usageStats.summary?.avg_rating || 'N/A'}/5</strong></div>
                                     </div>
-                                    <button onClick={() => { setActiveView('reviews'); setViewFilter('all'); fetchManagementData('reviews', 'all'); }} className="mini-btn">
+                                    <button onClick={() => navigate('/reviews')} className="mini-btn">
                                         {t('Voir tout', 'View all')}
                                     </button>
                                 </div>
@@ -1367,7 +1393,7 @@ const Dashboard: React.FC = () => {
                                         <h3 style={{ margin: 0 }}>{t('Cache IA Récent', 'Recent AI Cache')}</h3>
                                         <div style={{ fontSize: '11px', color: 'var(--dash-text-muted)' }}><strong style={{ color: '#a78bfa' }}>{usageStats.summary?.ai_cached_responses || 0}</strong> {usageStats.summary?.labels?.cache || t('entrées actives', 'active entries')}</div>
                                     </div>
-                                    <button onClick={() => { setActiveView('cache'); fetchManagementData('cache'); }} className="mini-btn">
+                                    <button onClick={() => navigate('/cache-ia')} className="mini-btn">
                                         {t('Gérer', 'Manage')}
                                     </button>
                                 </div>

@@ -116,8 +116,8 @@ button { font-family: inherit; cursor: pointer; }
   cursor: pointer;
   white-space: nowrap;
 }
-.header-logo span { color: rgb(1, 11, 37); transition: color var(--t); }
-#masthead.skinny .header-logo span { color: #fff; }
+.header-logo span { color: var(--blue-light); transition: color var(--t); }
+#masthead.skinny .header-logo span { color: var(--blue-light); }
 
 /* Nav links */
 .header-links-wrapper { display: flex; align-items: center; gap: 4px; }

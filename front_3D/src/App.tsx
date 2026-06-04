@@ -50,6 +50,11 @@ function App() {
 
           {/* Admin only */}
           <Route path="/utilisateurs" element={<RoleRoute allowedRoles={['admin']}><AdminUsers /></RoleRoute>} />
+          <Route path="/reviews" element={<RoleRoute allowedRoles={['admin']}><Dashboard /></RoleRoute>} />
+          <Route path="/cache-ia" element={<RoleRoute allowedRoles={['admin']}><Dashboard /></RoleRoute>} />
+          <Route path="/analytics" element={<RoleRoute allowedRoles={['admin']}><Dashboard /></RoleRoute>} />
+          <Route path="/analytics-objects" element={<RoleRoute allowedRoles={['admin']}><Dashboard /></RoleRoute>} />
+          <Route path="/analytics/user/:id" element={<RoleRoute allowedRoles={['admin']}><Dashboard /></RoleRoute>} />
           <Route path="/model" element={<RoleRoute allowedRoles={['admin']}><AdminResources /></RoleRoute>} />
           <Route path="/model/:id" element={<RoleRoute allowedRoles={['admin']}><AdminResourceDetail /></RoleRoute>} />
           <Route path="/tech" element={<RoleRoute allowedRoles={['admin']}><TechManagement /></RoleRoute>} />

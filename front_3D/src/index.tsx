@@ -4,7 +4,7 @@
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { authService } from './services/api';
+import { authService, apiCall } from './services/api';
 import { useLanguage } from './contexts/LanguageContext';
 import FloatingActionsDrawer from './components/FloatingActionsDrawer';
 import './styles/landing.css';
@@ -99,7 +99,18 @@ const TestPage: React.FC = () => {
   const [error,                setError]               = useState<string | null>(null);
   const [sent,                 setSent]                = useState(false);
   const [step,                 setStep]                = useState(1);
+  const [publicStats,          setPublicStats]         = useState<{models_count: number, quizzes_count: number}>({ models_count: 1, quizzes_count: 5000 });
   const headerRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const resp = await apiCall('/public/stats');
+        if (resp) setPublicStats(resp);
+      } catch (err) { console.error("Public stats failed", err); }
+    };
+    fetchStats();
+  }, []);
 
   useEffect(() => {
     if (window.location.hash) {
@@ -328,8 +339,8 @@ const TestPage: React.FC = () => {
         </div>
         <div className="about-us-columns-grid">
           {[
-            { label: language === 'fr' ? 'Modèle 3D complet' : 'Complete 3D Model',   value: '1', nowrap: true },
-            { label: language === 'fr' ? 'Quiz générés' : 'Generated Quizzes',     value: '5 000+', nowrap: true },
+            { label: language === 'fr' ? 'Modèle 3D complet' : 'Complete 3D Model',   value: publicStats.models_count.toString(), nowrap: true },
+            { label: language === 'fr' ? 'Quiz générés' : 'Generated Quizzes',     value: `${publicStats.quizzes_count.toLocaleString()}+`, nowrap: true },
             { label: language === 'fr' ? 'Outils Professeurs' : 'Teacher Tools',  value: language === 'fr' ? 'Lien direct' : 'Direct link', nowrap: true },
             { label: language === 'fr' ? 'Langues supportées' : 'Supported Languages',    value: language === 'fr' ? 'Français & Anglais' : 'French & English', nowrap: false },
           ].map((s, i) => (

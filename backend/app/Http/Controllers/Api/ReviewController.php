@@ -72,17 +72,32 @@ class ReviewController extends Controller
 
         $total       = $query->count();
         $average     = $total > 0 ? round($query->avg('rating'), 2) : null;
-        $distribution = $query->select('rating', DB::raw('count(*) as count'))
+        
+        $distribution = $query->clone()->select('rating', DB::raw('count(*) as count'))
             ->groupBy('rating')
             ->orderBy('rating')
             ->get()
             ->keyBy('rating')
-            ->map(fn($r) => $r->count);
+            ->map(fn($r) => (int) $r->count);
+
+        $byType = Review::select('type', DB::raw('count(*) as count'))
+            ->groupBy('type')
+            ->get()
+            ->keyBy('type')
+            ->map(fn($r) => (int) $r->count);
+
+        $positive = Review::where('rating', '>=', 3)->count();
+        $negative = Review::where('rating', '<', 3)->count();
 
         return response()->json([
             'total'        => $total,
             'average'      => $average,
             'distribution' => $distribution,
+            'by_type'      => $byType,
+            'counts'       => [
+                'positive' => $positive,
+                'negative' => $negative
+            ]
         ]);
     }
 
