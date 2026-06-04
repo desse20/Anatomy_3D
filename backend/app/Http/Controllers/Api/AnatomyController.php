@@ -16,10 +16,14 @@ class AnatomyController extends Controller
     public function all(Request $request)
     {
         try {
-            $query = AnatomicalObject::select('id', 'name', 'parent_id', 'mesh', 'description', 'three_js_name');
+            $query = AnatomicalObject::select('id', 'name', 'parent_id', 'mesh', 'description', 'three_js_name', 'updated_at');
             
             if ($request->has('asset_3d_id')) {
                 $query->where('asset_3d_id', $request->asset_3d_id);
+            }
+
+            if ($request->has('since')) {
+                $query->where('updated_at', '>', $request->since);
             }
 
             $objects = $query->get()
@@ -30,7 +34,8 @@ class AnatomyController extends Controller
                         'three_js_name' => $obj->three_js_name,
                         'parent_id' => $obj->parent_id,
                         'type' => strtolower($obj->mesh ?? '') === 'mesh' ? 'mesh' : 'group',
-                        'description' => $obj->description
+                        'description' => $obj->description,
+                        'updated_at' => $obj->updated_at
                     ];
                 });
 

@@ -11,7 +11,7 @@ class AnatomicalObject extends Model
     // L'ID n'est pas auto-incrémenté car il vient de Blender
     public $incrementing = false;
     protected $keyType = 'int';
-    public $timestamps = false;
+    public $timestamps = true;
 
     protected $fillable = [
         'id',

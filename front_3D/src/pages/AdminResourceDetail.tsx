@@ -297,6 +297,22 @@ const AdminResourceDetail: React.FC = () => {
         }
     };
 
+    const handleSaveObjectFromModal = async (objId: number, data: any) => {
+        try {
+            await apiCall(`models-manager/objects/${objId}`, { method: 'POST', body: JSON.stringify({ ...data, _method: 'PUT' }) });
+            setObjects(prev => prev.map(o => o.id === objId ? { ...o, ...data } : o));
+            Swal.fire({
+                icon: 'success',
+                title: t('Succès', 'Success'),
+                text: t('Objet mis à jour', 'Object updated'),
+                timer: 2000,
+                showConfirmButton: false
+            });
+        } catch (e) {
+            Swal.fire(t('Erreur', 'Error'), t("Mise à jour de l'objet échouée", "Object update failed"), 'error');
+        }
+    };
+
     const handleDeleteObject = async (objId: number) => {
         const result = await Swal.fire({
             title: t('Supprimer cet objet ?', 'Delete this object?'),
@@ -320,79 +336,116 @@ const AdminResourceDetail: React.FC = () => {
         }
     };
 
-    const handleSearchParent = async () => {
-        const { value: query } = await Swal.fire({
-            title: t('Rechercher un parent', 'Search for a parent'),
-            input: 'text',
-            inputPlaceholder: t('Entrez un nom ou un ID...', 'Enter a name or an ID...'),
-            showCancelButton: true,
-            cancelButtonText: t('Annuler', 'Cancel'),
-            confirmButtonText: t('Rechercher', 'Search')
-        });
-
-        if (query) {
-            try {
-                const results = await apiCall(`models-manager/${id}/search-objects?query=${query}`);
-                if (results.length === 0) {
-                    Swal.fire('Info', t('Aucun objet trouvé.', 'No object found.'), 'info');
-                    return null;
-                }
-
-                const { value: selectedId } = await Swal.fire({
-                    title: t('Choisir le parent', 'Choose the parent'),
-                    input: 'select',
-                    inputOptions: results.reduce((acc: any, obj: any) => {
-                        acc[obj.id] = `${obj.name} (ID: ${obj.id})`;
-                        return acc;
-                    }, {}),
-                    inputPlaceholder: t('Sélectionnez un objet', 'Select an object'),
-                    showCancelButton: true,
-                    cancelButtonText: t('Annuler', 'Cancel')
-                });
-
-                return selectedId ? parseInt(selectedId) : null;
-            } catch (e) {
-                Swal.fire(t('Erreur', 'Error'), t('La recherche a échoué', 'Search failed'), 'error');
-            }
-        }
-        return null;
-    };
 
     const handleAddObject = async () => {
         let parentId: number | null = null;
 
         const { value: formValues } = await Swal.fire({
             title: t('Ajouter un objet', 'Add an object'),
-            html:
-                `<div style="text-align:left"><label style="font-size:12px;color:#666">${t('Nom', 'Name')}</label><input id="swal-input1" class="swal2-input" placeholder="${t('Nom', 'Name')}"></div>` +
-                `<div style="text-align:left"><label style="font-size:12px;color:#666">${t('ID ThreeJS', 'ThreeJS ID')}</label><input id="swal-input2" class="swal2-input" placeholder="${t('Nom ThreeJS', 'ThreeJS Name')}"></div>` +
-                `<div style="text-align:left"><label style="font-size:12px;color:#666">${t('Mesh', 'Mesh')}</label><input id="swal-input3" class="swal2-input" placeholder="${t('Mesh', 'Mesh')}"></div>` +
-                `<div style="text-align:left; margin-top:15px"><label style="font-size:12px;color:#666">${t('Parent', 'Parent')}</label>` +
-                `<div style="display:flex; gap:8px"><input id="swal-input-parent-display" class="swal2-input" style="flex:1;margin:0" readonly placeholder="${t('Aucun parent sélectionné', 'No parent selected')}">` +
-                `<button type="button" id="search-parent-btn" style="padding:10px;background:#0ea5e9;color:white;border:none;border-radius:8px;cursor:pointer">${t('Chercher', 'Search')}</button></div></div>` +
-                `<div style="text-align:left; margin-top:15px"><label style="font-size:12px;color:#666">${t('Description', 'Description')}</label><textarea id="swal-input4" class="swal2-textarea" placeholder="${t('Description', 'Description')}"></textarea></div>`,
+            html: `
+                <div style="text-align:left; display:flex; flex-direction:column; gap:20px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div>
+                            <label style="font-size:12px; color:#64748b; font-weight:700; text-transform:uppercase;">${t('Nom de l\'objet', 'Object Name')}</label>
+                            <input id="swal-input1" class="swal2-input" style="width:100%; margin:4px 0 0 0;" placeholder="${t('Ex: Bras, Avant-bras...', 'Ex: Arm, Forearm...')}">
+                        </div>
+                        <div>
+                            <label style="font-size:12px; color:#64748b; font-weight:700; text-transform:uppercase;">${t('ID ThreeJS (Blender)', 'ThreeJS ID (Blender)')}</label>
+                            <input id="swal-input2" class="swal2-input" style="width:100%; margin:4px 0 0 0;" placeholder="${t('ID exact du node Blender', 'Exact Blender node ID')}">
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div>
+                            <label style="font-size:12px; color:#64748b; font-weight:700; text-transform:uppercase;">${t('Mesh (optionnel)', 'Mesh (optional)')}</label>
+                            <input id="swal-input3" class="swal2-input" style="width:100%; margin:4px 0 0 0;" placeholder="${t('Nom du mesh si différent', 'Mesh name if different')}">
+                        </div>
+                        <div style="background:rgba(14, 165, 233, 0.03); padding:15px; border-radius:12px; border:1px solid #e2e8f0;">
+                            <label style="font-size:12px; color:#64748b; font-weight:700; text-transform:uppercase;">${t('Parent Anatomique', 'Anatomical Parent')}</label>
+                            <div style="display:flex; gap:8px; margin-top:4px;">
+                                <input id="swal-parent-search" class="swal2-input" style="flex:1; margin:0; font-size:13px;" placeholder="${t('Rechercher...', 'Search...')}">
+                                <button type="button" id="search-parent-btn" style="padding:0 12px; background:#0ea5e9; color:white; border:none; border-radius:8px; cursor:pointer;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></button>
+                            </div>
+                            <input id="swal-input-parent-display" class="swal2-input" style="width:100%; margin:8px 0 0 0; background:#f8fafc; font-size:12px;" readonly placeholder="${t('Aucun parent sélectionné', 'No parent selected')}">
+                            <div id="parent-results-container" style="max-height:80px; overflow-y:auto; margin-top:8px; font-size:12px;"></div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label style="font-size:12px; color:#64748b; font-weight:700; text-transform:uppercase;">${t('Description', 'Description')}</label>
+                        <textarea id="swal-input4" class="swal2-textarea" style="width:100%; margin:4px 0 0 0; height:400px; font-size:15px; line-height: 1.6; border-radius: 12px;" placeholder="${t('Détails anatomiques...', 'Anatomical details...')}"></textarea>
+                    </div>
+                </div>
+            `,
+            width: '90%',
+            showCloseButton: true,
             focusConfirm: false,
             didOpen: () => {
                 const btn = document.getElementById('search-parent-btn');
+                const searchInput = document.getElementById('swal-parent-search') as HTMLInputElement;
                 const display = document.getElementById('swal-input-parent-display') as HTMLInputElement;
+                const resultsContainer = document.getElementById('parent-results-container') as HTMLDivElement;
+
                 btn?.addEventListener('click', async () => {
-                    const picked = await handleSearchParent();
-                    if (picked !== null) {
-                        parentId = picked;
-                        display.value = `ID: ${picked}`;
-                    } else {
-                        parentId = null;
-                        display.value = t('Aucun parent', 'No parent');
+                    const query = searchInput.value.trim();
+                    if (!query) return;
+                    
+                    resultsContainer.innerHTML = `<div style="padding:10px; color:#9ca3af;">${t('Recherche...', 'Searching...')}</div>`;
+                    
+                    try {
+                        const results = await apiCall(`models-manager/${id}/search-objects?query=${query}`);
+                        resultsContainer.innerHTML = '';
+                        
+                        if (results.length === 0) {
+                            resultsContainer.innerHTML = `<div style="padding:10px; color:#f43f5e;">${t('Aucun résultat', 'No results')}</div>`;
+                            return;
+                        }
+
+                        results.forEach((obj: any) => {
+                            const item = document.createElement('div');
+                            item.style.padding = '8px 10px';
+                            item.style.borderBottom = '1px solid #f3f4f6';
+                            item.style.cursor = 'pointer';
+                            item.style.transition = '0.2s';
+                            item.innerHTML = `<strong>${obj.name}</strong> <span style="color:#9ca3af; float:right;">ID: ${obj.id}</span>`;
+                            
+                            item.onmouseover = () => item.style.background = '#f0f9ff';
+                            item.onmouseout = () => item.style.background = 'transparent';
+                            
+                            item.onclick = () => {
+                                parentId = obj.id;
+                                display.value = `${obj.name} (ID: ${obj.id})`;
+                                resultsContainer.innerHTML = '';
+                                searchInput.value = '';
+                            };
+                            resultsContainer.appendChild(item);
+                        });
+                    } catch (e) {
+                        resultsContainer.innerHTML = `<div style="padding:10px; color:#f43f5e;">${t('Erreur', 'Error')}</div>`;
+                    }
+                });
+
+                // Allow searching with Enter key in search box
+                searchInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        btn?.click();
                     }
                 });
             },
             preConfirm: () => {
+                const name = (document.getElementById('swal-input1') as HTMLInputElement).value.trim();
+                const three_js_name = (document.getElementById('swal-input2') as HTMLInputElement).value.trim();
+                if (!name || !three_js_name) {
+                    Swal.showValidationMessage(t('Le nom et l\'ID ThreeJS sont requis', 'Name and ThreeJS ID are required'));
+                    return false;
+                }
                 return {
-                    name: (document.getElementById('swal-input1') as HTMLInputElement).value,
-                    three_js_name: (document.getElementById('swal-input2') as HTMLInputElement).value,
-                    mesh: (document.getElementById('swal-input3') as HTMLInputElement).value,
+                    name,
+                    three_js_name,
+                    mesh: (document.getElementById('swal-input3') as HTMLInputElement).value.trim(),
                     parent_id: parentId,
-                    description: (document.getElementById('swal-input4') as HTMLTextAreaElement).value
+                    description: (document.getElementById('swal-input4') as HTMLTextAreaElement).value.trim()
                 }
             }
         });
@@ -402,9 +455,15 @@ const AdminResourceDetail: React.FC = () => {
                 const res = await apiCall(`models-manager/${id}/objects`, { method: 'POST', body: JSON.stringify(formValues) });
                 setObjects(prev => [res.object, ...prev]);
                 setTotalObjects(prev => prev + 1);
-                Swal.fire(t('Succès', 'Success'), t('Objet ajouté', 'Object added'), 'success');
-            } catch (e) {
-                Swal.fire(t('Erreur', 'Error'), t('Ajout échoué', 'Addition failed'), 'error');
+                Swal.fire({
+                    icon: 'success',
+                    title: t('Succès', 'Success'),
+                    text: t('Objet ajouté', 'Object added'),
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            } catch (e: any) {
+                Swal.fire(t('Erreur', 'Error'), e?.message || t('Ajout échoué', 'Addition failed'), 'error');
             }
         }
     };
@@ -676,33 +735,104 @@ const AdminResourceDetail: React.FC = () => {
                                             ) : (
                                                 <>
                                                     <button onClick={() => {
+                                                        let currentParentId = obj.parent_id;
                                                         Swal.fire({
-                                                            title: `<div style="text-align: left; border-bottom: 1px solid #e5e7eb; padding-bottom: 10px;">${t('Détails :', 'Details:')} ${obj.name}</div>`,
+                                                            title: `<div style="text-align: left; border-bottom: 1px solid #e5e7eb; padding-bottom: 15px; font-weight: 800; font-size: 22px; color: #1e293b;">${t('Édition de l\'objet', 'Object Edition')}</div>`,
                                                             html: `
-                                                                <div style="text-align: left; padding: 20px 0;">
-                                                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
-                                                                        <div style="background: #f9fafb; padding: 15px; border-radius: 12px; border: 1px solid #e5e7eb;">
-                                                                            <label style="display: block; font-size: 11px; text-transform: uppercase; color: #9ca3af; margin-bottom: 5px;">ID ThreeJS</label>
-                                                                            <code style="font-size: 14px; font-weight: 600;">${obj.three_js_name}</code>
+                                                                <div style="text-align: left; padding: 20px 0; display: flex; flex-direction: column; gap: 20px;">
+                                                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                                                        <div>
+                                                                            <label style="display: block; font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700; margin-bottom: 6px;">${t('Nom de l\'objet', 'Object Name')}</label>
+                                                                            <input id="swal-edit-obj-name" class="swal2-input" style="width:100%; margin:0; font-size: 15px; font-weight: 600;" value="${obj.name || ''}">
                                                                         </div>
-                                                                        <div style="background: #f9fafb; padding: 15px; border-radius: 12px; border: 1px solid #e5e7eb;">
-                                                                            <label style="display: block; font-size: 11px; text-transform: uppercase; color: #9ca3af; margin-bottom: 5px;">${t('Mesh associé', 'Associated Mesh')}</label>
-                                                                            <span style="font-size: 14px; font-weight: 600;">${obj.mesh || t('N/A', 'N/A')}</span>
+                                                                        <div>
+                                                                            <label style="display: block; font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700; margin-bottom: 6px;">ID ThreeJS</label>
+                                                                            <input id="swal-edit-obj-three" class="swal2-input" style="width:100%; margin:0; font-size: 14px; font-family: monospace;" value="${obj.three_js_name || ''}">
                                                                         </div>
                                                                     </div>
-                                                                    <div style="background: #f9fafb; padding: 20px; border-radius: 12px; border: 1px solid #e5e7eb;">
-                                                                        <label style="display: block; font-size: 11px; text-transform: uppercase; color: #9ca3af; margin-bottom: 10px;">Description</label>
-                                                                        <div style="font-size: 15px; line-height: 1.6; white-space: pre-wrap;">
-                                                                            ${obj.description || '<i>' + t('Aucune description.', 'No description.') + '</i>'}
+                                                                    
+                                                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                                                        <div>
+                                                                            <label style="display: block; font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700; margin-bottom: 6px;">${t('Mesh associé', 'Associated Mesh')}</label>
+                                                                            <input id="swal-edit-obj-mesh" class="swal2-input" style="width:100%; margin:0; font-size: 14px;" value="${obj.mesh || ''}">
                                                                         </div>
+                                                                        <div>
+                                                                            <label style="display: block; font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700; margin-bottom: 6px;">${t('Parent Anatomique', 'Anatomical Parent')}</label>
+                                                                            <div style="display:flex; gap:8px;">
+                                                                                <input id="swal-edit-obj-parent-search" class="swal2-input" style="flex:1; margin:0; font-size: 13px;" placeholder="${t('Rechercher...', 'Search...')}">
+                                                                                <button type="button" id="edit-search-parent-btn" style="padding:0 12px; background:#0ea5e9; color:white; border:none; border-radius:8px; cursor:pointer;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></button>
+                                                                            </div>
+                                                                            <input id="swal-edit-obj-parent-display" class="swal2-input" style="width:100%; margin:5px 0 0 0; background:#f8fafc; font-size:12px; color: #64748b;" readonly value="${obj.parent_id ? 'ID: ' + obj.parent_id : t('Aucun parent', 'No parent')}">
+                                                                            <div id="edit-parent-results" style="max-height:80px; overflow-y:auto; margin-top:5px;"></div>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div>
+                                                                        <label style="display: block; font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700; margin-bottom: 6px;">Description</label>
+                                                                        <textarea id="swal-edit-obj-desc" class="swal2-textarea" style="width:100%; margin:0; height:400px; font-size: 15px; line-height: 1.6; border-radius: 12px; background: #fff;">${obj.description || ''}</textarea>
                                                                     </div>
                                                                 </div>
                                                             `,
-                                                            width: '800px',
+                                                            width: '90%',
                                                             showCloseButton: true,
                                                             showConfirmButton: true,
-                                                            confirmButtonText: t('Fermer', 'Close'),
-                                                            confirmButtonColor: '#6366f1',
+                                                            showCancelButton: true,
+                                                            confirmButtonText: t('Enregistrer les modifications', 'Save Changes'),
+                                                            cancelButtonText: t('Fermer', 'Close'),
+                                                            confirmButtonColor: '#0ea5e9',
+                                                            focusConfirm: false,
+                                                            didOpen: () => {
+                                                                const btn = document.getElementById('edit-search-parent-btn');
+                                                                const searchInput = document.getElementById('swal-edit-obj-parent-search') as HTMLInputElement;
+                                                                const display = document.getElementById('swal-edit-obj-parent-display') as HTMLInputElement;
+                                                                const resultsContainer = document.getElementById('edit-parent-results') as HTMLDivElement;
+
+                                                                if (btn) {
+                                                                    btn.onclick = async () => {
+                                                                        const query = searchInput.value.trim();
+                                                                        if (!query) return;
+                                                                        resultsContainer.innerHTML = '<div style="padding:5px; font-size:11px;">Loading...</div>';
+                                                                        try {
+                                                                            const results = await apiCall(`models-manager/${id}/search-objects?query=${query}`);
+                                                                            resultsContainer.innerHTML = '';
+                                                                            results.forEach((r: any) => {
+                                                                                const div = document.createElement('div');
+                                                                                div.style.padding = '5px 8px';
+                                                                                div.style.cursor = 'pointer';
+                                                                                div.style.borderBottom = '1px solid #f1f5f9';
+                                                                                div.style.fontSize = '12px';
+                                                                                div.innerHTML = `<strong>${r.name}</strong> <span style="color:#94a3b8; float:right;">ID: ${r.id}</span>`;
+                                                                                div.onclick = () => {
+                                                                                    currentParentId = r.id;
+                                                                                    display.value = `${r.name} (ID: ${r.id})`;
+                                                                                    resultsContainer.innerHTML = '';
+                                                                                    searchInput.value = '';
+                                                                                };
+                                                                                resultsContainer.appendChild(div);
+                                                                            });
+                                                                        } catch { resultsContainer.innerHTML = 'Error'; }
+                                                                    };
+                                                                }
+                                                            },
+                                                            preConfirm: () => {
+                                                                const name = (document.getElementById('swal-edit-obj-name') as HTMLInputElement).value.trim();
+                                                                const three = (document.getElementById('swal-edit-obj-three') as HTMLInputElement).value.trim();
+                                                                if (!name || !three) {
+                                                                    Swal.showValidationMessage(t('Nom et ID ThreeJS requis', 'Name and ThreeJS ID required'));
+                                                                    return false;
+                                                                }
+                                                                return {
+                                                                    name,
+                                                                    three_js_name: three,
+                                                                    mesh: (document.getElementById('swal-edit-obj-mesh') as HTMLInputElement).value.trim(),
+                                                                    parent_id: currentParentId,
+                                                                    description: (document.getElementById('swal-edit-obj-desc') as HTMLTextAreaElement).value.trim()
+                                                                };
+                                                            }
+                                                        }).then((result) => {
+                                                            if (result.isConfirmed) {
+                                                                handleSaveObjectFromModal(obj.id, result.value);
+                                                            }
                                                         });
                                                     }} style={{ padding: '6px', background: 'rgba(99, 102, 241, 0.1)', color: '#6366f1', border: 'none', borderRadius: '6px', cursor: 'pointer' }}><Eye size={16}/></button>
                                                     <button onClick={() => handleEditObject(obj)} style={{ padding: '6px', background: 'rgba(14, 165, 233, 0.1)', color: '#0ea5e9', border: 'none', borderRadius: '6px', cursor: 'pointer' }}><Edit2 size={16}/></button>

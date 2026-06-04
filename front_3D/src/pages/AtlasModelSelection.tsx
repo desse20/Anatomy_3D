@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import App from '../components/layouts/App';
 import { apiCall, downloadWithProgress } from '../services/api';
+import { offlineCache } from '../services/offlineCache';
 import Swal from 'sweetalert2';
 import { getSwalTheme } from '../services/swalTheme';
 import { Box, Play, Info, Loader2, Download, CheckCircle, Trash2 } from 'lucide-react';
@@ -47,13 +48,39 @@ const AtlasModelSelection: React.FC = () => {
     }, [assets]);
 
     const fetchAssets = async () => {
+        setLoading(true);
         try {
             const res = await apiCall('models-manager');
-            setAssets(Array.isArray(res) ? res : []);
+            const data = Array.isArray(res) ? res : [];
+            setAssets(data);
             setError(false);
         } catch (e) {
-            console.error(e);
-            setError(true);
+            console.warn("[Network] Impossible de charger les modèles depuis le serveur, tentative via le cache local...");
+            try {
+                const allCached = await offlineCache.getCachedAssets();
+                const fullyCached = [];
+                
+                // Vérifier pour chaque asset s'il est vraiment complet (GLB + Hiérarchie)
+                for (const a of allCached) {
+                    const isOk = await offlineCache.isFullyCached(a.id);
+                    if (isOk) fullyCached.push(a);
+                }
+
+                if (fullyCached.length > 0) {
+                    setAssets(fullyCached.map(a => ({
+                        id: a.id,
+                        name: a.name,
+                        objects: '?', 
+                        url_glb: a.url_glb
+                    })));
+                    setError(false);
+                } else {
+                    setError(true);
+                }
+            } catch (cacheError) {
+                console.error("Cache failure:", cacheError);
+                setError(true);
+            }
         } finally {
             setLoading(false);
         }
@@ -143,6 +170,32 @@ const AtlasModelSelection: React.FC = () => {
         });
     }, [t]);
 
+    const handleClearAllCache = async () => {
+        const result = await Swal.fire({
+            title: t('Vider le cache local ?', 'Clear local cache?'),
+            text: t('Cela supprimera tous les modèles stockés dans votre navigateur.', 'This will delete all models stored in your browser.'),
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: t('Oui, vider', 'Yes, clear'),
+            cancelButtonText: t('Annuler', 'Cancel'),
+            ...getSwalTheme()
+        });
+
+        if (result.isConfirmed) {
+            await offlineCache.clearAll();
+            localStorage.removeItem('offline_downloads');
+            setDownloadedIds(new Set());
+            fetchAssets();
+            Swal.fire({
+                title: t('Cache vidé', 'Cache cleared'),
+                icon: 'success',
+                timer: 1500,
+                showConfirmButton: false,
+                ...getSwalTheme()
+            });
+        }
+    };
+
     if (loading) {
         return (
             <App title={t('Chargement Atlas', 'Loading Atlas')}>
@@ -155,6 +208,26 @@ const AtlasModelSelection: React.FC = () => {
 
     return (
         <App breadcrumb={t('Atlas / Sélection', 'Atlas / Selection')} title={t('Choisir un Modèle Anatomique', 'Choose an Anatomical Model')}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '20px' }}>
+                <button 
+                    onClick={handleClearAllCache}
+                    style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '8px', 
+                        padding: '8px 16px', 
+                        background: 'rgba(239, 68, 68, 0.1)', 
+                        color: '#ef4444', 
+                        border: '1px solid rgba(239, 68, 68, 0.2)', 
+                        borderRadius: '10px', 
+                        fontSize: '13px', 
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                    }}
+                >
+                    <Trash2 size={14} /> {t('Vider le cache local', 'Clear local cache')}
+                </button>
+            </div>
             <div className="atlas-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '24px', padding: '20px 0' }}>
                 {assets.map(asset => {
                     const isDownloaded = downloadedIds.has(asset.id);

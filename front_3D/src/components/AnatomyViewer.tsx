@@ -581,84 +581,132 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
       setLoading(true); setError(null);
       let data: AnatomyItem[] = [];
       let path = initialModelPath || 'Squelette_complet.glb';
-      if (initialAnatomicalData?.length) data = initialAnatomicalData;
-      else {
-        const ep = assetId ? `/anatomy/all?asset_3d_id=${assetId}` : '/anatomy/all';
-        const raw: AnatomyItem[] = await apiCall(ep);
-        if (assetId && !initialModelPath) {
-          try {
-            const a = await apiCall(`models-manager/${assetId}`);
-            if (a.url_glb) {
-              path = a.url_glb;
-              if (path.includes('Assets_3D/')) path = `${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/models-manager/files/${path.split('/').pop()}`;
-            }
-          } catch {}
-        }
-        if (!Array.isArray(raw)) throw new Error('Format API invalide');
-        data = raw;
-      }
-
-      let gltf;
       const assetIdStr = assetId ? String(assetId) : null;
 
-      try {
-        // On récupère les infos de l'asset pour la version
-        let assetMeta: any = null;
-        if (assetIdStr) {
-          try { assetMeta = await apiCall(`models-manager/${assetIdStr}`); } catch {}
-        }
-
-        // 1. Tenter de récupérer depuis le cache IndexedDB (offlineCache)
-        if (assetIdStr) {
-          const [cachedAsset, cachedGlb] = await Promise.all([
-            offlineCache.getAsset(assetIdStr),
-            offlineCache.getGlb(assetIdStr)
-          ]);
-          
-          // On n'utilise le cache que si la version correspond (ou si on est hors ligne)
-          const versionMatch = !assetMeta || !cachedAsset || (assetMeta.version <= (cachedAsset.version || 0));
-
-          if (cachedGlb && (versionMatch || isOffline)) {
-            console.log(`[Cache DB] Chargement de l'asset ${assetIdStr} (v${cachedAsset?.version || '?'})`);
-            const blob = new Blob([cachedGlb], { type: 'model/gltf-binary' });
-            const blobUrl = URL.createObjectURL(blob);
-            gltf = await new Promise<any>((res, rej) => 
-              new GLTFLoader().load(blobUrl, (g) => { URL.revokeObjectURL(blobUrl); res(g); }, undefined, rej)
-            );
-          }
-        }
-
-        // 2. Si pas en cache ou version obsolète, télécharger et mettre à jour
-        if (!gltf) {
-          console.log(`[Network] Téléchargement de ${path}...`);
-          const response = await fetch(path);
-          if (!response.ok) throw new Error("Échec téléchargement");
-          const arrayBuffer = await response.arrayBuffer();
-          
-          if (assetIdStr) {
-            // Mise à jour asynchrone du cache
-            const v = assetMeta?.version || 1;
-            offlineCache.storeGlb(assetIdStr, arrayBuffer).catch(() => {});
-            offlineCache.storeHierarchy(assetIdStr, data).catch(() => {});
-            offlineCache.storeAsset({ 
-              id: assetIdStr, 
-              name: modelName || assetMeta?.name || 'Asset', 
-              url_glb: path, 
-              cached_at: Date.now(),
-              version: v
-            }).catch(() => {});
-          }
-
-          const blob = new Blob([arrayBuffer], { type: 'model/gltf-binary' });
-          const blobUrl = URL.createObjectURL(blob);
-          gltf = await new Promise<any>((res, rej) => 
-            new GLTFLoader().load(blobUrl, (g) => { URL.revokeObjectURL(blobUrl); res(g); }, undefined, rej)
-          );
-        }
-      } catch (err) {
-        console.warn("[Cache] Échec complet, repli direct", err);
-        gltf = await new Promise<any>((res, rej) => new GLTFLoader().load(path, res, undefined, rej));
+      // 1. Récupérer les métadonnées pour la version (asynchrone, optionnel)
+      let assetMeta: any = null;
+      if (assetIdStr && !isOffline) {
+        try { assetMeta = await apiCall(`models-manager/${assetIdStr}`); } catch (e) { console.warn("[Cache] Impossible de joindre le backend pour la version", e); }
       }
+
+      const remoteVersion = assetMeta?.version || 0;
+      let cachedAsset: any = null;
+      let cachedHierarchyData: any = null;
+      let cachedGlb: ArrayBuffer | undefined = undefined;
+
+      if (assetIdStr) {
+        [cachedAsset, cachedHierarchyData, cachedGlb] = await Promise.all([
+          offlineCache.getAsset(assetIdStr),
+          offlineCache.getHierarchy(assetIdStr),
+          offlineCache.getGlb(assetIdStr)
+        ]);
+      }
+
+      const localVersion = cachedAsset?.version || 0;
+      const isUpToDate = assetIdStr && cachedAsset && cachedHierarchyData && cachedGlb && (remoteVersion <= localVersion || isOffline || !assetMeta);
+
+      // 2. Charger la hiérarchie
+      if (initialAnatomicalData?.length) {
+        data = initialAnatomicalData;
+      } else if (assetIdStr) {
+        try {
+          if (!isOffline) {
+             const lastSync = cachedAsset?.hierarchy_updated_at;
+             const ep = `/anatomy/all?asset_3d_id=${assetIdStr}${lastSync ? `&since=${lastSync}` : ''}`;
+             console.log(`[Network] Tentative sync hiérarchie... ${lastSync ? '(Incrémental)' : '(Complet)'}`);
+             
+             const updates: AnatomyItem[] = await apiCall(ep);
+             
+             if (lastSync && cachedHierarchyData) {
+               // Fusionner les mises à jour avec les données existantes
+               const existing = [...(cachedHierarchyData as any[])];
+               updates.forEach(upd => {
+                 const idx = existing.findIndex(o => o.id === upd.id);
+                 if (idx >= 0) existing[idx] = upd;
+                 else existing.push(upd);
+               });
+               data = existing as AnatomyItem[];
+               console.log(`[Sync] ${updates.length} objets mis à jour.`);
+             } else {
+               data = updates;
+             }
+             
+             // On met à jour le cache de hiérarchie
+             offlineCache.storeHierarchy(assetIdStr, data).catch(() => {});
+             
+             // Mettre à jour le timestamp de sync dans les métadonnées de l'asset
+             if (data.length > 0) {
+                const latest = data.reduce((max, obj: any) => {
+                  if (!obj.updated_at) return max;
+                  return obj.updated_at > max ? obj.updated_at : max;
+                }, lastSync || '1970-01-01 00:00:00');
+                
+                offlineCache.storeAsset({
+                  ...cachedAsset,
+                  id: assetIdStr,
+                  name: modelName || assetMeta?.name || cachedAsset?.name || 'Asset',
+                  url_glb: path,
+                  cached_at: Date.now(),
+                  version: assetMeta?.version || cachedAsset?.version || 1,
+                  hierarchy_updated_at: latest
+                }).catch(() => {});
+             }
+          } else {
+             throw new Error("Offline mode");
+          }
+        } catch (e) {
+          if (cachedHierarchyData) {
+            console.warn("[Cache] Échec réseau hiérarchie, fallback cache", e);
+            data = cachedHierarchyData as AnatomyItem[];
+          } else {
+            throw new Error(t("Modèle non disponible.", "Model not available."));
+          }
+        }
+      }
+
+      // 3. Déterminer le chemin du GLB (Meta -> Default)
+      if (assetMeta?.url_glb) {
+        path = assetMeta.url_glb;
+        if (path.includes('Assets_3D/')) {
+          path = `${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/models-manager/files/${path.split('/').pop()}`;
+        }
+      }
+
+      // 4. Charger le binaire GLB
+      let gltf;
+      if (isUpToDate && cachedGlb) {
+        console.log(`[Cache DB] GLB chargé depuis le cache (v${localVersion})`);
+        const blob = new Blob([cachedGlb], { type: 'model/gltf-binary' });
+        const blobUrl = URL.createObjectURL(blob);
+        gltf = await new Promise<any>((res, rej) => 
+          new GLTFLoader().load(blobUrl, (g) => { URL.revokeObjectURL(blobUrl); res(g); }, undefined, rej)
+        );
+      } else {
+        // 5. Téléchargement si nécessaire
+        console.log(`[Network] Téléchargement GLB depuis ${path}...`);
+        const response = await fetch(path);
+        if (!response.ok) throw new Error(t("Échec du téléchargement du modèle.", "Failed to download model."));
+        const arrayBuffer = await response.arrayBuffer();
+        
+        if (assetIdStr) {
+          const v = assetMeta?.version || 1;
+          offlineCache.storeGlb(assetIdStr, arrayBuffer).catch(() => {});
+          offlineCache.storeAsset({ 
+            id: assetIdStr, 
+            name: modelName || assetMeta?.name || 'Asset', 
+            url_glb: path, 
+            cached_at: Date.now(),
+            version: v
+          }).catch(() => {});
+        }
+
+        const blob = new Blob([arrayBuffer], { type: 'model/gltf-binary' });
+        const blobUrl = URL.createObjectURL(blob);
+        gltf = await new Promise<any>((res, rej) => 
+          new GLTFLoader().load(blobUrl, (g) => { URL.revokeObjectURL(blobUrl); res(g); }, undefined, rej)
+        );
+      }
+
       const model = gltf.scene;
       let matchedCount = 0;
       let totalMeshes = 0;

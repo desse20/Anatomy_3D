@@ -58,7 +58,12 @@ const AnatomyViewerPage: React.FC = () => {
     // Phase 3 : vérifier le cache offline
     useEffect(() => {
         if (!resolvedAssetId || initializing) return;
-        if (isOffline) { loadCache(); } else { setCachedHierarchy(null); if (cachedGlbUrl) { URL.revokeObjectURL(cachedGlbUrl); setCachedGlbUrl(null); } setNeedsInit(false); }
+        if (isOffline) { 
+            loadCache(); 
+        } else {
+            // En ligne, on laisse AnatomyViewer gérer le mix réseau/cache via les versions
+            setNeedsInit(false);
+        }
     }, [isOffline, resolvedAssetId, initializing]);
 
     async function loadCache() {

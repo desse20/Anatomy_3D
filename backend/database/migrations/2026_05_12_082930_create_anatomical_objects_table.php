@@ -14,6 +14,7 @@ return new class extends Migration {
             $table->string('three_js_name');
             $table->string('mesh')->nullable();
             $table->text('description')->nullable();
+            $table->timestamps();
         });
     }
     public function down(): void {
