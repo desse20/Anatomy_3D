@@ -870,25 +870,26 @@ const Dashboard: React.FC = () => {
                 <div style={{ padding: '40px', color: 'var(--dash-text-muted)' }}>{t('Chargement des données biométriques...', 'Loading biometric data...')}</div>
             ) : activeView !== 'main' ? (
                 <div className="secondary-view">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px', width: '100%', marginBottom: '25px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px', width: '100%', marginBottom: '20px', flexWrap: 'wrap' }}>
                         <button className="back-btn-dash" onClick={() => {
                             if (activeView === 'user_detail') navigate('/analytics');
                             else navigate('/dash');
                         }}>
                             ← {activeView === 'user_detail' ? t('Retour à la liste', 'Back to list') : t('Retour au Dashboard', 'Back to Dashboard')}
                         </button>
-                        <h2 style={{ margin: 0 }}>
-                            {activeView === 'reviews' ? t('Gestion des Avis', 'Reviews Management') : 
-                             activeView === 'cache' ? t('Gestion du Cache IA', 'AI Cache Management') :
-                             activeView === 'user_analytics' ? t('Utilisateurs & Analytics', 'Users & Analytics') :
-                             activeView === 'user_detail' ? t('Détails Utilisateur', 'User Details') :
-                             t('Statistiques d\'Utilisation', 'Usage Statistics')}
+                        <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>
+                            {activeView === 'reviews' ? t('Avis', 'Reviews') : 
+                             activeView === 'cache' ? t('Cache IA', 'AI Cache') :
+                             activeView === 'user_analytics' ? t('Analytics', 'Analytics') :
+                             activeView === 'user_detail' ? t('Détails', 'Details') :
+                             t('Stats', 'Stats')}
                         </h2>
                         {activeView === 'reviews' && (
-                            <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px' }}>
+                            <div className="filter-container-responsive" style={{ marginLeft: 'auto', display: 'flex', gap: '10px' }}>
                                 <select 
                                     value={viewFilter} 
                                     onChange={(e) => { setViewFilter(e.target.value); fetchManagementData('reviews', e.target.value, 1, ratingFilter); }}
+                                    className="filter-select-responsive"
                                     style={{ background: 'var(--dash-bg)', color: 'var(--dash-text-main)', border: '1px solid var(--dash-border)', borderRadius: '8px', padding: '5px 10px', fontSize: '11px' }}
                                 >
                                     <option value="all">{t('Toutes cibles', 'All targets')} ({reviewStats?.total || 0})</option>
@@ -898,6 +899,7 @@ const Dashboard: React.FC = () => {
                                 <select 
                                     value={ratingFilter} 
                                     onChange={(e) => { setRatingFilter(e.target.value); fetchManagementData('reviews', viewFilter, 1, e.target.value); }}
+                                    className="filter-select-responsive"
                                     style={{ background: 'var(--dash-bg)', color: 'var(--dash-text-main)', border: '1px solid var(--dash-border)', borderRadius: '8px', padding: '5px 10px', fontSize: '11px' }}
                                 >
                                     <option value="all">{t('Toutes les notes', 'All ratings')}</option>
@@ -907,21 +909,23 @@ const Dashboard: React.FC = () => {
                             </div>
                         )}
                         {activeView === 'cache' && (
-                            <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px' }}>
+                            <div className="filter-container-responsive" style={{ marginLeft: 'auto', display: 'flex', gap: '10px' }}>
                                 <select 
                                     value={cacheModelFilter} 
                                     onChange={(e) => { setCacheModelFilter(e.target.value); fetchManagementData('cache', 'all', 1, 'all', cacheModelFilter, cacheSortFilter); }}
-                                        style={{ background: 'var(--dash-bg)', color: 'var(--dash-text-main)', border: '1px solid var(--dash-border)', borderRadius: '8px', padding: '5px 10px', fontSize: '11px' }}
-                                    >
-                                        <option value="all">{t('Tous les modèles', 'All models')}</option>
-                                        {activeAiModels.map(m => (
-                                            <option key={m.ai_model} value={m.ai_model}>{m.ai_model}</option>
-                                        ))}
-                                    </select>
-                                    <select 
-                                        value={cacheSortFilter} 
-                                        onChange={(e) => { setCacheSortFilter(e.target.value); fetchManagementData('cache', 'all', 1, 'all', cacheModelFilter, e.target.value); }}
-                                        style={{ background: 'var(--dash-bg)', color: 'var(--dash-text-main)', border: '1px solid var(--dash-border)', borderRadius: '8px', padding: '5px 10px', fontSize: '11px' }}
+                                    className="filter-select-responsive"
+                                    style={{ background: 'var(--dash-bg)', color: 'var(--dash-text-main)', border: '1px solid var(--dash-border)', borderRadius: '8px', padding: '5px 10px', fontSize: '11px' }}
+                                >
+                                    <option value="all">{t('Tous les modèles', 'All models')}</option>
+                                    {activeAiModels.map(m => (
+                                        <option key={m.ai_model} value={m.ai_model}>{m.ai_model}</option>
+                                    ))}
+                                </select>
+                                <select 
+                                    value={cacheSortFilter} 
+                                    onChange={(e) => { setCacheSortFilter(e.target.value); fetchManagementData('cache', 'all', 1, 'all', cacheModelFilter, e.target.value); }}
+                                    className="filter-select-responsive"
+                                    style={{ background: 'var(--dash-bg)', color: 'var(--dash-text-main)', border: '1px solid var(--dash-border)', borderRadius: '8px', padding: '5px 10px', fontSize: '11px' }}
                                 >
                                     <option value="latest">{t('Plus récents', 'Latest')}</option>
                                     <option value="most_used">{t('Plus utilisés', 'Most used')}</option>
@@ -934,7 +938,7 @@ const Dashboard: React.FC = () => {
                         {modalLoading ? (
                             <div style={{ textAlign: 'center', padding: '100px', color: 'var(--dash-text-muted)' }}>{t('Chargement...', 'Loading...')}</div>
                         ) : (
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '20px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
                                 {modalData.map((item: any) => (
                                     <div key={item.id} className="secondary-item-card" style={{ padding: '24px', background: 'var(--dash-card-bg)', borderRadius: '20px', border: '1px solid var(--dash-border)', position: 'relative', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
                                         <div style={{ position: 'absolute', top: '15px', right: '15px', display: 'flex', gap: '8px' }}>
@@ -1023,7 +1027,7 @@ const Dashboard: React.FC = () => {
                             </div>
                         )}
                         {activeView === 'analytics_objects' && (
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
+                            <div className="detail-grid-responsive" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
                                 <div className="table-card-dash top" style={{ height: 'auto' }}>
                                     <h3 style={{ fontSize: '20px', marginBottom: '24px' }}><ArrowUpRight color="#34d399" size={20} /> {t('Classement Complet - Plus consultés', 'Full Ranking - Most visited')}</h3>
                                     <div className="list-dash" style={{ gap: '15px' }}>
@@ -1057,7 +1061,7 @@ const Dashboard: React.FC = () => {
                         )}
 
                         {activeView === 'user_analytics' && (
-                            <div className="table-card-dash" style={{ height: 'auto', padding: '0', overflow: 'hidden' }}>
+                            <div className="table-card-dash" style={{ height: 'auto', padding: '0', overflow: 'auto' }}>
                                 <div style={{ padding: '24px', borderBottom: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
                                     <h3 style={{ fontSize: '20px', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
                                         <Users color="#3b82f6" size={24} /> {t('Activité des Utilisateurs', 'User Activity')}
@@ -1082,7 +1086,7 @@ const Dashboard: React.FC = () => {
                                     </div>
                                     <span style={{ fontSize: '13px', color: 'var(--dash-text-muted)', fontWeight: 600 }}>{analyticsUsers.length} {t('utilisateurs enregistrés', 'registered users')}</span>
                                 </div>
-                                <div style={{ overflowX: 'auto' }}>
+                                <div className="table-container-responsive">
                                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                                         <thead>
                                             <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--dash-border)' }}>
@@ -1142,15 +1146,15 @@ const Dashboard: React.FC = () => {
                                     </div>
                                     <div>
                                         <h1 style={{ margin: 0, fontSize: '28px' }}>{selectedUserStats.user.name}</h1>
-                                        <div style={{ color: 'var(--dash-text-muted)', display: 'flex', gap: '15px', marginTop: '5px' }}>
+                                        <div style={{ color: 'var(--dash-text-muted)', display: 'flex', gap: '15px', marginTop: '5px', flexWrap: 'wrap', justifyContent: 'center' }}>
                                             <span>{selectedUserStats.user.email}</span>
-                                            <span>•</span>
+                                            <span className="hide-mobile">•</span>
                                             <span style={{ textTransform: 'uppercase', fontWeight: 700, color: '#3b82f6' }}>{selectedUserStats.user.role}</span>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
+                                <div className="detail-grid-responsive" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
                                     <div className="table-card-dash top" style={{ height: 'auto' }}>
                                         <h3 style={{ fontSize: '20px', marginBottom: '24px' }}>
                                             <ArrowUpRight color="#34d399" size={20} /> {t('Ses Objets les plus visités', 'Most visited objects')}

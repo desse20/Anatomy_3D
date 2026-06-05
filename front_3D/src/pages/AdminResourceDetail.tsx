@@ -35,11 +35,11 @@ const ModelNameSection: React.FC<{ asset: any, onRenamed: () => void }> = ({ ass
     };
 
     return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ width: '56px', height: '56px', background: 'rgba(14, 165, 233, 0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0ea5e9' }}>
+        <div className="model-name-header-container" style={{ display: 'flex', alignItems: 'center', gap: '16px', minWidth: 0, width: '100%' }}>
+            <div className="hide-mobile" style={{ width: '56px', height: '56px', background: 'rgba(14, 165, 233, 0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0ea5e9', flexShrink: 0 }}>
                 <Box size={32} />
             </div>
-            <div>
+            <div style={{ minWidth: 0, flex: 1 }}>
                 {isEditing ? (
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                         <input 
@@ -47,26 +47,49 @@ const ModelNameSection: React.FC<{ asset: any, onRenamed: () => void }> = ({ ass
                             value={newName} 
                             onChange={e => setNewName(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && handleRename()}
-                            style={{ padding: '8px 12px', borderRadius: '8px', border: '2px solid #0ea5e9', background: '#fff', color: '#000', fontSize: '18px', fontWeight: 600, width: '300px' }}
+                            style={{ padding: '8px 12px', borderRadius: '8px', border: '2px solid #0ea5e9', background: '#fff', color: '#000', fontSize: '16px', fontWeight: 600, width: '100%', maxWidth: '300px' }}
                         />
                         <button onClick={handleRename} style={{ padding: '8px', background: '#34d39920', color: '#34d399', border: 'none', borderRadius: '8px', cursor: 'pointer' }}><Save size={18}/></button>
                         <button onClick={() => setIsEditing(false)} style={{ padding: '8px', background: 'rgba(0,0,0,0.05)', color: 'var(--dash-text-muted)', border: 'none', borderRadius: '8px', cursor: 'pointer' }}><X size={18}/></button>
                     </div>
                 ) : (
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
-                        <h2 style={{ margin: 0 }}>{asset.name}</h2>
-                        <button 
-                            onClick={() => { setIsEditing(true); setNewName(asset.name); }}
-                            style={{ background: 'none', border: 'none', color: '#0ea5e9', cursor: 'pointer', opacity: 0.6 }}
-                        >
-                            <Edit2 size={14} />
-                        </button>
-                        <span style={{ color: 'var(--dash-text-muted)', fontSize: '12px', fontFamily: 'monospace', background: 'rgba(0,0,0,0.03)', padding: '2px 8px', borderRadius: '4px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0, flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
+                            <h2 style={{ 
+                                margin: 0, 
+                                fontSize: 'clamp(17px, 4vw, 24px)', 
+                                fontWeight: 800, 
+                                lineHeight: 1.2,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                flexShrink: 1
+                            }}>{asset.name}</h2>
+                            <button 
+                                onClick={() => { setIsEditing(true); setNewName(asset.name); }}
+                                style={{ background: 'none', border: 'none', color: '#0ea5e9', cursor: 'pointer', opacity: 0.6, padding: '4px', flexShrink: 0 }}
+                            >
+                                <Edit2 size={16} />
+                            </button>
+                        </div>
+                        <span style={{ 
+                            color: 'var(--dash-text-muted)', 
+                            fontSize: '11px', 
+                            fontFamily: 'monospace', 
+                            background: 'rgba(0,0,0,0.03)', 
+                            padding: '2px 8px', 
+                            borderRadius: '4px',
+                            display: 'inline-block',
+                            maxWidth: '100%',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                        }}>
                             {asset.url_glb?.split('/').pop()}
                         </span>
                     </div>
                 )}
-                <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--dash-text-muted)' }}>ID: {asset.id}</p>
+                <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: 'var(--dash-text-muted)', opacity: 0.7 }}>ID: {asset.id}</p>
             </div>
         </div>
     );
@@ -581,10 +604,10 @@ const AdminResourceDetail: React.FC = () => {
                     <ArrowLeft size={18} /> {t("Retour à la liste", "Back to list")}
                 </button>
 
-                <div style={{ background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', borderRadius: '16px', padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', borderRadius: '16px', padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
                     <ModelNameSection asset={asset} onRenamed={fetchDetails} />
                     
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                         <button 
                             onClick={handleEditModel}
                             style={{ padding: '10px 20px', borderRadius: '10px', background: 'rgba(14, 165, 233, 0.1)', color: '#0ea5e9', border: '1px solid #0ea5e950', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
@@ -595,23 +618,23 @@ const AdminResourceDetail: React.FC = () => {
                             onClick={handleDeleteAsset}
                             style={{ padding: '10px 20px', borderRadius: '10px', background: 'rgba(244, 63, 94, 0.1)', color: '#f43f5e', border: '1px solid #f43f5e50', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
                         >
-                            <Trash2 size={18} /> {t("Supprimer le modèle", "Delete model")}
+                            <Trash2 size={18} /> {t("Supprimer", "Delete")}
                         </button>
                     </div>
                 </div>
             </div>
 
             <div style={{ background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', borderRadius: '16px', overflow: 'hidden' }}>
-                <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--dash-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 700 }}>
                         <Info size={20} color="#f59e0b" /> {t("Objets Anatomiques", "Anatomical Objects")} ({totalObjects})
                     </div>
-                    <div style={{ display: 'flex', gap: '10px' }}>
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                         <button onClick={handleImportHierarchy} style={{ padding: '8px 16px', background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Save size={18} /> {t("Import JSON En Max", "Import JSON In Max")}
+                            <Save size={18} /> {t("Import JSON", "Import JSON")}
                         </button>
                         <button onClick={handleAddObject} style={{ padding: '8px 16px', background: '#34d399', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Plus size={18} /> {t("Ajouter un objet", "Add an object")}
+                            <Plus size={18} /> {t("Ajouter", "Add")}
                         </button>
                     </div>
                 </div>
@@ -629,14 +652,14 @@ const AdminResourceDetail: React.FC = () => {
                     </div>
                 </div>
 
-                <div style={{ padding: '24px' }}>
+                <div className="table-container-responsive">
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                             <tr style={{ textAlign: 'left', borderBottom: '2px solid var(--dash-border)', color: 'var(--dash-text-muted)', fontSize: '12px', textTransform: 'uppercase' }}>
                                 <th style={{ padding: '12px' }}>{t("Nom", "Name")}</th>
-                                <th style={{ padding: '12px' }}>{t("Parent ID", "Parent ID")}</th>
-                                <th style={{ padding: '12px' }}>{t("ID ThreeJS", "ThreeJS ID")}</th>
-                                <th style={{ padding: '12px' }}>{t("Mesh", "Mesh")}</th>
+                                <th className="hide-mobile" style={{ padding: '12px' }}>{t("Parent ID", "Parent ID")}</th>
+                                <th className="hide-mobile" style={{ padding: '12px' }}>{t("ID ThreeJS", "ThreeJS ID")}</th>
+                                <th className="hide-mobile" style={{ padding: '12px' }}>{t("Mesh", "Mesh")}</th>
                                 <th style={{ padding: '12px' }}>{t("Description", "Description")}</th>
                                 <th style={{ padding: '12px', textAlign: 'right' }}>{t("Actions", "Actions")}</th>
                             </tr>
@@ -672,7 +695,7 @@ const AdminResourceDetail: React.FC = () => {
                                             <div style={{ fontWeight: 600 }}>{obj.name}</div>
                                         )}
                                     </td>
-                                    <td style={{ padding: '16px 12px' }}>
+                                            <td className="hide-mobile" style={{ padding: '16px 12px' }}>
                                         {editingObjectId === obj.id ? (
                                             <input 
                                                 type="number"
@@ -683,7 +706,7 @@ const AdminResourceDetail: React.FC = () => {
                                             <span style={{ fontSize: '12px', color: 'var(--dash-text-muted)' }}>{obj.parent_id || '-'}</span>
                                         )}
                                     </td>
-                                    <td style={{ padding: '16px 12px' }}>
+                                    <td className="hide-mobile" style={{ padding: '16px 12px' }}>
                                         {editingObjectId === obj.id ? (
                                             <input 
                                                 value={objectFormData.three_js_name} onChange={e => setObjectFormData({...objectFormData, three_js_name: e.target.value})}
@@ -693,7 +716,7 @@ const AdminResourceDetail: React.FC = () => {
                                             <code style={{ fontSize: '12px', color: 'var(--dash-text-muted)' }}>{obj.three_js_name}</code>
                                         )}
                                     </td>
-                                    <td style={{ padding: '16px 12px' }}>
+                                    <td className="hide-mobile" style={{ padding: '16px 12px' }}>
                                         {editingObjectId === obj.id ? (
                                             <input 
                                                 value={objectFormData.mesh} onChange={e => setObjectFormData({...objectFormData, mesh: e.target.value})}

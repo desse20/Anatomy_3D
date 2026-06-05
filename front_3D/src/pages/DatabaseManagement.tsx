@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import App from '../components/layouts/App';
 import { useLanguage } from '../contexts/LanguageContext';
 import { apiCall } from '../services/api';
-import { Database, ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Database } from 'lucide-react';
 
 interface DbTable {
     name: string;
@@ -16,8 +15,6 @@ const DatabaseManagement: React.FC = () => {
     const t = (fr: string, en: string) => language === 'fr' ? fr : en;
     const [dbSize, setDbSize] = useState<number | null>(null);
     const [dbTables, setDbTables] = useState<DbTable[]>([]);
-    const navigate = useNavigate();
-
     useEffect(() => {
         const fetchStats = async () => {
             try {
@@ -35,15 +32,6 @@ const DatabaseManagement: React.FC = () => {
     return (
         <App breadcrumb={t("Base de Données", "Database Status")} title={t("Gestion de la Base de Données", "Database Management")}>
             
-            <div style={{ paddingBottom: '20px' }}>
-                <button 
-                    onClick={() => navigate('/tech')}
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: 'none', color: 'var(--dash-text-muted)', cursor: 'pointer', fontSize: '14px', fontWeight: 500 }}
-                >
-                    <ArrowLeft size={16} /> {t("Retour à la console technique", "Back to technical console")}
-                </button>
-            </div>
-
             <div style={{ background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', borderRadius: '16px', padding: '32px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
                     <div style={{ width: '40px', height: '40px', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6366f1' }}>

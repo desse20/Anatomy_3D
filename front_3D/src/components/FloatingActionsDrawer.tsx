@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import FloatingChat from './FloatingChat';
 import FloatingReview from './FloatingReview';
+import FloatingFAQ from './FloatingFAQ';
 
 interface FloatingActionsDrawerProps {
 }
@@ -13,7 +14,7 @@ const FloatingActionsDrawer: React.FC<FloatingActionsDrawerProps> = () => {
     const t = (fr: string, en: string) => language === 'fr' ? fr : en;
 
     const [isFloatingActionsOpen, setIsFloatingActionsOpen] = useState(false);
-    const [activeWidget, setActiveWidget] = useState<'chat' | 'review' | null>(null);
+    const [activeWidget, setActiveWidget] = useState<'chat' | 'review' | 'faq' | null>(null);
 
     // Close widgets if drawer closes
     useEffect(() => {
@@ -33,17 +34,27 @@ const FloatingActionsDrawer: React.FC<FloatingActionsDrawerProps> = () => {
                     </svg>
                 </button>
 
-                <div className="floating-actions-content">
+                <div className={`floating-actions-content ${activeWidget ? 'widget-open' : 'all-closed'}`}>
                     {!['/quiz', '/chat'].includes(location.pathname) && (
-                        <FloatingChat 
-                            isOpen={activeWidget === 'chat'} 
-                            onToggle={(open) => setActiveWidget(open ? 'chat' : null)}
-                        />
+                        <div className={`widget-wrapper ${activeWidget === 'chat' ? 'is-open' : 'is-closed'}`}>
+                            <FloatingChat 
+                                isOpen={activeWidget === 'chat'} 
+                                onToggle={(open) => setActiveWidget(open ? 'chat' : null)}
+                            />
+                        </div>
                     )}
-                    <FloatingReview 
-                        isOpen={activeWidget === 'review'} 
-                        onToggle={(open) => setActiveWidget(open ? 'review' : null)}
-                    />
+                    <div className={`widget-wrapper ${activeWidget === 'review' ? 'is-open' : 'is-closed'}`}>
+                        <FloatingReview 
+                            isOpen={activeWidget === 'review'} 
+                            onToggle={(open) => setActiveWidget(open ? 'review' : null)}
+                        />
+                    </div>
+                    <div className={`widget-wrapper ${activeWidget === 'faq' ? 'is-open' : 'is-closed'}`}>
+                        <FloatingFAQ 
+                            isOpen={activeWidget === 'faq'} 
+                            onToggle={(open) => setActiveWidget(open ? 'faq' : null)}
+                        />
+                    </div>
                 </div>
             </div>
 
@@ -76,16 +87,39 @@ const FloatingActionsDrawer: React.FC<FloatingActionsDrawerProps> = () => {
                 }
                 .floating-actions-content {
                     display: flex;
-                    flex-direction: column;
-                    gap: 15px;
-                    padding: 15px;
-                    background: rgba(26, 31, 46, 0.8);
-                    backdrop-filter: blur(10px);
-                    border-left: 1px solid rgba(255, 255, 255, 0.1);
+                    flex-wrap: wrap;
+                    justify-content: center;
+                    gap: 8px;
+                    padding: 10px;
+                    background: rgba(26, 31, 46, 0.85);
+                    backdrop-filter: blur(12px);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    border-right: none;
                     border-radius: 20px 0 0 20px;
                     box-shadow: -10px 0 30px rgba(0,0,0,0.3);
                 }
-                .fc-container, .floating-review-container {
+                
+                .floating-actions-content.all-closed {
+                    flex-direction: column;
+                    align-items: center;
+                }
+                
+                .widget-wrapper {
+                    display: flex;
+                    justify-content: center;
+                    transition: width 0.3s ease;
+                }
+
+                .widget-wrapper.is-open {
+                    width: 100%;
+                    order: -1; /* Toujours en haut */
+                }
+
+                .widget-wrapper.is-closed {
+                    width: auto;
+                }
+
+                .fc-container, .floating-review-container, .floating-faq-container {
                     position: static !important;
                 }
             `}</style>

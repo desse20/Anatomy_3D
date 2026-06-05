@@ -144,11 +144,11 @@ const MyViews: React.FC = () => {
     return (
         <App breadcrumb={t('Espace Personnel', 'Personal Space')} title={t('Mes Vues 3D Partagées', 'My Shared 3D Views')}>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+            <div className="dash-header-actions" style={{ marginBottom: '24px' }}>
                 <div style={{ display: 'flex', gap: '12px' }}>
                     {selectedIds.length > 0 && (
-                        <button onClick={handleBulkDelete} style={{ background: '#f43f5e', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                            <Trash2 size={18} /> {t('Supprimer la sélection', 'Delete selection')} ({selectedIds.length})
+                        <button onClick={handleBulkDelete} style={{ background: '#f43f5e', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px' }}>
+                            <Trash2 size={18} /> {t('Supprimer', 'Delete')} ({selectedIds.length})
                         </button>
                     )}
                 </div>
@@ -159,12 +159,12 @@ const MyViews: React.FC = () => {
                         placeholder={t('Rechercher une vue...', 'Search a view...')}
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
-                        style={{ width: '280px', padding: '10px 16px 10px 44px', borderRadius: '12px', border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text)', outline: 'none' }}
+                        style={{ width: '100%', maxWidth: '280px', padding: '10px 16px 10px 44px', borderRadius: '12px', border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text)', outline: 'none' }}
                     />
                 </div>
             </div>
 
-            <div style={{ background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', borderRadius: '16px', overflow: 'hidden' }}>
+            <div className="table-container-responsive" style={{ background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', borderRadius: '16px' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                     <thead>
                         <tr style={{ background: 'rgba(0,0,0,0.02)', borderBottom: '1px solid var(--dash-border)' }}>
@@ -173,7 +173,7 @@ const MyViews: React.FC = () => {
                             </th>
                             <th style={{ padding: '16px 20px', width: '40px' }}></th>
                             <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>{t('Miniature & Note', 'Thumbnail & Note')}</th>
-                            <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>{t('Date', 'Date')}</th>
+                            <th className="hide-mobile" style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>{t('Date', 'Date')}</th>
                             <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>{t('Salles', 'Labs')}</th>
                             <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>{t('Visibilité', 'Visibility')}</th>
                             <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>{t('Actions', 'Actions')}</th>
@@ -228,7 +228,7 @@ const MyViews: React.FC = () => {
                                                         <div style={{ fontWeight: 600, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{view.teacher_note || t('Sans note', 'No note')}</div>
                                                     </div>
                                                 </td>
-                                                <td style={{ padding: '16px 20px', color: 'var(--dash-text-muted)', fontSize: '13px', whiteSpace: 'nowrap' }}>{new Date(view.created_at).toLocaleDateString()}</td>
+                                                <td className="hide-mobile" style={{ padding: '16px 20px', color: 'var(--dash-text-muted)', fontSize: '13px', whiteSpace: 'nowrap' }}>{new Date(view.created_at).toLocaleDateString()}</td>
                                                 <td style={{ padding: '16px 20px' }}>
                                                     <div style={{ fontSize: '12px', color: '#0ea5e9', background: 'rgba(14, 165, 233, 0.1)', padding: '4px 10px', borderRadius: '100px', display: 'inline-block', fontWeight: 700 }}>
                                                         {viewLabIds.length} {t('salle(s)', 'room(s)')}
@@ -250,7 +250,7 @@ const MyViews: React.FC = () => {
                                             {isExpanded && (
                                                 <tr style={{ borderBottom: '1px solid var(--dash-border)' }}>
                                                     <td colSpan={7} style={{ padding: '0' }}>
-                                                        <div style={{ padding: '20px 40px 20px 100px', background: 'rgba(0,0,0,0.02)' }}>
+                                                        <div className="expanded-sharing-area" style={{ padding: '20px 40px 20px 100px', background: 'rgba(0,0,0,0.02)' }}>
                                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
                                                                 <h4 style={{ margin: 0, fontSize: '14px', color: 'var(--dash-text-muted)' }}>
                                                                     {t('Partager dans vos salles', 'Share in your labs')}

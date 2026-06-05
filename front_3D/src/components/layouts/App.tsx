@@ -104,10 +104,6 @@ const App: React.FC<AppProps> = ({ children, breadcrumb, title }) => {
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>
                                 {!isCollapsed && <span>{language === 'fr' ? 'Ressources 3D' : '3D Resources'}</span>}
                             </Link>
-                            <Link to="/tech" className={`nav-item ${isActive('/tech') ? 'active' : ''}`} title="Gestion Technique">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-                                {!isCollapsed && <span>{language === 'fr' ? 'Gestion Technique' : 'Tech Management'}</span>}
-                            </Link>
                         </>
                     )}
                     {(isTeacher || isAdmin) && (
@@ -305,10 +301,6 @@ const App: React.FC<AppProps> = ({ children, breadcrumb, title }) => {
                         <Link to="/model" className={`bottom-nav-item ${isActive('/model') ? 'active' : ''}`}>
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>
                             <span>{language === 'fr' ? 'Models' : 'Models'}</span>
-                        </Link>
-                        <Link to="/tech" className={`bottom-nav-item ${isActive('/tech') ? 'active' : ''}`}>
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-                            <span>{language === 'fr' ? 'Tech' : 'Tech'}</span>
                         </Link>
                     </>
                 )}

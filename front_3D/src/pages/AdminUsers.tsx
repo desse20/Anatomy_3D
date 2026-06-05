@@ -360,7 +360,7 @@ const AdminUsers: React.FC = () => {
                     </select>
                 </div>
 
-                <div style={{ overflowX: 'auto' }}>
+                <div className="table-container-responsive">
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                         <thead>
                             <tr style={{ background: 'rgba(0,0,0,0.02)', borderBottom: '1px solid var(--dash-border)' }}>
@@ -369,7 +369,7 @@ const AdminUsers: React.FC = () => {
                                 </th>
                                 <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>{t('Utilisateur', 'User')}</th>
                                 <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>Rôle</th>
-                                <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>Email</th>
+                                <th className="hide-mobile" style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>Email</th>
                                 <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>Actions</th>
                             </tr>
                         </thead>
@@ -404,7 +404,7 @@ const AdminUsers: React.FC = () => {
                                             <td style={{ padding: '16px 20px' }}>
                                                 <span style={{ padding: '4px 10px', borderRadius: '100px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', background: u.role === 'admin' ? '#f8717115' : u.role === 'teacher' ? '#fbbf2415' : '#34d39915', color: u.role === 'admin' ? '#f87171' : u.role === 'teacher' ? '#f59e0b' : '#10b981' }}>{getRoleLabel(u.role)}</span>
                                             </td>
-                                            <td style={{ padding: '16px 20px', color: 'var(--dash-text-muted)' }}>{u.email}</td>
+                                            <td className="hide-mobile" style={{ padding: '16px 20px', color: 'var(--dash-text-muted)' }}>{u.email}</td>
                                             <td style={{ padding: '16px 20px', textAlign: 'right' }}>
                                                 {!isProtected ? (
                                                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>

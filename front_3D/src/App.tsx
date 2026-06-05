@@ -13,7 +13,6 @@ import AdminResources from './pages/AdminResources';
 import AdminResourceDetail from './pages/AdminResourceDetail';
 import TeacherDashboard from './pages/TeacherDashboard';
 import MyViews from './pages/MyViews';
-import TechManagement from './pages/TechManagement';
 import LabViewer from './pages/LabViewer';
 import AccessDenied from './pages/AccessDenied';
 import AtlasModelSelection from './pages/AtlasModelSelection';
@@ -57,7 +56,6 @@ function App() {
           <Route path="/analytics/user/:id" element={<RoleRoute allowedRoles={['admin']}><Dashboard /></RoleRoute>} />
           <Route path="/model" element={<RoleRoute allowedRoles={['admin']}><AdminResources /></RoleRoute>} />
           <Route path="/model/:id" element={<RoleRoute allowedRoles={['admin']}><AdminResourceDetail /></RoleRoute>} />
-          <Route path="/tech" element={<RoleRoute allowedRoles={['admin']}><TechManagement /></RoleRoute>} />
 
           {/* Teacher + Admin + Student (Mes Salles rejointes / créées) */}
           <Route path="/labs" element={<RoleRoute allowedRoles={['student', 'teacher', 'admin']}><TeacherDashboard /></RoleRoute>} />

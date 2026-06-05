@@ -128,18 +128,18 @@ const AdminResources: React.FC = () => {
             </div>
 
             {activeSection === 'list' && (
-                <div style={{ background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', borderRadius: '16px', overflow: 'hidden' }}>
+                <div style={{ background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', borderRadius: '16px', overflow: 'auto' }}>
                     <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--dash-border)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Box size={18} color="#0ea5e9"/> {language === 'fr' ? 'Liste des modèles' : 'Models List'}
                     </div>
-                    <div style={{ overflowX: 'auto' }}>
+                    <div className="table-container-responsive">
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
                                 <tr style={{ background: 'rgba(0,0,0,0.02)', borderBottom: '1px solid var(--dash-border)', fontSize: '11px', textTransform: 'uppercase', color: 'var(--dash-text-muted)' }}>
                                     <th style={{ padding: '12px 20px', textAlign: 'left' }}>{language === 'fr' ? 'Nom / Fichier' : 'Name / File'}</th>
-                                    <th style={{ padding: '12px 20px', textAlign: 'center' }}>{language === 'fr' ? 'Version' : 'Version'}</th>
+                                    <th className="hide-mobile" style={{ padding: '12px 20px', textAlign: 'center' }}>{language === 'fr' ? 'Version' : 'Version'}</th>
                                     <th style={{ padding: '12px 20px', textAlign: 'center' }}>{language === 'fr' ? 'Objets' : 'Objects'}</th>
-                                    <th style={{ padding: '12px 20px', textAlign: 'right' }}>{language === 'fr' ? 'Date' : 'Date'}</th>
+                                    <th className="hide-mobile" style={{ padding: '12px 20px', textAlign: 'right' }}>{language === 'fr' ? 'Date' : 'Date'}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -150,17 +150,17 @@ const AdminResources: React.FC = () => {
                                 ) : (
                                     assets.map(a => (
                                         <tr key={a.id} onClick={() => navigate(`/model/${a.id}`)} style={{ borderBottom: '1px solid var(--dash-border)', cursor: 'pointer', transition: '0.2s' }}>
-                                            <td style={{ padding: '14px 20px' }}>
-                                                <div style={{ fontWeight: 600, fontSize: '14px' }}>{a.name}</div>
-                                                <div style={{ fontSize: '11px', color: 'var(--dash-text-muted)', fontFamily: 'monospace' }}>{a.url_glb.split('/').pop()}</div>
+                                            <td style={{ padding: '14px 20px', minWidth: 0 }}>
+                                                <div style={{ fontWeight: 700, fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>{a.name}</div>
+                                                <div style={{ fontSize: '10px', color: 'var(--dash-text-muted)', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>{a.url_glb.split('/').pop()}</div>
                                             </td>
-                                            <td style={{ padding: '14px 20px', textAlign: 'center' }}>
+                                            <td className="hide-mobile" style={{ padding: '14px 20px', textAlign: 'center' }}>
                                                 <span style={{ padding: '2px 8px', borderRadius: '10px', background: 'rgba(99, 102, 241, 0.1)', color: '#6366f1', fontSize: '12px', fontWeight: 700 }}>v{a.version}</span>
                                             </td>
                                             <td style={{ padding: '14px 20px', textAlign: 'center' }}>
                                                 <span style={{ padding: '2px 8px', borderRadius: '10px', background: 'rgba(14, 165, 233, 0.1)', color: '#0ea5e9', fontSize: '12px', fontWeight: 700 }}>{a.objects}</span>
                                             </td>
-                                            <td style={{ padding: '14px 20px', textAlign: 'right', fontSize: '12px', color: 'var(--dash-text-muted)' }}>
+                                            <td className="hide-mobile" style={{ padding: '14px 20px', textAlign: 'right', fontSize: '12px', color: 'var(--dash-text-muted)' }}>
                                                 {new Date(a.created_at).toLocaleDateString()}
                                             </td>
                                         </tr>

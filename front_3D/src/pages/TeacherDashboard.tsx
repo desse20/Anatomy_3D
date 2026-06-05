@@ -158,40 +158,40 @@ const TeacherDashboard: React.FC = () => {
             
             {/* --- Onglets de Filtrage (Teacher/Admin seulement) --- */}
             {isTeacherOrAdmin && (
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '32px', background: 'rgba(0,0,0,0.02)', padding: '6px', borderRadius: '12px', width: 'fit-content', border: '1px solid var(--dash-border)' }}>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '32px', background: 'rgba(0,0,0,0.02)', padding: '6px', borderRadius: '12px', width: 'fit-content', border: '1px solid var(--dash-border)', flexWrap: 'wrap' }}>
                     <button 
                         onClick={() => setActiveTab('my')}
-                        style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', background: activeTab === 'my' ? 'var(--dash-bg)' : 'transparent', color: activeTab === 'my' ? '#fbbf24' : 'var(--dash-text-muted)', fontWeight: 700, cursor: 'pointer', boxShadow: activeTab === 'my' ? '0 4px 12px rgba(0,0,0,0.05)' : 'none', transition: '0.2s' }}
+                        style={{ flex: '1 1 auto', padding: '10px 24px', borderRadius: '10px', border: 'none', background: activeTab === 'my' ? 'var(--dash-bg)' : 'transparent', color: activeTab === 'my' ? '#fbbf24' : 'var(--dash-text-muted)', fontWeight: 700, cursor: 'pointer', boxShadow: activeTab === 'my' ? '0 4px 12px rgba(0,0,0,0.05)' : 'none', transition: '0.2s' }}
                     >
                         {t('Mes Salles', 'My Labs')} ({myLabs.length})
                     </button>
                     <button 
                         onClick={() => setActiveTab('joined')}
-                        style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', background: activeTab === 'joined' ? 'var(--dash-bg)' : 'transparent', color: activeTab === 'joined' ? '#fbbf24' : 'var(--dash-text-muted)', fontWeight: 700, cursor: 'pointer', boxShadow: activeTab === 'joined' ? '0 4px 12px rgba(0,0,0,0.05)' : 'none', transition: '0.2s' }}
+                        style={{ flex: '1 1 auto', padding: '10px 24px', borderRadius: '10px', border: 'none', background: activeTab === 'joined' ? 'var(--dash-bg)' : 'transparent', color: activeTab === 'joined' ? '#fbbf24' : 'var(--dash-text-muted)', fontWeight: 700, cursor: 'pointer', boxShadow: activeTab === 'joined' ? '0 4px 12px rgba(0,0,0,0.05)' : 'none', transition: '0.2s' }}
                     >
-                        {t('Salles d\'autres utilisateurs', 'Other Users\' Labs')} ({joinedLabs.length})
+                        {t('Salles rejointes', 'Joined Labs')} ({joinedLabs.length})
                     </button>
                 </div>
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+            <div className="dash-header-actions" style={{ marginBottom: '24px' }}>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                     {selectedIds.length > 0 && isTeacherOrAdmin && activeTab === 'my' && (
                         <button 
                             onClick={handleBulkDelete}
-                            style={{ background: '#f43f5e', color: '#fff', border: 'none', padding: '12px 20px', borderRadius: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(244, 63, 94, 0.2)' }}
+                            style={{ background: '#f43f5e', color: '#fff', border: 'none', padding: '12px 20px', borderRadius: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(244, 63, 94, 0.2)', fontSize: '13px' }}
                         >
-                            <Trash2 size={18} /> {t('Supprimer la sélection', 'Delete Selected')} ({selectedIds.length})
+                            <Trash2 size={18} /> {t('Supprimer', 'Delete')} ({selectedIds.length})
                         </button>
                     )}
                     <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                         <Search size={18} style={{ position: 'absolute', left: '16px', color: 'var(--dash-text-muted)' }} />
                         <input 
                             type="text" 
-                            placeholder={t('Rechercher une salle...', 'Search a lab...')}
+                            placeholder={t('Rechercher...', 'Search...')}
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
-                            style={{ width: '280px', padding: '10px 16px 10px 44px', borderRadius: '12px', border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text)', outline: 'none' }}
+                            style={{ width: '100%', maxWidth: '280px', padding: '10px 16px 10px 44px', borderRadius: '12px', border: '1px solid var(--dash-border)', background: 'var(--dash-bg)', color: 'var(--dash-text)', outline: 'none' }}
                         />
                     </div>
                 </div>
@@ -200,7 +200,7 @@ const TeacherDashboard: React.FC = () => {
                         onClick={() => { setIsAddSectionOpen(true); setCreateError(null); }}
                         style={{ background: '#fbbf24', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(251, 191, 36, 0.2)' }}
                     >
-                        <Plus size={20} /> {t('Ajouter une salle', 'Add a lab')}
+                        <Plus size={20} /> {t('Ajouter', 'Add')}
                     </button>
                 )}
             </div>
@@ -217,7 +217,7 @@ const TeacherDashboard: React.FC = () => {
                             <button onClick={() => setCreateError(null)} style={{ background: 'none', border: 'none', color: '#f43f5e', cursor: 'pointer' }}><X size={14} /></button>
                         </div>
                     )}
-                    <form onSubmit={handleCreateLab} style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                    <form onSubmit={handleCreateLab} className="dash-header-actions" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
                         <div style={{ flex: 1, minWidth: '240px' }}>
                             <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>{t('Nom de la séance', 'Session Name')}</label>
                             <input type="text" required placeholder="ex: Anatomie du Coeur" value={newLabData.name} onChange={(e) => setNewLabData({...newLabData, name: e.target.value})} style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--dash-border)', background: 'rgba(0,0,0,0.02)', color: 'var(--dash-text)', outline: 'none' }} />
@@ -234,7 +234,7 @@ const TeacherDashboard: React.FC = () => {
             {/* ── Section GESTION (Pour Teacher/Admin) ── */}
             {isTeacherOrAdmin && activeTab === 'my' && (
                 <div style={{ marginBottom: joinedLabs.length > 0 ? '40px' : '0' }}>
-                    <div style={{ background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 20px -2px rgba(0,0,0,0.05)' }}>
+                    <div className="table-container-responsive" style={{ background: 'var(--dash-bg)', border: '1px solid var(--dash-border)', borderRadius: '16px', boxShadow: '0 4px 20px -2px rgba(0,0,0,0.05)' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                             <thead>
                                 <tr style={{ background: 'rgba(0,0,0,0.02)', borderBottom: '1px solid var(--dash-border)' }}>
@@ -242,9 +242,9 @@ const TeacherDashboard: React.FC = () => {
                                         <input type="checkbox" checked={myLabs.length > 0 && selectedIds.length === myLabs.length} onChange={toggleSelectAll} style={{ width: '14px', height: '14px', cursor: 'pointer', accentColor: '#fbbf24' }} />
                                     </th>
                                     <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>{t('Salle', 'Lab')}</th>
-                                    <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>{t('Participants', 'Participants')}</th>
-                                    <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>{t('Date', 'Date')}</th>
-                                    <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>{t('Lien de partage', 'Share Link')}</th>
+                                    <th className="hide-mobile" style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>{t('Participants', 'Participants')}</th>
+                                    <th className="hide-mobile" style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>{t('Date', 'Date')}</th>
+                                    <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>{t('Partage', 'Share')}</th>
                                     <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>{t('Actions', 'Actions')}</th>
                                 </tr>
                             </thead>
@@ -275,18 +275,18 @@ const TeacherDashboard: React.FC = () => {
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td style={{ padding: '16px 20px' }}>
+                                            <td className="hide-mobile" style={{ padding: '16px 20px' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--dash-text)', fontWeight: 600 }}>
                                                     <Users size={16} color="#34d399" />
                                                     {lab.total_participants ?? 0}
                                                 </div>
                                             </td>
-                                            <td style={{ padding: '16px 20px', color: 'var(--dash-text-muted)', fontSize: '13px' }}>
+                                            <td className="hide-mobile" style={{ padding: '16px 20px', color: 'var(--dash-text-muted)', fontSize: '13px' }}>
                                                 {new Date(lab.created_at).toLocaleDateString()}
                                             </td>
                                             <td style={{ padding: '16px 20px' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <code style={{ background: 'rgba(0,0,0,0.03)', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', color: '#fbbf24', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    <code className="hide-mobile" style={{ background: 'rgba(0,0,0,0.03)', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', color: '#fbbf24', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                         {`${window.location.origin}/salle/${lab.id}`}
                                                     </code>
                                                     <button
