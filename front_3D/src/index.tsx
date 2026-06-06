@@ -4,7 +4,7 @@
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { authService, apiCall } from './services/api';
+import { authService, apiCall, reviewService } from './services/api';
 import { useLanguage } from './contexts/LanguageContext';
 import FloatingActionsDrawer from './components/FloatingActionsDrawer';
 import './styles/landing.css';
@@ -100,16 +100,21 @@ const TestPage: React.FC = () => {
   const [sent,                 setSent]                = useState(false);
   const [step,                 setStep]                = useState(1);
   const [publicStats,          setPublicStats]         = useState<{models_count: number, quizzes_count: number}>({ models_count: 1, quizzes_count: 5000 });
+  const [reviews,              setReviews]             = useState<any[]>([]);
   const headerRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchData = async () => {
       try {
-        const resp = await apiCall('/public/stats');
-        if (resp) setPublicStats(resp);
-      } catch (err) { console.error("Public stats failed", err); }
+        const [statsResp, reviewsResp] = await Promise.all([
+          apiCall('/public/stats'),
+          reviewService.getPublic(),
+        ]);
+        if (statsResp) setPublicStats(statsResp);
+        if (Array.isArray(reviewsResp)) setReviews(reviewsResp);
+      } catch (err) { console.error("Public data fetch failed", err); }
     };
-    fetchStats();
+    fetchData();
   }, []);
 
   useEffect(() => {
@@ -350,6 +355,29 @@ const TestPage: React.FC = () => {
             </div>
           ))}
         </div>
+
+        {reviews.length > 0 && (
+          <div className="reviews-carousel-section">
+            <div className="reviews-carousel-track">
+              {[...reviews, ...reviews].map((r, i) => (
+                <div key={i} className="review-card">
+                  <div className="review-card-top">
+                    <div className="review-avatar">{r.user_name?.charAt(0)?.toUpperCase() || '?'}</div>
+                    <div>
+                      <p className="review-author">{r.user_name}</p>
+                      <div className="review-stars">
+                        {[1, 2, 3, 4, 5].map(s => (
+                          <span key={s} className={`star ${s <= r.rating ? 'filled' : ''}`}>★</span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <p className="review-comment">"{r.comment}"</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="advanced-visualization-section" id="features">
@@ -505,7 +533,7 @@ const TestPage: React.FC = () => {
                       <div className="middle-fields" style={{ marginTop: '24px' }}>
                         <p id="form-agree">
                           <span className="description-medium">{language === 'fr' ? "Un code de vérification vous sera envoyé par email." : "A verification code will be sent to your email."}</span>
-                          <button type="submit" className="custom-button blue large arrows-button-blue" style={{ width: '100%', justifyContent: 'center' }}>{language === 'fr' ? "Continuer" : "Continue"} <ArrowLg /></button>
+                          <button type="submit" className="custom-button blue large arrows-button-blue" style={{ width: '100%', justifyContent: 'center' }}>{language === 'fr' ? "S'inscrire" : "Sign up"} <ArrowLg /></button>
                         </p>
                       </div>
                     </>

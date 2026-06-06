@@ -16,7 +16,8 @@ use App\Http\Controllers\Api\AnalyticsController;
 use App\Http\Controllers\Api\BaseDonneesController;
 use App\Http\Controllers\Api\PublicStatsController;
 
-Route::get('/public/stats', [PublicStatsController::class, 'index']);
+Route::get('/public/stats',   [PublicStatsController::class, 'index']);
+Route::get('/public/reviews', [PublicStatsController::class, 'reviews']);
 
 Route::prefix('ai')->middleware(['simple_auth', 'role:student'])->group(function () {
     Route::post('generate', [AiController::class, 'generate']);

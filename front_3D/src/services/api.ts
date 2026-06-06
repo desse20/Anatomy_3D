@@ -133,6 +133,8 @@ export const anatomyService = {
 };
 
 export const reviewService = {
+    /** Récupère les avis publics pour la page d'accueil */
+    getPublic: () => apiCall('/public/reviews'),
     /** Soumet un nouvel avis */
     store: (data: { type: 'platform' | 'model_3d' | 'object', target_id?: string, rating: number, comment?: string }) => 
         apiCall('/reviews', { method: 'POST', body: JSON.stringify(data) }),
