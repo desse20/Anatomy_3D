@@ -852,7 +852,7 @@ const Dashboard: React.FC = () => {
                     <div className="competence-bar-container" style={{ display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '250px', marginLeft: 'auto' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
                             <span>{t('Compétence globale', 'Global Competence')}</span>
-                            <span style={{ color: '#0ea5e9', fontWeight: 800 }}>{globalProgress}%</span>
+                            <span className="comp-percent" style={{ fontWeight: 800 }}>{globalProgress}%</span>
                         </div>
                         <div style={{ width: '100%', height: '6px', background: 'var(--dash-border)', borderRadius: '100px', overflow: 'hidden' }}>
                             <motion.div 
@@ -983,8 +983,8 @@ const Dashboard: React.FC = () => {
                                             </>
                                         ) : (
                                             <>
-                                                <div style={{ fontWeight: 800, fontSize: '15px', color: '#a78bfa', marginBottom: '12px', paddingRight: '60px', lineHeight: 1.4 }}>{item.question}</div>
-                                                <div style={{ fontSize: '13px', background: 'var(--dash-accent-hover)', padding: '15px', borderRadius: '12px', marginBottom: '15px', color: 'var(--dash-text-main)', border: '1px solid var(--dash-border)', opacity: 0.8 }}>{item.response}</div>
+                                                <div style={{ fontWeight: 800, fontSize: '15px', color: 'var(--dash-text-muted)', marginBottom: '12px', paddingRight: '60px', lineHeight: 1.4 }}>{item.question}</div>
+                                                <div style={{ fontSize: '13px', background: 'var(--dash-accent-hover)', padding: '15px', borderRadius: '12px', marginBottom: '15px', color: 'var(--dash-text-muted)', border: '1px solid var(--dash-border)' }}>{item.response}</div>
                                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                                                     <div className="mini-stat-info">
                                                         <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--dash-text-muted)' }}>IA Model</div>
@@ -1287,7 +1287,7 @@ const Dashboard: React.FC = () => {
                                                     <div style={{ height: '100%', background: '#0ea5e9', width: `${Math.min((m.visit_count / (usageStats.models?.total || 1)) * 100, 100)}%` }}></div>
                                                 </div>
                                             </div>
-                                            <span style={{ fontWeight: 800, color: '#0ea5e9', fontSize: '13px', flexShrink: 0 }}>{m.visit_count}</span>
+                                            <span className="val-dash" style={{ fontSize: '13px', flexShrink: 0 }}>{m.visit_count}</span>
                                         </div>
                                     ))}
                                     {(!usageStats.models?.models || usageStats.models.models.length === 0) && (
@@ -2002,6 +2002,28 @@ const Dashboard: React.FC = () => {
                     border-color: var(--dash-primary);
                     color: var(--dash-primary);
                 }
+
+                /* Dark mode specific color overrides to avoid blue-on-blue */
+                .dark .mini-btn,
+                .dark .mini-btn-flat,
+                .dark .radar-stat-box.accent .rm-val,
+                .dark .rank-dash,
+                .dark .val-dash,
+                .dark .back-btn-dash:hover,
+                .dark .comp-percent {
+                    color: #fff !important;
+                }
+                
+                .dark .mini-btn {
+                    background: color-mix(in srgb, #fff 15%, transparent);
+                }
+                
+                .dark .radar-stat-box.accent {
+                    border-color: rgba(255, 255, 255, 0.3);
+                    background: color-mix(in srgb, #fff 5%, var(--dash-bg));
+                }
+                .comp-percent { color: #0ea5e9; }
+
                 @keyframes fadeIn {
                     from { opacity: 0; transform: translateY(10px); }
                     to { opacity: 1; transform: translateY(0); }

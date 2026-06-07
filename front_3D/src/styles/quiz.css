@@ -372,7 +372,17 @@
 }
 
 .dark .qz-slider-value {
-    color: var(--dash-primary);
+    color: #fff;
+}
+.dark .qz-q-counter,
+.dark .quiz-side-panel h4 {
+    color: #fff;
+}
+.dark .info-list li {
+    color: var(--dash-text-muted);
+}
+.dark .info-list strong {
+    color: #fff;
 }
 
 .qz-slider {

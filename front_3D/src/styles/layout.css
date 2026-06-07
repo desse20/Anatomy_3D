@@ -108,6 +108,10 @@
     color: var(--dash-primary);
 }
 
+.dark .dash-logo span {
+    color: var(--dash-primary-text);
+}
+
 .dash-nav-group {
     margin-bottom: 24px;
 }
@@ -386,6 +390,10 @@
 
 .bottom-nav-item.active {
     color: var(--dash-primary);
+}
+
+.dark .bottom-nav-item.active {
+    color: var(--dash-primary-text);
 }
 
 .bottom-nav-item svg {

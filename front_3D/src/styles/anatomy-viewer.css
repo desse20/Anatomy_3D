@@ -195,6 +195,7 @@
 .description-header h3 { margin: 0; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--dash-text-main); }
 #desc-text { padding: 20px; font-size: 14px; line-height: 1.6; color: var(--dash-text-main); }
 #desc-text strong { color: var(--dash-primary); font-size: 16px; display: block; margin-bottom: 10px; }
+.dark #desc-text strong { color: #fff; }
 #desc-text em { color: #666; font-style: italic; }
 
 /* ── Fullscreen wrapper ── */

@@ -20,6 +20,7 @@ import AnatomyViewerPage from './pages/AnatomyViewerPage';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { ProtectedRoute, GuestRoute, RoleRoute } from './components/AuthGuards';
+import CookieConsent from './components/CookieConsent';
 
 
 function App() {
@@ -27,6 +28,7 @@ function App() {
     <LanguageProvider>
       <ThemeProvider>
       <Router>
+        <CookieConsent />
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<LandingPage />} />

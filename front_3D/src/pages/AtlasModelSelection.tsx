@@ -288,7 +288,6 @@ const AtlasModelSelection: React.FC = () => {
                                     style={{ 
                                         width: '100%', 
                                         padding: '12px', 
-                                        backgroundColor: '#0ea5e9', 
                                         color: 'white', 
                                         border: 'none', 
                                         borderRadius: '12px', 
@@ -376,6 +375,15 @@ const AtlasModelSelection: React.FC = () => {
                 .spin { animation: spin 1s linear infinite; }
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
                 .atlas-card-image { position: relative; }
+                .atlas-card-button {
+                    background:
+                        linear-gradient(180deg, rgba(255, 255, 255, 0) 52.13%, #002989 100%),
+                        linear-gradient(270deg, rgba(255, 255, 255, 0) 39.34%, rgb(1 11 37 / 0.8) 100%),
+                        var(--dash-primary);
+                    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+                    transition: all 0.2s;
+                }
                 @media (max-width: 768px) {
                     .atlas-grid {
                         grid-template-columns: 1fr !important;

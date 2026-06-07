@@ -20,6 +20,8 @@
     --dash-text-main: #f9fafb;
     --dash-text-muted: #9ca3af;
     --dash-accent-hover: rgba(255, 255, 255, 0.05);
+    /* En mode sombre, le texte coloré passe au blanc/bleu clair pour éviter bleu sur bleu */
+    --dash-primary-text: #c7dcff;
 }
 
 * {
