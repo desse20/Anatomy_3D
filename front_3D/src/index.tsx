@@ -362,7 +362,7 @@ const TestPage: React.FC = () => {
               <div className="about-us-columns-cards-dot"></div>
               <p className="subtitle-semibold">{language === 'fr' ? 'Témoignages' : 'Testimonials'}</p>
             </div>
-            <p className="main-h3" style={{ marginBottom: '32px' }}>{language === 'fr' ? 'Ils partagent leur expérience' : 'They share their experience'}</p>
+            <p className="main-h3" style={{ marginBottom: '32px' }}>{language === 'fr' ? "Retours d'expérience sur l'utilisation de la plateforme" : 'They share their experience'}</p>
             <div className="reviews-carousel-track">
               {[...reviews, ...reviews].map((r, i) => (
                 <div key={i} className="review-card">
