@@ -6,6 +6,10 @@ import {
     XCircle,
     RotateCcw,
     AlertCircle,
+    Search,
+    Plus,
+    X,
+    FolderTree,
 } from 'lucide-react';
 
 
@@ -86,6 +90,12 @@ const Quiz: React.FC = () => {
     const [isReviewMode, setIsReviewMode] = useState(false);
     const [masterQuestions, setMasterQuestions] = useState<Question[]>([]);
     const [topicLoading, setTopicLoading] = useState(false);
+    
+    // Nouveaux états pour la sélection manuelle
+    const [isManualMode, setIsManualMode] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
 
     // Si on arrive depuis Review.tsx avec un système ciblé, on saute directement à l'étape 4
     useEffect(() => {
@@ -110,6 +120,23 @@ const Quiz: React.FC = () => {
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // Recherche d'objets
+    useEffect(() => {
+        if (searchQuery.trim().length >= 2) {
+            setIsSearching(true);
+            const delay = setTimeout(() => {
+                apiCall(`anatomy/search?q=${encodeURIComponent(searchQuery)}`)
+                    .then((res: any) => setSearchResults(res.results || []))
+                    .catch(console.error)
+                    .finally(() => setIsSearching(false));
+            }, 300);
+            return () => clearTimeout(delay);
+        } else {
+            setSearchResults([]);
+            setIsSearching(false);
+        }
+    }, [searchQuery]);
 
     const [isLoading, setIsLoading] = useState(false);
     const [questions, setQuestions] = useState<Question[]>([]);
@@ -153,7 +180,7 @@ const Quiz: React.FC = () => {
             
             while (allQuestions.length < count && attempts < maxAttempts) {
                 const prompt = buildPrompt(system, type, 1);
-                const response = await aiService.generate('phi3:latest', prompt);
+                const response = await aiService.generate('phi3:latest', prompt, system);
                 const parsed = parseAndSetQuestionsSingle(response.response, type, allQuestions.length);
                 if (parsed) {
                     allQuestions.push(...parsed);
@@ -177,16 +204,18 @@ const Quiz: React.FC = () => {
         } finally { setIsLoading(false); }
     };
 
-    // Pioche un objet parent non étudié via l'API
-    const fetchNextTopic = async () => {
+    // Pioche un objet parent non étudié via l'API (ou un objet spécifique)
+    const fetchNextTopic = async (objectId?: number) => {
         setTopicLoading(true);
         try {
-            const res = await apiCall('quiz/next-topic');
+            const url = objectId ? `quiz/next-topic?object_id=${objectId}` : 'quiz/next-topic';
+            const res = await apiCall(url);
             if (res?.name) {
                 setTargetSystemLabel(res.name);
+                setIsManualMode(false);
             }
         } catch (e) {
-            console.warn('Auto-pick topic failed, user will choose manually', e);
+            console.warn('Pick topic failed', e);
         } finally {
             setTopicLoading(false);
         }
@@ -204,7 +233,7 @@ const Quiz: React.FC = () => {
             
             while (allQuestions.length < questionCount && attempts < maxAttempts) {
                 const prompt = buildPrompt(targetSystemLabel, quizType, 1);
-                const response = await aiService.generate('phi3:latest', prompt);
+                const response = await aiService.generate('phi3:latest', prompt, targetSystemLabel ?? undefined);
                 const parsed = parseAndSetQuestionsSingle(response.response, quizType, allQuestions.length);
                 if (parsed) {
                     allQuestions.push(...parsed);
@@ -329,17 +358,20 @@ const Quiz: React.FC = () => {
             setResults({ correct: score, total: finalSet.length });
             setStep(5);
             
-            // Sync Mastery — envoie chaque réponse au backend
+            // Sync Mastery — envoie un résumé de la session au backend
             if (targetSystemLabel) {
-                finalSet.forEach(q => {
-                    apiCall('mastery/record', {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            anatomical_object_name: targetSystemLabel,
-                            is_correct: !!q.isCorrect
-                        })
-                    }).catch(e => console.error("Mastery track error", e));
-                });
+                const sessionSuccess = finalSet.filter(q => q.isCorrect).length;
+                const sessionFailure = finalSet.length - sessionSuccess;
+
+                apiCall('mastery/record', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        anatomical_object_name: targetSystemLabel,
+                        success_count: sessionSuccess,
+                        failure_count: sessionFailure,
+                        is_review: isReviewMode // isReviewMode est vrai si on corrige ses erreurs
+                    })
+                }).catch(e => console.error("Mastery track error", e));
             }
 
             const typeLabel = types.find(t => t.id === quizType)?.label || '';
@@ -461,14 +493,75 @@ const Quiz: React.FC = () => {
                     {step === 1 && (
                         <motion.div key="step1" variants={pageVariants} initial="initial" animate="animate" exit="exit" className="quiz-fullscreen-section">
                             <div className="quiz-header-text">
-                                <h1>
-                                    {topicLoading
-                                        ? (language === 'fr' ? 'Sélection du sujet…' : 'Selecting topic…')
-                                        : targetSystemLabel
-                                        ? (language === 'fr' ? `Quiz sur : ${targetSystemLabel}` : `Quiz on: ${targetSystemLabel}`)
-                                        : (language === 'fr' ? "Paramétrez votre évaluation" : "Configure your evaluation")
-                                    }
-                                </h1>
+                                <div className="quiz-header-top">
+                                    <h1>
+                                        {topicLoading
+                                            ? (language === 'fr' ? 'Sélection du sujet…' : 'Selecting topic…')
+                                            : targetSystemLabel
+                                            ? (language === 'fr' ? `Quiz sur : ${targetSystemLabel}` : `Quiz on: ${targetSystemLabel}`)
+                                            : (language === 'fr' ? "Paramétrez votre évaluation" : "Configure your evaluation")
+                                        }
+                                    </h1>
+
+                                    {(!topicLoading && !navState.system) && (
+                                        <div className="quiz-topic-switcher">
+                                            {!isManualMode ? (
+                                                <button className="topic-switch-btn" onClick={() => setIsManualMode(true)}>
+                                                    <Search size={14} />
+                                                    {language === 'fr' ? "Choisir un autre sujet" : "Choose another subject"}
+                                                </button>
+                                            ) : (
+                                                <div className="topic-search-wrap">
+                                                    <div className="topic-search-box">
+                                                        <Search size={16} className="search-icon" />
+                                                        <input 
+                                                            autoFocus
+                                                            type="text" 
+                                                            placeholder={language === 'fr' ? "Chercher un sujet (ex: Crâne, Fémur...)" : "Search a subject (eg: Skull, Femur...)"}
+                                                            value={searchQuery}
+                                                            onChange={e => setSearchQuery(e.target.value)}
+                                                        />
+                                                        <button className="close-search" onClick={() => { setIsManualMode(false); setSearchQuery(''); }}>
+                                                            <X size={16} />
+                                                        </button>
+                                                    </div>
+                                                    <AnimatePresence>
+                                                        {isManualMode && (searchQuery.trim().length >= 2 || isSearching) && (
+                                                            <motion.div 
+                                                                initial={{ opacity: 0, y: -10 }}
+                                                                animate={{ opacity: 1, y: 0 }}
+                                                                exit={{ opacity: 0, y: -10 }}
+                                                                className="topic-results-popover"
+                                                            >
+                                                                {isSearching ? (
+                                                                    <div className="search-msg">{language === 'fr' ? 'Recherche...' : 'Searching...'}</div>
+                                                                ) : searchResults.length > 0 ? (
+                                                                    <div className="search-list">
+                                                                        {searchResults.map((res: any) => (
+                                                                            <div key={res.id} className="search-item" onClick={() => fetchNextTopic(res.id)}>
+                                                                                <FolderTree size={14} />
+                                                                                <span className="item-name">{res.name}</span>
+                                                                                <small className="item-type">{res.type}</small>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="search-msg">{language === 'fr' ? 'Aucun résultat' : 'No results'}</div>
+                                                                )}
+                                                            </motion.div>
+                                                        )}
+                                                    </AnimatePresence>
+                                                </div>
+                                            )}
+                                            {!isManualMode && (
+                                                <button className="topic-switch-btn" onClick={() => fetchNextTopic()}>
+                                                    <RotateCcw size={14} />
+                                                    {language === 'fr' ? "Sujet aléatoire" : "Random subject"}
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                                 <p>
                                     {topicLoading
                                         ? (language === 'fr' ? 'Recherche d\'un sujet anatomique non étudié…' : 'Searching for an unstudied anatomical topic…')
@@ -696,74 +789,88 @@ const Quiz: React.FC = () => {
                     {/* STEP 5 : RESULTS */}
                     {step === 5 && (() => {
                         const pct = Math.round((results.correct / results.total) * 100);
-                        const scoreOn20 = ((results.correct / results.total) * 20).toFixed(1);
+                        const rawScore = (results.correct / results.total) * 20;
+                        const scoreOn20 = rawScore % 1 === 0 ? rawScore.toString() : rawScore.toFixed(1);
                         
                         const getMessage = () => {
                             const val = parseFloat(scoreOn20);
                             if (language === 'fr') {
-                                if (val >= 18) return { title: "Excellent", sub: "Expertise anatomique exceptionnelle.", color: "#34d399" };
-                                if (val >= 16) return { title: "Très Bien", sub: "Maîtrise avancée des structures.", color: "#10b981" };
-                                if (val >= 14) return { title: "Bien", sub: "Bonne compréhension de la région.", color: "#0ea5e9" };
-                                if (val >= 12) return { title: "Assez Bien", sub: "Des bases solides à consolider.", color: "#fbbf24" };
-                                if (val >= 10) return { title: "Passable", sub: "Le strict minimum est acquis.", color: "#f97316" };
-                                return { title: "Médiocre", sub: "Besoin de revoir les fondamentaux.", color: "#f87171" };
+                                if (val >= 18) return { title: "Excellent", emoji: "🏆", sub: "Expertise anatomique exceptionnelle.", color: "#34d399" };
+                                if (val >= 16) return { title: "Très Bien", emoji: "🔥", sub: "Maîtrise avancée des structures.", color: "#10b981" };
+                                if (val >= 14) return { title: "Bien", emoji: "✨", sub: "Bonne compréhension de la région.", color: "#0ea5e9" };
+                                if (val >= 12) return { title: "Assez Bien", emoji: "👍", sub: "Des bases solides à consolider.", color: "#fbbf24" };
+                                if (val >= 10) return { title: "Passable", emoji: "📚", sub: "Le strict minimum est acquis.", color: "#f97316" };
+                                return { title: "Médiocre", emoji: "🧐", sub: "Besoin de revoir les fondamentaux.", color: "#f87171" };
                             } else {
-                                if (val >= 18) return { title: "Excellent", sub: "Outstanding anatomical expertise.", color: "#34d399" };
-                                if (val >= 16) return { title: "Very Good", sub: "Advanced mastery of structures.", color: "#10b981" };
-                                if (val >= 14) return { title: "Good", sub: "Good understanding of the region.", color: "#0ea5e9" };
-                                if (val >= 12) return { title: "Satisfactory", sub: "Solid foundations to reinforce.", color: "#fbbf24" };
-                                if (val >= 10) return { title: "Passable", sub: "The bare minimum is acquired.", color: "#f97316" };
-                                return { title: "Mediocre", sub: "Need to review the fundamentals.", color: "#f87171" };
+                                if (val >= 18) return { title: "Excellent", emoji: "🏆", sub: "Outstanding anatomical expertise.", color: "#34d399" };
+                                if (val >= 16) return { title: "Very Good", emoji: "🔥", sub: "Advanced mastery of structures.", color: "#10b981" };
+                                if (val >= 14) return { title: "Good", emoji: "✨", sub: "Good understanding of the region.", color: "#0ea5e9" };
+                                if (val >= 12) return { title: "Satisfactory", emoji: "👍", sub: "Solid foundations to reinforce.", color: "#fbbf24" };
+                                if (val >= 10) return { title: "Passable", emoji: "📚", sub: "The bare minimum is acquired.", color: "#f97316" };
+                                return { title: "Mediocre", emoji: "🧐", sub: "Need to review the fundamentals.", color: "#f87171" };
                             }
                         };
                         const feed = getMessage();
 
                         return (
                         <motion.div key="step5" variants={pageVariants} initial="initial" animate="animate" exit="exit" className="qz-results-page">
-                            <div className="qz-results-main-row">
-                                {/* Left: Info and Actions */}
-                                <div className="qz-results-info-col">
-                                    <div className="qz-results-hero-badge">
-                                        <span className="qz-pulse-dot"></span>
-                                        {language === 'fr' ? 'Diagnostic IA Finalisé' : 'AI Diagnostic Finalized'}
-                                    </div>
-                                    <h1 className="qz-results-hero-title" style={{ color: feed.color }}>
-                                        {feed.title}
-                                    </h1>
-                                    <p className="qz-results-hero-subtitle">{feed.sub}</p>
-                                    
-                                    <div className="qz-stats-row">
-                                        <span className="qz-stat-pill correct">
-                                            <CheckCircle2 size={14}/> {results.correct} {language === 'fr' ? 'correctes' : 'correct'}
-                                        </span>
-                                        <span className="qz-stat-pill wrong">
-                                            <XCircle size={14}/> {results.total - results.correct} {language === 'fr' ? 'incorrectes' : 'incorrect'}
-                                        </span>
-                                    </div>
 
-                                    <div className="qz-results-actions-inline">
-                                        <button className="qz-restart-btn primary" onClick={reset}>
-                                            <RotateCcw size={18}/>
-                                            {language === 'fr' ? 'Nouveau' : 'New'}
-                                        </button>
+
+                            <div className="qz-results-main-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px', width: '100%', marginBottom: '40px' }}>
+                                {/* Left Col: Actions & Stats */}
+                                <div style={{ flex: 1.2, display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                                        <div className="qz-results-hero-badge" style={{ marginBottom: 0 }}>
+                                            <span className="qz-pulse-dot"></span>
+                                            {language === 'fr' ? 'Diagnostic IA Finalisé' : 'AI Diagnostic Finalized'}
+                                        </div>
                                         
-                                        {results.correct < results.total && (
-                                            <button className="qz-restart-btn secondary" onClick={handleRetakeMissed}>
-                                                <AlertCircle size={18}/>
-                                                {language === 'fr' ? 'Réviser erreurs' : 'Review Errors'}
+                                        <div className="qz-results-actions-inline" style={{ margin: 0 }}>
+                                            <button className="qz-restart-btn primary" onClick={reset} style={{ padding: '8px 20px', minWidth: 'auto', fontSize: '13px' }}>
+                                                <RotateCcw size={16}/>
+                                                {language === 'fr' ? 'Nouveau' : 'New'}
                                             </button>
-                                        )}
+                                            
+                                            <button className="qz-restart-btn primary" onClick={handleRetake} style={{ padding: '8px 20px', minWidth: 'auto', fontSize: '13px' }}>
+                                                <RotateCcw size={16}/>
+                                                {language === 'fr' ? "Reinit Tout" : "Retry All"}
+                                            </button>
 
-                                        <button className="qz-restart-btn ghost" onClick={handleRetake}>
-                                            {language === 'fr' ? "Reinit Tout" : "Retry All"}
-                                        </button>
+                                            {results.correct < results.total && (
+                                                <button className="qz-restart-btn secondary" onClick={handleRetakeMissed} style={{ padding: '8px 20px', minWidth: 'auto', fontSize: '13px' }}>
+                                                    <AlertCircle size={16}/>
+                                                    {language === 'fr' ? 'Réviser erreurs' : 'Review Errors'}
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
+
+                                        <div className="qz-stats-row" style={{ marginTop: '15px', marginBottom: '8px', display: 'flex', gap: '8px' }}>
+                                            <span className="qz-stat-pill correct" style={{ padding: '4px 10px', fontSize: '11px' }}>
+                                                <CheckCircle2 size={12} /> {results.correct} {language === 'fr' ? 'correctes' : 'correct'}
+                                            </span>
+                                            <span className="qz-stat-pill wrong" style={{ padding: '4px 10px', fontSize: '11px' }}>
+                                                <XCircle size={12} /> {results.total - results.correct} {language === 'fr' ? 'incorrectes' : 'incorrect'}
+                                            </span>
+                                        </div>
+                                        <p className="qz-results-hero-subtitle" style={{ fontSize: '12px', margin: 0 }}>{feed.sub}</p>
+                                    </div>
+
+                                {/* Middle Col: Message */}
+                                <div style={{ flex: 1, textAlign: 'center' }}>
+                                    <h1 className="qz-results-hero-title" style={{ color: feed.color, margin: 0, fontSize: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
+                                        {feed.title}
+                                        <span style={{ fontSize: '2em', lineHeight: 1 }}>{feed.emoji}</span>
+                                    </h1>
                                 </div>
 
-                                {/* Right: The Score Ring */}
-                                <div className="qz-results-score-col">
-                                    <div className="qz-score-ring big">
-                                        <svg width="240" height="240" viewBox="0 0 240 240">
+
+
+
+                                {/* Right Col: Note */}
+                                <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
+                                    <div className="qz-score-ring big" style={{ width: '160px', height: '160px' }}>
+                                        <svg width="100%" height="100%" viewBox="0 0 240 240">
                                             <circle className="qz-score-ring-track" cx="120" cy="120" r="100"/>
                                             <circle
                                                 className="qz-score-ring-fill"

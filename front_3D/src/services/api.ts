@@ -167,7 +167,10 @@ export const aiCacheService = {
         apiCall('/ai-cache/lookup', { method: 'POST', body: JSON.stringify(data) }),
     /** Met à jour un cache */
     update: (id: string, data: any) => 
-        apiCall(`/ai-cache/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+        apiCall(`/ai-cache/${id}`, { 
+            method: 'POST', 
+            body: JSON.stringify({ ...data, _method: 'PUT' }) 
+        }),
     /** Supprime un cache */
     delete: (id: string) => apiCall(`/ai-cache/${id}`, { 
         method: 'POST', 

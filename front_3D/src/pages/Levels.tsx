@@ -257,7 +257,7 @@ const Levels: React.FC = () => {
                                     {LEVEL_META.map((meta, lvl) => {
                                         const entry = stats.mastery_levels.find(m => m.level === lvl);
                                         const count = entry?.count ?? 0;
-                                        const maxCount = Math.max(1, ...stats.mastery_levels.map(m => m.count));
+                                        const denominator = stats.total_notions > 0 ? stats.total_notions : 1;
                                         return (
                                             <div key={lvl} className="lv-dist-row">
                                                 <span className="lv-dist-label" style={{ color: meta.color }}>
@@ -268,7 +268,7 @@ const Levels: React.FC = () => {
                                                         className="lv-dist-fill"
                                                         style={{ background: meta.color }}
                                                         initial={{ width: 0 }}
-                                                        animate={{ width: `${(count / maxCount) * 100}%` }}
+                                                        animate={{ width: `${(count / denominator) * 100}%` }}
                                                         transition={{ duration: 0.8, delay: lvl * 0.07 }}
                                                     />
                                                 </div>

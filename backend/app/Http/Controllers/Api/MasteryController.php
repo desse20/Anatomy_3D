@@ -68,31 +68,31 @@ class MasteryController extends Controller
             ->values()
             ->map($mapItem);
 
-        // En cours : net_score <= 0 (plus d'échecs que de succès)
+        // En cours : niveau 0 mais déjà commencé
         $enCours = $masteries
-            ->filter(fn($m) => ($m->success_count + $m->failure_count) > 0 && $net($m) <= 0)
+            ->filter(fn($m) => ($m->success_count + $m->failure_count) > 0 && $m->mastery_level === 0)
             ->sortByDesc('failure_count')
             ->values()
             ->map($mapItem);
 
-        // Maîtrisées : net_score entre 1 et 4 (plus de succès)
+        // Maîtrisées : niveau 1 à 4
         $maitrisees = $masteries
-            ->filter(fn($m) => $net($m) > 0 && $net($m) < 5)
-            ->sortByDesc('net_score')
+            ->filter(fn($m) => $m->mastery_level > 0 && $m->mastery_level < 5)
+            ->sortByDesc('mastery_level')
             ->values()
             ->map($mapItem);
 
-        // Totalement maîtrisées : net_score >= 5
+        // Totalement maîtrisées : niveau 5
         $totalementMaitrisees = $masteries
-            ->filter(fn($m) => $net($m) >= 5)
-            ->sortByDesc('net_score')
+            ->filter(fn($m) => $m->mastery_level === 5)
+            ->sortByDesc('success_count')
             ->values()
             ->map($mapItem);
 
-        // Cultivées : net_score >= 5 ET peu d'échecs (≤ 2)
+        // Cultivées : niveau 5 ET peu d'échecs (≤ 2)
         $cultivees = $masteries
-            ->filter(fn($m) => $net($m) >= 5 && $m->failure_count <= 2)
-            ->sortByDesc('net_score')
+            ->filter(fn($m) => $m->mastery_level === 5 && $m->failure_count <= 2)
+            ->sortByDesc('success_count')
             ->values()
             ->map($mapItem);
 
@@ -131,13 +131,16 @@ class MasteryController extends Controller
 
     /**
      * POST /api/mastery/record
-     * Enregistre le résultat d'une question pour une notion donnée
+     * Enregistre le résultat d'une session de questions pour une notion donnée
      */
     public function record(Request $request)
     {
         $request->validate([
             'anatomical_object_name' => 'required|string',
-            'is_correct'           => 'required|boolean',
+            'success_count'          => 'sometimes|integer|min:0',
+            'failure_count'          => 'sometimes|integer|min:0',
+            'is_correct'             => 'sometimes|boolean', // kept for backward compatibility
+            'is_review'              => 'sometimes|boolean',
         ]);
 
         $userId = $request->user()?->id;
@@ -145,9 +148,14 @@ class MasteryController extends Controller
             return response()->json(['error' => 'Unauthenticated'], 401);
         }
 
-        // Auto-créer ou trouver l'objet par nom
+        // Si c'est une révision/correction d'erreurs, on n'enregistre pas la progression de niveau
+        if ($request->is_review) {
+            return response()->json(['success' => true, 'message' => 'Review session, no level change']);
+        }
+
         $obj = \App\Models\AnatomicalObject::where('name', $request->anatomical_object_name)->first();
         if (!$obj) {
+            // Auto-creation if not found
             $maxId = \App\Models\AnatomicalObject::max('id') ?? 10000;
             $defaultAssetId = \App\Models\Asset3d::inRandomOrder()->first()?->id;
             if (!$defaultAssetId) {
@@ -163,31 +171,47 @@ class MasteryController extends Controller
         }
 
         $mastery = UserMastery::firstOrCreate(
-            [
-                'user_id'            => $userId,
-                'anatomical_object_id'  => $obj->id,
-            ],
-            [
-                'success_count' => 0,
-                'failure_count' => 0,
-                'mastery_level' => 0,
-            ]
+            ['user_id' => $userId, 'anatomical_object_id' => $obj->id],
+            ['success_count' => 0, 'failure_count' => 0, 'mastery_level' => 0]
         );
 
-        if ($request->is_correct) {
-            $mastery->success_count++;
-        } else {
-            $mastery->failure_count++;
-        }
+        $sessionSuccess = $request->input('success_count', $request->is_correct ? 1 : 0);
+        $sessionFailure = $request->input('failure_count', $request->is_correct ? 0 : 1);
 
-        $netScore = $mastery->success_count - $mastery->failure_count;
-        $mastery->mastery_level = min(max($netScore, 0), 5);
+        $mastery->success_count += $sessionSuccess;
+        $mastery->failure_count += $sessionFailure;
+
+        // Logic for Level: Success rate in session needs to be > 80% to level up
+        $totalSession = $sessionSuccess + $sessionFailure;
+        $sessionRate = $totalSession > 0 ? ($sessionSuccess / $totalSession) : 0;
+
+        if ($sessionRate >= 0.8) {
+            $mastery->mastery_level = min($mastery->mastery_level + 1, 5);
+        } elseif ($sessionRate < 0.5) {
+            $mastery->mastery_level = max($mastery->mastery_level - 1, 0);
+        }
+        // If between 50% and 80%, level remains the same.
 
         $mastery->last_review_at = now();
-        // 1 semaine = 2 révisions → intervalle fixe de 84 heures (3,5 jours)
-        $mastery->next_review_at = now()->addHours(84);
+        
+        // Dynamic SRS Intervals based on level
+        $intervals = [
+            0 => 24,    // Lvl 0 -> Review in 1 day
+            1 => 72,    // Lvl 1 -> Review in 3 days
+            2 => 168,   // Lvl 2 -> Review in 7 days (1 week)
+            3 => 336,   // Lvl 3 -> Review in 14 days (2 weeks)
+            4 => 720,   // Lvl 4 -> Review in 30 days (1 month)
+            5 => 1440,  // Lvl 5 -> Review in 60 days (2 months)
+        ];
+        
+        $hours = $intervals[$mastery->mastery_level] ?? 168;
+        $mastery->next_review_at = now()->addHours($hours);
         $mastery->save();
 
-        return response()->json(['success' => true, 'mastery_level' => $mastery->mastery_level]);
+        return response()->json([
+            'success' => true, 
+            'mastery_level' => $mastery->mastery_level,
+            'next_review' => $mastery->next_review_at->diffForHumans()
+        ]);
     }
 }

@@ -11,8 +11,12 @@ interface CacheAsset {
 }
 
 
+let _dbPromise: Promise<IDBDatabase> | null = null;
+
 function openDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
+  if (_dbPromise) return _dbPromise;
+  
+  _dbPromise = new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
@@ -27,8 +31,13 @@ function openDB(): Promise<IDBDatabase> {
       }
     };
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    request.onerror = () => {
+      _dbPromise = null;
+      reject(request.error);
+    };
   });
+  
+  return _dbPromise;
 }
 
 export const offlineCache = {
@@ -37,8 +46,8 @@ export const offlineCache = {
     return new Promise((resolve, reject) => {
       const tx = db.transaction('assets', 'readwrite');
       tx.objectStore('assets').put(asset);
-      tx.oncomplete = () => { db.close(); resolve(); };
-      tx.onerror = () => { db.close(); reject(tx.error); };
+      tx.oncomplete = () => { resolve(); };
+      tx.onerror = () => { reject(tx.error); };
     });
   },
 
@@ -47,8 +56,8 @@ export const offlineCache = {
     return new Promise((resolve, reject) => {
       const tx = db.transaction('assets', 'readonly');
       const request = tx.objectStore('assets').get(id);
-      request.onsuccess = () => { db.close(); resolve(request.result); };
-      request.onerror = () => { db.close(); reject(request.error); };
+      request.onsuccess = () => { resolve(request.result); };
+      request.onerror = () => { reject(request.error); };
     });
   },
 
@@ -57,8 +66,8 @@ export const offlineCache = {
     return new Promise((resolve, reject) => {
       const tx = db.transaction('hierarchy', 'readwrite');
       tx.objectStore('hierarchy').put({ asset_id: assetId, data, cached_at: Date.now() });
-      tx.oncomplete = () => { db.close(); resolve(); };
-      tx.onerror = () => { db.close(); reject(tx.error); };
+      tx.oncomplete = () => { resolve(); };
+      tx.onerror = () => { reject(tx.error); };
     });
   },
 
@@ -67,8 +76,8 @@ export const offlineCache = {
     return new Promise((resolve, reject) => {
       const tx = db.transaction('hierarchy', 'readonly');
       const request = tx.objectStore('hierarchy').get(assetId);
-      request.onsuccess = () => { db.close(); resolve(request.result?.data); };
-      request.onerror = () => { db.close(); reject(request.error); };
+      request.onsuccess = () => { resolve(request.result?.data); };
+      request.onerror = () => { reject(request.error); };
     });
   },
 
@@ -77,8 +86,8 @@ export const offlineCache = {
     return new Promise((resolve, reject) => {
       const tx = db.transaction('glb_files', 'readwrite');
       tx.objectStore('glb_files').put({ asset_id: assetId, data, cached_at: Date.now() });
-      tx.oncomplete = () => { db.close(); resolve(); };
-      tx.onerror = () => { db.close(); reject(tx.error); };
+      tx.oncomplete = () => { resolve(); };
+      tx.onerror = () => { reject(tx.error); };
     });
   },
 
@@ -87,8 +96,8 @@ export const offlineCache = {
     return new Promise((resolve, reject) => {
       const tx = db.transaction('glb_files', 'readonly');
       const request = tx.objectStore('glb_files').get(assetId);
-      request.onsuccess = () => { db.close(); resolve(request.result?.data); };
-      request.onerror = () => { db.close(); reject(request.error); };
+      request.onsuccess = () => { resolve(request.result?.data); };
+      request.onerror = () => { reject(request.error); };
     });
   },
 
@@ -108,8 +117,8 @@ export const offlineCache = {
       tx.objectStore('assets').delete(assetId);
       tx.objectStore('hierarchy').delete(assetId);
       tx.objectStore('glb_files').delete(assetId);
-      tx.oncomplete = () => { db.close(); resolve(); };
-      tx.onerror = () => { db.close(); reject(tx.error); };
+      tx.oncomplete = () => { resolve(); };
+      tx.onerror = () => { reject(tx.error); };
     });
   },
 
@@ -118,8 +127,8 @@ export const offlineCache = {
     return new Promise((resolve, reject) => {
       const tx = db.transaction('assets', 'readonly');
       const request = tx.objectStore('assets').getAll();
-      request.onsuccess = () => { db.close(); resolve(request.result); };
-      request.onerror = () => { db.close(); reject(request.error); };
+      request.onsuccess = () => { resolve(request.result); };
+      request.onerror = () => { reject(request.error); };
     });
   },
 
@@ -130,8 +139,8 @@ export const offlineCache = {
       tx.objectStore('assets').clear();
       tx.objectStore('hierarchy').clear();
       tx.objectStore('glb_files').clear();
-      tx.oncomplete = () => { db.close(); resolve(); };
-      tx.onerror = () => { db.close(); reject(tx.error); };
+      tx.oncomplete = () => { resolve(); };
+      tx.onerror = () => { reject(tx.error); };
     });
   },
 };

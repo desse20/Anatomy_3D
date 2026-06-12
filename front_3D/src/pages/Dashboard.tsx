@@ -938,18 +938,68 @@ const Dashboard: React.FC = () => {
                         {modalLoading ? (
                             <div style={{ textAlign: 'center', padding: '100px', color: 'var(--dash-text-muted)' }}>{t('Chargement...', 'Loading...')}</div>
                         ) : (
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
-                                {modalData.map((item: any) => (
-                                    <div key={item.id} className="secondary-item-card" style={{ padding: '24px', background: 'var(--dash-card-bg)', borderRadius: '20px', border: '1px solid var(--dash-border)', position: 'relative', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
-                                        <div style={{ position: 'absolute', top: '15px', right: '15px', display: 'flex', gap: '8px' }}>
-                                            {activeView === 'cache' && (
-                                                <button onClick={() => setEditingItem(item)} className="action-icon-btn"><Edit3 size={16} /></button>
-                                            )}
-                                            <button onClick={() => activeView === 'reviews' ? handleDeleteReview(item.id) : handleDeleteCache(item.id)} className="action-icon-btn delete"><Trash2 size={16} /></button>
+                            <>
+                                {activeView === 'cache' ? (
+                                    <div className="table-card-dash" style={{ height: 'auto', padding: '0', overflow: 'hidden', gridColumn: '1 / -1' }}>
+                                        <div className="table-container-responsive">
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                                                <thead>
+                                                    <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--dash-border)' }}>
+                                                        <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>Question</th>
+                                                        <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>{t('Modèle', 'Model')}</th>
+                                                        <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--dash-text-muted)', textTransform: 'uppercase', textAlign: 'center' }}>{t('Utilisations', 'Uses')}</th>
+                                                        <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>{t('Date', 'Date')}</th>
+                                                        <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: 800, color: 'var(--dash-text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>{t('Actions', 'Actions')}</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {modalData.map((item: any) => (
+                                                        <tr key={item.id} style={{ borderBottom: '1px solid var(--dash-border)', transition: 'background 0.2s' }} className="table-row-hover">
+                                                            <td style={{ padding: '16px 24px' }}>
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                                    <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--dash-text-main)', maxWidth: '400px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={item.question}>
+                                                                        {item.question}
+                                                                    </div>
+                                                                    <div style={{ fontSize: '12px', color: 'var(--dash-text-muted)', maxWidth: '400px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                                        {item.response}
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                            <td style={{ padding: '16px 24px' }}>
+                                                                <span style={{ fontSize: '13px', padding: '4px 10px', borderRadius: '100px', background: 'rgba(167, 139, 250, 0.1)', color: '#a78bfa', fontWeight: 700 }}>
+                                                                    {item.ai_model}
+                                                                </span>
+                                                            </td>
+                                                            <td style={{ padding: '16px 24px', textAlign: 'center' }}>
+                                                                <span style={{ fontWeight: 800, fontSize: '14px' }}>{item.use_count}</span>
+                                                            </td>
+                                                            <td style={{ padding: '16px 24px', fontSize: '13px', color: 'var(--dash-text-muted)' }}>
+                                                                {new Date(item.created_at).toLocaleDateString()}
+                                                            </td>
+                                                            <td style={{ padding: '16px 24px', textAlign: 'right' }}>
+                                                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                                                    <button onClick={() => setEditingItem(item)} className="action-icon-btn" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none', borderRadius: '8px', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                                                                        <Edit3 size={16} />
+                                                                    </button>
+                                                                    <button onClick={() => handleDeleteCache(item.id)} className="action-icon-btn delete" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '8px', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                                                                        <Trash2 size={16} />
+                                                                    </button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
                                         </div>
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px', gridColumn: '1 / -1' }}>
+                                        {modalData.map((item: any) => (
+                                            <div key={item.id} className="secondary-item-card" style={{ padding: '24px', background: 'var(--dash-card-bg)', borderRadius: '20px', border: '1px solid var(--dash-border)', position: 'relative', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+                                                <div style={{ position: 'absolute', top: '15px', right: '15px', display: 'flex', gap: '8px' }}>
+                                                    <button onClick={() => handleDeleteReview(item.id)} className="action-icon-btn delete"><Trash2 size={16} /></button>
+                                                </div>
 
-                                        {activeView === 'reviews' ? (
-                                            <>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
                                                     <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6' }}>
                                                         <User size={20} />
@@ -980,33 +1030,10 @@ const Dashboard: React.FC = () => {
                                                         <span>{new Date(item.created_at).toLocaleString()}</span>
                                                     </div>
                                                 </div>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <div style={{ fontWeight: 800, fontSize: '15px', color: 'var(--dash-text-muted)', marginBottom: '12px', paddingRight: '60px', lineHeight: 1.4 }}>{item.question}</div>
-                                                <div style={{ fontSize: '13px', background: 'var(--dash-accent-hover)', padding: '15px', borderRadius: '12px', marginBottom: '15px', color: 'var(--dash-text-muted)', border: '1px solid var(--dash-border)' }}>{item.response}</div>
-                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                                                    <div className="mini-stat-info">
-                                                        <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--dash-text-muted)' }}>IA Model</div>
-                                                        <div style={{ fontSize: '12px', fontWeight: 700 }}>{item.ai_model}</div>
-                                                    </div>
-                                                    <div className="mini-stat-info">
-                                                        <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--dash-text-muted)' }}>{t('Utilisations', 'Uses')}</div>
-                                                        <div style={{ fontSize: '12px', fontWeight: 700 }}>{item.use_count}</div>
-                                                    </div>
-                                                    <div className="mini-stat-info">
-                                                        <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--dash-text-muted)' }}>{t('Langue', 'Lang')}</div>
-                                                        <div style={{ fontSize: '12px', fontWeight: 700 }}>{item.language}</div>
-                                                    </div>
-                                                    <div className="mini-stat-info">
-                                                        <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--dash-text-muted)' }}>{t('Date', 'Date')}</div>
-                                                        <div style={{ fontSize: '11px' }}>{new Date(item.created_at).toLocaleDateString()}</div>
-                                                    </div>
-                                                </div>
-                                            </>
-                                        )}
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
+                                )}
                                 {modalData.length === 0 && !['user_analytics', 'analytics_objects', 'user_detail'].includes(activeView) && (
                                     <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '50px', opacity: 0.5 }}>
                                         <Activity size={48} style={{ marginBottom: '15px', opacity: 0.2 }} />
@@ -1024,8 +1051,9 @@ const Dashboard: React.FC = () => {
                                         </button>
                                     </div>
                                 )}
-                            </div>
+                            </>
                         )}
+                    </div>
                         {activeView === 'analytics_objects' && (
                             <div className="detail-grid-responsive" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
                                 <div className="table-card-dash top" style={{ height: 'auto' }}>
@@ -1193,7 +1221,6 @@ const Dashboard: React.FC = () => {
                                 </div>
                             </div>
                         )}
-                    </div>
                 </div>
             ) : (
                 <div className="dash-grid">
@@ -1641,36 +1668,38 @@ const Dashboard: React.FC = () => {
 
             {/* AI Cache Edit Modal */}
             {editingItem && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ background: 'var(--dash-bg)', padding: '24px', borderRadius: '24px', width: '100%', maxWidth: '500px', border: '1px solid var(--dash-border)', boxShadow: '0 20px 40px rgba(0,0,0,0.4)' }}>
-                        <h3 style={{ marginTop: 0, marginBottom: '20px' }}>{t('Modifier Cache IA', 'Edit AI Cache')}</h3>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            <div>
-                                <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '6px', color: 'var(--dash-text-muted)' }}>Question</label>
-                                <textarea 
-                                    defaultValue={editingItem.question}
-                                    style={{ width: '100%', background: 'var(--dash-accent-hover)', color: 'var(--dash-text-main)', border: '1px solid var(--dash-border)', borderRadius: '12px', padding: '12px', minHeight: '80px', fontSize: '13px' }}
-                                    onChange={(e: any) => editingItem._newTitle = e.target.value}
-                                />
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '6px', color: 'var(--dash-text-muted)' }}>Réponse</label>
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(12px)', padding: '20px' }}>
+                    <div style={{ background: 'var(--dash-bg)', padding: '40px', borderRadius: '32px', width: '85vw', height: '85vh', border: '1px solid var(--dash-border)', boxShadow: '0 40px 80px -15px rgba(0,0,0,0.7)', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
+                        <h3 style={{ marginTop: 0, marginBottom: '30px', fontSize: '24px', fontWeight: 900, color: 'var(--dash-text-main)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <Cpu size={24} color="#a78bfa" /> {t('Modifier Cache IA', 'Edit AI Cache')}
+                        </h3>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px', flex: 1, marginBottom: '20px', minHeight: 0 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '12px', color: 'var(--dash-text-muted)', letterSpacing: '1px' }}>{t('Réponse', 'Response')}</label>
                                 <textarea 
                                     defaultValue={editingItem.response}
-                                    style={{ width: '100%', background: 'var(--dash-accent-hover)', color: 'var(--dash-text-main)', border: '1px solid var(--dash-border)', borderRadius: '12px', padding: '12px', minHeight: '120px', fontSize: '13px' }}
+                                    style={{ flex: 1, width: '100%', background: 'var(--dash-accent-hover)', color: 'var(--dash-text-main)', border: '1px solid var(--dash-border)', borderRadius: '20px', padding: '24px', fontSize: '16px', lineHeight: '1.8', outline: 'none', transition: 'all 0.3s', fontFamily: 'inherit', resize: 'none', overflowY: 'auto' }}
                                     onChange={(e: any) => editingItem._newResponse = e.target.value}
                                 />
                             </div>
-                            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '10px' }}>
-                                <button onClick={() => setEditingItem(null)} className="mini-btn" style={{ margin: 0, background: 'transparent', color: 'var(--dash-text-muted)' }}>{t('Annuler', 'Cancel')}</button>
-                                <button 
-                                    onClick={() => handleUpdateCache(editingItem.id, { question: editingItem._newTitle || editingItem.question, response: editingItem._newResponse || editingItem.response })} 
-                                    className="mini-btn" 
-                                    style={{ margin: 0, background: 'linear-gradient(135deg, #6366f1, #a78bfa)', color: '#fff', border: 'none' }}
-                                >
-                                    {t('Enregistrer', 'Save')}
-                                </button>
+                            <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '12px', color: 'var(--dash-text-muted)', letterSpacing: '1px' }}>Question</label>
+                                <textarea 
+                                    defaultValue={editingItem.question}
+                                    style={{ flex: 1, width: '100%', background: 'var(--dash-accent-hover)', color: 'var(--dash-text-main)', border: '1px solid var(--dash-border)', borderRadius: '20px', padding: '24px', fontSize: '16px', lineHeight: '1.8', outline: 'none', transition: 'all 0.3s', fontFamily: 'inherit', resize: 'none', overflowY: 'auto' }}
+                                    onChange={(e: any) => editingItem._newTitle = e.target.value}
+                                />
                             </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '20px', justifyContent: 'flex-end', paddingTop: '10px' }}>
+                            <button onClick={() => setEditingItem(null)} className="mini-btn" style={{ margin: 0, background: 'transparent', color: 'var(--dash-text-muted)', fontWeight: 700, padding: '12px 24px' }}>{t('Annuler', 'Cancel')}</button>
+                            <button 
+                                onClick={() => handleUpdateCache(editingItem.id, { question: editingItem._newTitle || editingItem.question, response: editingItem._newResponse || editingItem.response })} 
+                                className="mini-btn" 
+                                style={{ margin: 0, padding: '14px 50px', background: 'linear-gradient(135deg, #6366f1, #a78bfa)', color: '#fff', border: 'none', borderRadius: '16px', fontWeight: 800, fontSize: '15px', boxShadow: '0 8px 20px rgba(99, 102, 241, 0.4)' }}
+                            >
+                                {t('Enregistrer', 'Save')}
+                            </button>
                         </div>
                     </div>
                 </div>

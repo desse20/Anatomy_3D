@@ -201,8 +201,8 @@ class AiController extends Controller
                 $objectId = $obj?->id;
             }
 
-            // Ne cacher que les explications (pas les quiz — trop spécifiques/aléatoires)
-            if (!$isExplanation) return;
+            // On cache tout ce qui passe pour alimenter le dashboard et servir de backup
+            // if (!$isExplanation) return;
 
             AiCache::create([
                 'question'   => mb_substr($question, 0, 2000),
