@@ -195,148 +195,113 @@ const FloatingReview: React.FC<FloatingReviewProps> = ({ isOpen: propIsOpen, onT
             </AnimatePresence>
 
             <style>{`
-                .floating-review-container {
-                    position: fixed;
-                    bottom: 24px;
-                    right: 24px;
-                    z-index: 10000;
-                }
-                .review-toggle-btn {
-                    width: 50px;
-                    height: 50px;
-                    border-radius: 50%;
-                    background: #000000;
-                    color: #ffffff;
-                    border: 1px solid rgba(0,0,0,0.1);
-                    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-                    cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    transition: 0.2s;
-                }
-                :global(.dark) .review-toggle-btn, .dark .review-toggle-btn {
-                    background: #ffffff;
-                    color: #000000;
-                    box-shadow: 0 4px 15px rgba(255, 255, 255, 0.2);
-                }
-                .review-toggle-btn:hover {
-                    transform: scale(1.1);
-                    opacity: 0.9;
-                }
                 .floating-review-window {
-                    width: 300px;
-                    background: #1a1f2e;
-                    border: 1px solid rgba(255,255,255,0.1);
-                    border-radius: 16px;
-                    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-                    margin-bottom: 70px;
+                    width: 350px;
+                    background: white;
+                    border-radius: 20px;
+                    box-shadow: 0 15px 50px rgba(0,0,0,0.15);
+                    display: flex;
+                    flex-direction: column;
+                    overflow: hidden;
+                    border: 1px solid #f3f4f6;
                 }
                 .review-header {
-                    padding: 12px 16px;
-                    background: #3b82f6;
+                    padding: 24px;
+                    background: linear-gradient(135deg, #056CF2 0%, #0C79F2 100%);
                     color: white;
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
+                }
+                .review-title {
+                    font-size: 18px;
                     font-weight: 700;
-                    font-size: 13px;
-                    border-radius: 16px 16px 0 0;
                 }
                 .review-header button {
-                    background: transparent; border: none; color: white; cursor: pointer;
+                    background: rgba(255,255,255,0.2);
+                    border: none;
+                    color: white;
+                    border-radius: 50%;
+                    padding: 5px;
+                    cursor: pointer;
+                    display: flex;
                 }
                 .review-form {
-                    padding: 16px;
+                    padding: 20px;
                     display: flex;
                     flex-direction: column;
-                    gap: 16px;
+                    gap: 15px;
                 }
                 .review-type-selector {
                     display: flex;
-                    background: rgba(0,0,0,0.2);
-                    border-radius: 10px;
+                    background: #f3f4f6;
+                    border-radius: 12px;
                     padding: 4px;
-                    gap: 4px;
                 }
                 .type-btn {
                     flex: 1;
-                    padding: 6px;
+                    padding: 8px;
                     border: none;
                     background: transparent;
-                    color: rgba(255,255,255,0.5);
-                    font-size: 10px;
-                    font-weight: 700;
-                    border-radius: 6px;
+                    color: #6b7280;
+                    font-size: 11px;
+                    font-weight: 600;
+                    border-radius: 8px;
                     cursor: pointer;
                     transition: 0.2s;
-                    text-transform: uppercase;
-                    white-space: nowrap;
                 }
-                .type-btn:hover { color: white; }
                 .type-btn.active {
-                    background: #3b82f6;
-                    color: white;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-                }
-                .review-intro {
-                    font-size: 12px;
-                    color: rgba(255,255,255,0.6);
-                    margin: 0;
-                    text-align: center;
-                }
-                .target-name {
-                    display: block;
-                    font-size: 14px;
-                    color: white;
-                    font-weight: 700;
-                    margin-top: 4px;
+                    background: white;
+                    color: #056CF2;
+                    box-shadow: 0 2px 8px rgba(5, 108, 242, 0.05);
                 }
                 .star-rating {
                     display: flex;
                     justify-content: center;
-                    gap: 8px;
+                    gap: 12px;
+                    padding: 10px 0;
                 }
                 .star-btn {
                     background: transparent;
                     border: none;
-                    color: #d1d5db;
+                    color: #e5e7eb;
                     cursor: pointer;
-                    transition: 0.2s;
-                    padding: 0;
+                    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
                 }
                 .star-btn.active {
                     color: #fbbf24;
+                    transform: scale(1.1);
                 }
                 .review-form textarea {
                     width: 100%;
-                    height: 80px;
-                    background: #0f131e;
-                    border: 1px solid rgba(255,255,255,0.1);
-                    border-radius: 8px;
-                    padding: 10px;
-                    color: white;
-                    font-size: 13px;
+                    height: 100px;
+                    background: #f9fafb;
+                    border: 1px solid #e5e7eb;
+                    border-radius: 12px;
+                    padding: 12px;
+                    font-size: 14px;
                     outline: none;
                     resize: none;
                 }
+                .review-form textarea:focus {
+                    border-color: #056CF2;
+                    background: white;
+                }
                 .submit-btn {
-                    padding: 10px;
-                    background: #3b82f6;
+                    padding: 14px;
+                    background: linear-gradient(135deg, #056CF2 0%, #0C79F2 100%);
                     color: white;
                     border: none;
-                    border-radius: 8px;
+                    border-radius: 12px;
                     font-weight: 600;
-                    font-size: 14px;
                     cursor: pointer;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    gap: 8px;
-                    transition: 0.2s;
+                    gap: 10px;
+                    box-shadow: 0 4px 12px rgba(104, 97, 242, 0.2);
                 }
-                .submit-btn:hover:not(:disabled) { background: #2563eb; }
-                .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+                .submit-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 15px rgba(104, 97, 242, 0.3); }
             `}</style>
         </div>
     );

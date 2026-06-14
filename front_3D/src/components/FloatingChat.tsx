@@ -24,9 +24,11 @@ type View = 'sessions' | 'chat';
 interface FloatingChatProps {
     isOpen?: boolean;
     onToggle?: (open: boolean) => void;
+    externalView?: View;
+    onViewChange?: (view: View) => void;
 }
 
-const FloatingChat: React.FC<FloatingChatProps> = ({ isOpen: propIsOpen, onToggle }) => {
+const FloatingChat: React.FC<FloatingChatProps> = ({ isOpen: propIsOpen, onToggle, externalView, onViewChange }) => {
     const { language } = useLanguage();
     const t = (fr: string, en: string) => language === 'fr' ? fr : en;
 
@@ -38,9 +40,25 @@ const FloatingChat: React.FC<FloatingChatProps> = ({ isOpen: propIsOpen, onToggl
     };
 
     const [isMinimized, setIsMinimized] = useState(false);
-    const [view, setView] = useState<View>('sessions');
+    const [internalView, setInternalView] = useState<View>(externalView || 'sessions');
+    const view = externalView !== undefined ? externalView : internalView;
+
+    const setView = (v: View) => {
+        if (onViewChange) onViewChange(v);
+        else setInternalView(v);
+    };
     const [isLoading, setIsLoading] = useState(false);
     const [input, setInput] = useState('');
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+    // Auto-resize textarea
+    useEffect(() => {
+        const textarea = textareaRef.current;
+        if (textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
+        }
+    }, [input]);
 
     const loadSessions = (): Session[] => {
         try { return JSON.parse(localStorage.getItem('chat_sessions') || '[]'); }
@@ -409,12 +427,19 @@ const FloatingChat: React.FC<FloatingChatProps> = ({ isOpen: propIsOpen, onToggl
                                             </div>
 
                                             <form className="fc-form" onSubmit={handleSubmit}>
-                                                <input
-                                                    type="text"
+                                                <textarea
+                                                    ref={textareaRef}
                                                     placeholder={t("Votre question...", "Your question...")}
                                                     value={input}
                                                     onChange={e => setInput(e.target.value)}
+                                                    onKeyDown={e => {
+                                                       if (e.key === 'Enter' && !e.shiftKey) {
+                                                           e.preventDefault();
+                                                           handleSubmit(e);
+                                                       }
+                                                    }}
                                                     disabled={isLoading}
+                                                    rows={1}
                                                 />
                                                 <button type="submit" disabled={!input.trim() || isLoading}>
                                                     <Send size={16} />
@@ -430,236 +455,280 @@ const FloatingChat: React.FC<FloatingChatProps> = ({ isOpen: propIsOpen, onToggl
             </AnimatePresence>
 
             <style>{`
-                .fc-container {
-                    position: fixed;
-                    bottom: 24px;
-                    right: 84px;
-                    z-index: 9999;
+                .unified-messenger .fc-container {
+                    display: flex;
+                    flex-direction: column;
+                    height: 100%;
+                    width: 100%;
                 }
-                .fc-toggle-btn {
-                    width: 52px; height: 52px;
-                    border-radius: 50%;
-                    background: #3b82f6;
-                    color: white; border: none;
-                    box-shadow: 0 4px 18px rgba(59,130,246,0.45);
-                    cursor: pointer;
-                    display: flex; align-items: center; justify-content: center;
-                    transition: 0.2s;
+                .unified-messenger .fc-window {
+                    display: flex;
+                    flex-direction: column;
+                    height: 100%;
+                    width: 100%;
+                    background: transparent;
+                    border: none;
+                    box-shadow: none;
                 }
-                .fc-toggle-btn:hover { transform: scale(1.06); background: #2563eb; }
-
-                .fc-window {
-                    width: 340px;
-                    background: #1a1f2e;
-                    border: 1px solid rgba(255,255,255,0.1);
-                    border-radius: 14px;
-                    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
-                    display: flex; flex-direction: column;
-                    overflow: hidden;
-                    color: #e2e8f0;
-                }
-                .fc-window.minimized { overflow: hidden; }
-
-                /* Header */
-                .fc-header {
-                    padding: 0 14px;
-                    height: 50px;
-                    background: #3b82f6;
-                    color: white;
-                    display: flex; align-items: center; justify-content: space-between;
-                    flex-shrink: 0;
-                    font-size: 13px; font-weight: 700;
-                }
-                .fc-header-left { display: flex; align-items: center; gap: 8px; }
-                .fc-header-right { display: flex; gap: 4px; }
-                .fc-icon-btn {
-                    background: transparent; border: none; color: white;
-                    cursor: pointer; padding: 5px; border-radius: 6px;
-                    display: flex; align-items: center; transition: 0.15s;
-                }
-                .fc-icon-btn:hover { background: rgba(255,255,255,0.15); }
-
-                /* Sessions view */
-                .fc-sessions-view {
-                    flex: 1; display: flex; flex-direction: column;
-                    overflow: hidden;
-                    background: #1a1f2e;
-                }
-                .fc-new-btn {
-                    margin: 12px;
-                    padding: 10px 14px;
-                    background: #3b82f6; color: white; border: none;
-                    border-radius: 10px; font-weight: 600; font-size: 13px;
-                    cursor: pointer; display: flex; align-items: center; gap: 8px;
-                    transition: 0.2s;
-                }
-                .fc-new-btn:hover { background: #2563eb; }
-                .fc-sessions-list { flex: 1; overflow-y: auto; padding: 0 10px 10px; }
-                .fc-empty {
-                    padding: 30px; text-align: center;
-                    color: rgba(226,232,240,0.4); font-size: 13px;
-                }
-                .fc-session-item {
-                    display: flex; align-items: center; gap: 10px;
-                    padding: 10px 12px; border-radius: 10px;
-                    cursor: pointer; transition: 0.15s; margin-bottom: 4px;
-                    color: #e2e8f0;
-                }
-                .fc-session-item:hover { background: rgba(255,255,255,0.07); }
-                .fc-session-info { flex: 1; min-width: 0; }
-                .fc-session-name {
-                    display: block; font-size: 13px; font-weight: 600;
-                    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-                }
-                .fc-session-date { font-size: 11px; color: rgba(226,232,240,0.4); }
-                .fc-session-actions { display: flex; gap: 4px; opacity: 0; transition: 0.2s; }
-                .fc-session-item:hover .fc-session-actions { opacity: 1; }
-                .fc-delete-btn, .fc-edit-btn {
-                    background: transparent; border: none; color: rgba(226,232,240,0.3);
-                    cursor: pointer; padding: 4px; border-radius: 6px;
-                    display: flex; align-items: center; transition: 0.15s; flex-shrink: 0;
-                }
-                .fc-delete-btn:hover { color: #f87171; background: rgba(248,113,113,0.1); }
-                .fc-edit-btn:hover { color: #3b82f6; background: rgba(59,130,246,0.1); }
-                
-                /* Ensure Swal is above everything */
-                .swal2-high-zindex {
-                    z-index: 100000 !important;
-                }
-
-                /* Chat view */
-                .fc-tags {
-                    padding: 8px 12px;
-                    display: flex; flex-wrap: wrap; gap: 6px;
-                    border-bottom: 1px solid rgba(255,255,255,0.08);
-                    background: #1a1f2e;
-                    flex-shrink: 0;
-                }
-                .fc-tag {
-                    display: flex; align-items: center; gap: 5px;
-                    background: rgba(59,130,246,0.2); color: #60a5fa;
-                    padding: 3px 10px; border-radius: 100px;
-                    font-size: 12px; font-weight: 600;
-                }
-                .fc-tag.general { background: rgba(255,255,255,0.07); color: rgba(226,232,240,0.5); }
-                .fc-tag button {
-                    background: none; border: none; color: inherit;
-                    font-size: 15px; cursor: pointer; padding: 0; margin-left: 2px;
-                }
-                .fc-messages {
-                    flex: 1; overflow-y: auto;
-                    padding: 14px;
-                    display: flex; flex-direction: column; gap: 10px;
-                    background: #0f131e;
-                }
-                .fc-welcome {
-                    height: 100%; display: flex; align-items: center; justify-content: center;
-                    text-align: center; font-size: 13px; color: rgba(226,232,240,0.4);
+                .unified-messenger .fc-messages {
+                    flex: 1;
                     padding: 20px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 15px;
+                    overflow-y: auto;
+                    background: #F7F8FB;
                 }
-                .fc-bubble {
-                    max-width: 88%;
-                    padding: 10px 14px;
-                    border-radius: 14px;
-                    font-size: 13px; line-height: 1.5;
+                .unified-messenger .fc-bubble {
+                    max-width: 85%;
+                    padding: 12px 18px;
+                    border-radius: 20px;
+                    font-size: 14px;
+                    line-height: 1.5;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
                 }
-                .fc-bubble.user {
+                .unified-messenger .fc-bubble.user {
                     align-self: flex-end;
-                    background: #3b82f6; color: white;
-                    border-bottom-right-radius: 3px;
+                    background: #6861F2;
+                    color: white;
+                    border-bottom-right-radius: 4px;
                 }
-                .fc-bubble.ai {
+                .unified-messenger .fc-bubble.bot, 
+                .unified-messenger .fc-bubble.ai {
                     align-self: flex-start;
-                    background: rgba(255,255,255,0.08); color: #e2e8f0;
-                    border-bottom-left-radius: 3px;
+                    background: white;
+                    color: #1f2937;
+                    border-bottom-left-radius: 4px;
+                    border: 1px solid #e5e7eb;
                 }
-                .fc-bubble.ai p, .fc-bubble.ai ul, .fc-bubble.ai ol { margin: 0 0 4px; }
-                .fc-bubble.ai code { background: rgba(255,255,255,0.1); padding: 1px 4px; border-radius: 4px; font-size: 12px; }
-                .fc-dots { display: flex; gap: 5px; padding: 3px 0; }
-                .fc-dots span {
-                    width: 7px; height: 7px; border-radius: 50%; background: #38bdf8;
-                    animation: fc-bounce 1.2s infinite;
+                .unified-messenger .fc-bubble strong { color: inherit; }
+                
+                .unified-messenger .fc-input-area {
+                    padding: 18px;
+                    background: white;
+                    border-top: 1px solid #f0f0f0;
                 }
-                .fc-dots span:nth-child(2) { animation-delay: 0.2s; }
-                .fc-dots span:nth-child(3) { animation-delay: 0.4s; }
+                .unified-messenger .fc-form {
+                    display: flex;
+                    gap: 10px;
+                    width: 100%;
+                }
+                .unified-messenger .fc-form input {
+                    flex: 1;
+                    padding: 12px 20px;
+                    border-radius: 25px;
+                    border: 1px solid #e5e7eb;
+                    background: #f9fafb;
+                    font-size: 14px;
+                    outline: none;
+                    transition: 0.2s;
+                }
+                .unified-messenger .fc-form input:focus {
+                    border-color: #6861F2;
+                    background: white;
+                    box-shadow: 0 0 0 3px rgba(104, 97, 242, 0.1);
+                }
+                .unified-messenger .fc-form button {
+                    width: 45px; height: 45px;
+                    background: #6861F2;
+                    color: white;
+                    border: none;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    transition: 0.2s;
+                }
+                .unified-messenger .fc-form button:hover:not(:disabled) {
+                    transform: scale(1.08);
+                    background: #5a52e0;
+                }
+                .unified-messenger .fc-new-btn {
+                    margin: 20px;
+                    padding: 12px;
+                    background: white;
+                    border: 1px dashed #056CF2;
+                    color: #056CF2;
+                    border-radius: 12px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 10px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: 0.2s;
+                }
+                .unified-messenger .fc-new-btn:hover { background: #EEF2FF; border-style: solid; }
+
+                .unified-messenger .fc-sessions-list {
+                    padding: 0 20px 20px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 10px;
+                }
+                .unified-messenger .fc-session-item {
+                    background: white;
+                    padding: 15px;
+                    border-radius: 14px;
+                    border: 1px solid #e5e7eb;
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    cursor: pointer;
+                    transition: 0.2s;
+                }
+                .unified-messenger .fc-session-item:hover { border-color: #056CF2; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+                
+                .unified-messenger .fc-session-info { flex: 1; display: flex; flex-direction: column; }
+                .unified-messenger .fc-session-name { font-weight: 600; color: #1f2937; font-size: 14px; }
+                .unified-messenger .fc-session-date { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+
+                .unified-messenger .fc-session-actions { display: flex; gap: 5px; opacity: 0; transition: 0.2s; }
+                .unified-messenger .fc-session-item:hover .fc-session-actions { opacity: 1; }
+                
+                .unified-messenger .fc-edit-btn, 
+                .unified-messenger .fc-delete-btn {
+                    padding: 6px;
+                    border: none;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    display: flex;
+                    background: #f1f5f9;
+                    color: #64748b;
+                    transition: 0.2s;
+                }
+                .unified-messenger .fc-edit-btn:hover { background: #EEF2FF; color: #056CF2; }
+                .unified-messenger .fc-delete-btn:hover { background: #FEE2E2; color: #EF4444; }
+
+                .unified-messenger .fc-tags {
+                    padding: 10px 20px;
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 6px;
+                    background: white;
+                    border-bottom: 1px solid #f0f0f0;
+                }
+                .unified-messenger .fc-tag {
+                    padding: 4px 10px;
+                    background: #EEF2FF;
+                    color: #056CF2;
+                    border-radius: 8px;
+                    font-size: 12px;
+                    font-weight: 500;
+                    display: flex;
+                    align-items: center;
+                    gap: 5px;
+                }
+                .unified-messenger .fc-tag button { background: none; border: none; color: inherit; cursor: pointer; padding: 0; font-size: 14px; }
+                
+                /* Chat messages theme */
+                .unified-messenger .fc-messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; padding: 20px; }
+                .unified-messenger .fc-bubble { max-width: 85%; padding: 12px 16px; border-radius: 16px; font-size: 14px; line-height: 1.5; }
+                .unified-messenger .fc-bubble.ai { align-self: flex-start; background: #f1f5f9; color: #1f2937; border-bottom-left-radius: 4px; }
+                .unified-messenger .fc-bubble.user { align-self: flex-end; background: linear-gradient(135deg, #056CF2 0%, #0C79F2 100%); color: white; border-bottom-right-radius: 4px; box-shadow: 0 4px 12px rgba(5, 108, 242, 0.2); }
+
+                /* Loading dots animation */
+                .unified-messenger .fc-dots { display: flex; gap: 4px; align-items: center; padding: 5px 0; }
+                .unified-messenger .fc-dots span { 
+                    width: 6px; height: 6px; 
+                    background: #056CF2; 
+                    border-radius: 50%; 
+                    display: inline-block;
+                    animation: fc-bounce 1.4s infinite ease-in-out both;
+                }
+                .unified-messenger .fc-dots span:nth-child(1) { animation-delay: -0.32s; }
+                .unified-messenger .fc-dots span:nth-child(2) { animation-delay: -0.16s; }
                 @keyframes fc-bounce {
-                    0%, 100% { transform: translateY(0); opacity: 0.5; }
-                    50% { transform: translateY(-4px); opacity: 1; }
+                    0%, 80%, 100% { transform: scale(0); opacity: 0.3; }
+                    40% { transform: scale(1); opacity: 1; }
                 }
 
-                /* Input area */
-                .fc-input-area {
-                    display: flex; align-items: flex-end; gap: 6px;
-                    padding: 10px 12px;
-                    border-top: 1px solid rgba(255,255,255,0.08);
-                    background: #1a1f2e;
-                    flex-shrink: 0;
+                /* Chat Input Area update */
+                .unified-messenger .fc-input-area { 
+                    padding: 15px 20px; 
+                    background: white; 
+                    border-top: 1px solid #f0f0f0; 
+                    display: flex; 
+                    gap: 12px; 
+                    align-items: flex-end;
                     position: relative;
                 }
-                .fc-plus-wrap { position: relative; flex-shrink: 0; }
-                .fc-plus-btn {
-                    width: 34px; height: 34px;
+                .unified-messenger .fc-form { 
+                    flex: 1; 
+                    display: flex; 
+                    gap: 8px; 
+                }
+                .unified-messenger .fc-form textarea { 
+                    flex: 1; 
+                    border: 1px solid #e5e7eb; 
+                    padding: 10px 15px; 
+                    border-radius: 12px; 
+                    font-size: 14px; 
+                    transition: border-color 0.2s;
+                    resize: none;
+                    max-height: 120px;
+                    overflow-y: auto;
+                    font-family: inherit;
+                    line-height: 1.4;
+                }
+                .unified-messenger .fc-form textarea:focus { outline: none; border-color: #056CF2; box-shadow: 0 0 0 3px rgba(5, 108, 242, 0.1); }
+                
+                .unified-messenger .fc-form button { 
+                    background: linear-gradient(135deg, #056CF2 0%, #0C79F2 100%); 
+                    color: white; border: none; border-radius: 10px; width: 42px; height: 42px; 
+                    display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;
+                }
+                .unified-messenger .fc-form button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(5, 108, 242, 0.2); }
+                .unified-messenger .fc-form button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+                .unified-messenger .fc-plus-btn {
+                    width: 42px;
+                    height: 42px;
                     border-radius: 10px;
-                    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
-                    color: rgba(226,232,240,0.6); cursor: pointer;
-                    display: flex; align-items: center; justify-content: center;
+                    border: 1px solid #e5e7eb;
+                    background: #f8fafc;
+                    color: #64748b;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
                     transition: 0.2s;
                 }
-                .fc-plus-btn:hover, .fc-plus-btn.active { background: rgba(14,165,233,0.2); color: #38bdf8; border-color: rgba(14,165,233,0.4); }
+                .unified-messenger .fc-plus-btn:hover { background: #EEF2FF; color: #056CF2; border-color: #056CF2; }
+                .unified-messenger .fc-plus-btn.active { background: #056CF2; color: white; border-color: #056CF2; transform: rotate(45deg); }
 
-                .fc-search-popover {
+                /* Search Popover */
+                .unified-messenger .fc-search-popover {
                     position: absolute;
-                    bottom: calc(100% + 8px);
-                    left: 0;
-                    width: 280px;
-                    background: #1a1f2e;
-                    border: 1px solid rgba(255,255,255,0.12);
-                    border-radius: 12px;
-                    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+                    bottom: 100%;
+                    left: 20px;
+                    right: 20px;
+                    background: white;
+                    border: 1px solid #e5e7eb;
+                    border-radius: 16px;
+                    box-shadow: 0 -10px 40px rgba(0,0,0,0.1);
+                    margin-bottom: 15px;
+                    max-height: 300px;
+                    display: flex;
+                    flex-direction: column;
                     overflow: hidden;
                     z-index: 10;
                 }
-                .fc-search-popover input {
-                    width: 100%; box-sizing: border-box;
-                    padding: 10px 14px;
-                    background: rgba(255,255,255,0.05);
-                    border: none; border-bottom: 1px solid rgba(255,255,255,0.1);
-                    color: #e2e8f0; font-size: 13px; outline: none;
+                .unified-messenger .fc-search-popover input {
+                    padding: 15px;
+                    border: none;
+                    border-bottom: 1px solid #f0f0f0;
+                    width: 100%;
+                    outline: none;
                 }
-                .fc-search-results { max-height: 160px; overflow-y: auto; }
-                .fc-popover-msg { padding: 10px 14px; font-size: 12px; color: rgba(226,232,240,0.4); }
-                .fc-search-item {
-                    padding: 9px 14px;
-                    cursor: pointer; font-size: 13px; transition: 0.15s;
-                    display: flex; align-items: center; justify-content: space-between;
-                    color: #e2e8f0;
-                }
-                .fc-search-item:hover { background: rgba(255,255,255,0.06); }
-                .fc-search-item.selected { background: rgba(14,165,233,0.15); color: #38bdf8; }
-                .fc-search-item small { font-size: 11px; color: rgba(226,232,240,0.4); }
-
-                .fc-form {
-                    flex: 1; display: flex; gap: 8px; align-items: center;
-                }
-                .fc-form input {
-                    flex: 1;
-                    background: rgba(255,255,255,0.07);
-                    border: 1px solid rgba(255,255,255,0.12);
-                    border-radius: 22px;
-                    padding: 8px 14px;
-                    color: #e2e8f0; font-size: 13px; outline: none;
-                    transition: 0.2s;
-                }
-                .fc-form input:focus { border-color: rgba(59,130,246,0.5); }
-                .fc-form button {
-                    width: 34px; height: 34px; border-radius: 50%;
-                    background: #3b82f6; border: none;
-                    color: white; cursor: pointer; flex-shrink: 0;
-                    display: flex; align-items: center; justify-content: center;
-                    transition: 0.2s;
-                }
-                .fc-form button:hover { background: #2563eb; }
-                .fc-form button:disabled { opacity: 0.4; cursor: not-allowed; }
+                .unified-messenger .fc-search-results { overflow-y: auto; flex: 1; }
+                .unified-messenger .fc-search-item { padding: 12px 15px; cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; border-bottom: 1px solid #f8fafc; }
+                .unified-messenger .fc-search-item:hover { background: #f8fafc; }
+                .unified-messenger .fc-search-item.selected { background: #EEF2FF; border-left: 3px solid #056CF2; }
+                .unified-messenger .fc-search-item span { font-weight: 600; font-size: 13px; color: #1f2937; }
+                .unified-messenger .fc-search-item small { font-size: 11px; color: #94a3b8; }
+                .unified-messenger .fc-popover-msg { padding: 20px; text-align: center; color: #94a3b8; font-size: 13px; }
             `}</style>
         </div>
     );
