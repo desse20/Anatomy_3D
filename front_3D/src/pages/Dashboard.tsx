@@ -110,7 +110,7 @@ type EvolutionPoint = { date: string; role: string; count: number };
 const normalizeEvolution = (raw: unknown[]): EvolutionPoint[] =>
     (raw || []).map((row: any) => ({
         date: String(row.date ?? '').slice(0, 10),
-        role: String(row.role ?? ''),
+        role: String(row.role ?? '').toLowerCase(), // Toujours en minuscule pour la comparaison
         count: Number(row.count) || 0,
     })).filter(p => p.date);
 
@@ -137,11 +137,11 @@ const countFor = (data: EvolutionPoint[], date: string, role: string) =>
     data.filter(d => d.date === date && d.role === role).reduce((s, d) => s + d.count, 0);
 
 const CHART_LINES = [
-    { key: 'total', color: '#e2e8f0', dash: undefined, strokeWidth: 3.5 },
-    { key: 'student', color: '#34d399', dash: undefined, strokeWidth: 3 },
-    { key: 'teacher', color: '#0ea5e9', dash: '10 5', strokeWidth: 3 },
-    { key: 'admin', color: '#6366f1', dash: '4 4', strokeWidth: 3 },
-    { key: 'connected', color: '#f59e0b', dash: '3 3', strokeWidth: 2.5 },
+    { key: 'admin', color: '#f43f5e', dash: undefined, strokeWidth: 3, gradient: 'grad-admin' }, // Rose
+    { key: 'teacher', color: '#3b82f6', dash: undefined, strokeWidth: 3, gradient: 'grad-teacher' }, // Blue
+    { key: 'connected', color: '#f59e0b', dash: undefined, strokeWidth: 3, gradient: 'grad-connected' }, // Amber
+    { key: 'student', color: '#10b981', dash: undefined, strokeWidth: 4, gradient: 'grad-student' }, // Emerald (Plus épais pour être vu)
+    { key: 'total', color: '#6366f1', dash: '5,5', strokeWidth: 2, gradient: 'grad-total' }, // Indigo (Pointillés pour le total)
 ] as const;
 
 /** Graduations Y entières uniques (évite 0, 1, 1, 2) */
@@ -162,9 +162,12 @@ const PremiumCombinedChart: React.FC<{
     range: string;
     labels: { total: string; student: string; teacher: string; admin: string; connected?: string };
     connectedData?: unknown[];
-}> = ({ data, range, labels, connectedData }) => {
+    cumulative?: boolean;
+}> = ({ data, range, labels, connectedData, cumulative = true }) => {
+    const { t } = useLanguage();
     const wrapRef = useRef<HTMLDivElement>(null);
     const [chartWidth, setChartWidth] = useState(960);
+    const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
     useEffect(() => {
         const el = wrapRef.current;
@@ -186,148 +189,178 @@ const PremiumCombinedChart: React.FC<{
     const allNormalized = [...normalized, ...connectedNormalized];
     const dates = buildDateAxis(rangeDays);
 
-    const totalSeries = dates.map(date =>
-        allNormalized.filter(d => d.date === date && d.role !== 'connected').reduce((s, d) => s + d.count, 0)
-    );
-    const roleSeries = CHART_LINES.filter(l => l.key !== 'total').map(({ key }) =>
-        dates.map(date => countFor(allNormalized, date, key))
-    );
-    const allValues = [...totalSeries, ...roleSeries.flat()];
-    const dataMax = Math.max(0, ...allValues);
-    const { ticks: yTicks, max: maxVal } = buildYAxis(dataMax);
-
     const seriesByKey: Record<string, number[]> = {
-        total: totalSeries,
-        student: dates.map(date => countFor(allNormalized, date, 'student')),
-        teacher: dates.map(date => countFor(allNormalized, date, 'teacher')),
         admin: dates.map(date => countFor(allNormalized, date, 'admin')),
+        teacher: dates.map(date => countFor(allNormalized, date, 'teacher')),
+        student: dates.map(date => countFor(allNormalized, date, 'student')),
         connected: dates.map(date => countFor(allNormalized, date, 'connected')),
+        total: dates.map(date => allNormalized.filter(d => d.date === date && d.role !== 'connected').reduce((s, d) => s + d.count, 0)),
     };
 
-    const height = 280;
-    const padL = 52;
-    const padR = 20;
-    const legendH = 36;
-    const padTop = legendH + 16;
-    const padBottom = 44;
+    const dataMaxValue = Math.max(0, ...seriesByKey.total);
+    const { ticks: yTicks, max: maxVal } = buildYAxis(dataMaxValue);
+
+    const height = 340;
+    const padL = 60;
+    const padR = 30;
+    const padTop = 40;
+    const padBottom = 60;
     const chartW = chartWidth - padL - padR;
     const chartH = height - padTop - padBottom;
 
-    const xAt = (i: number) => {
-        if (dates.length <= 1) return padL + chartW / 2;
-        return padL + (i / (dates.length - 1)) * chartW;
-    };
-    const yAt = (v: number) => padTop + chartH - (v / maxVal) * chartH;
-
-    const labelStep = rangeDays <= 7 ? 1 : rangeDays <= 90 ? Math.ceil(rangeDays / 6) : Math.ceil(rangeDays / 8);
+    const xAt = (i: number) => padL + (i / (dates.length - 1 || 1)) * chartW;
+    const yAt = (v: number) => padTop + chartH - (v / (maxVal || 1)) * chartH;
 
     const getXLabel = (dateStr: string, index: number) => {
+        const labelStep = rangeDays <= 7 ? 1 : rangeDays <= 30 ? 7 : Math.ceil(rangeDays / 6);
         if (index % labelStep !== 0 && index !== dates.length - 1) return '';
         const d = new Date(`${dateStr}T12:00:00`);
-        if (rangeDays <= 7) return ['L', 'M', 'M', 'J', 'V', 'S', 'D'][(d.getDay() + 6) % 7];
-        if (rangeDays <= 90) return String(d.getDate());
-        return d.toLocaleDateString('fr', { month: 'short', day: 'numeric' });
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return `${d.getDate()} ${months[d.getMonth()]}`;
+    };
+
+    const getCurvePath = (points: { x: number, y: number }[]) => {
+        if (points.length < 2) return '';
+        let d = `M ${points[0].x} ${points[0].y}`;
+        for (let i = 0; i < points.length - 1; i++) {
+            const p0 = points[i];
+            const p1 = points[i+1];
+            const cp1x = p0.x + (p1.x - p0.x) * 0.4;
+            const cp2x = p1.x - (p1.x - p0.x) * 0.4;
+            d += ` C ${cp1x} ${p0.y}, ${cp2x} ${p1.y}, ${p1.x} ${p1.y}`;
+        }
+        return d;
     };
 
     const hasAnyData = allNormalized.some(d => d.count > 0);
 
     if (!hasAnyData) {
         return (
-            <div ref={wrapRef} className="growth-chart-wrap" style={{ width: '100%', minHeight: 280 }}>
-                <div style={{ height: 260, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.55)', fontSize: '14px', gap: '8px' }}>
-                    <span>Aucune inscription sur cette période</span>
-                    <span style={{ fontSize: '12px', opacity: 0.7 }}>Les courbes apparaîtront dès que des comptes seront créés</span>
-                </div>
+            <div ref={wrapRef} style={{ width: '100%', height: 340, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '14px' }}>
+                Aucune donnée à afficher pour cette période
             </div>
         );
     }
 
-    const lineLabels: Record<string, string> = {
-        total: labels.total,
-        student: labels.student,
-        teacher: labels.teacher,
-        admin: labels.admin,
-        connected: labels.connected || 'Connectés',
-    };
-
-    const legendGap = (chartWidth - padL - padR) / CHART_LINES.length;
-
     return (
-        <div ref={wrapRef} className="growth-chart-wrap" style={{ width: '100%' }}>
-            <svg
-                width={chartWidth}
-                height={height}
-                viewBox={`0 0 ${chartWidth} ${height}`}
-                role="img"
-                aria-label="Graphique d'évolution des inscriptions"
-                style={{ display: 'block', width: '100%', height: 'auto', overflow: 'visible' }}
-            >
-                <g transform={`translate(${padL}, 8)`}>
-                    {CHART_LINES.map(({ key, color, dash, strokeWidth }, i) => (
-                        <g key={key} transform={`translate(${i * legendGap}, 0)`}>
-                            <line x1="0" y1="14" x2="26" y2="14" stroke={color} strokeWidth={strokeWidth} strokeDasharray={dash} strokeLinecap="round" />
-                            <text x="32" y="18" fill="#fff" fontSize="12" fontWeight="700">
-                                {lineLabels[key]}
-                            </text>
-                        </g>
-                    ))}
-                </g>
+        <div ref={wrapRef} style={{ width: '100%', position: 'relative', padding: '10px' }}>
+            {/* Legend Style from Bloomery - All Roles */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: '15px', marginBottom: '25px', paddingRight: '20px' }}>
+                {CHART_LINES.map(line => (
+                    <div key={line.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
+                        <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: line.color }}></span>
+                        {line.key === 'total' ? labels.total : (labels as any)[line.key] || line.key}
+                    </div>
+                ))}
+            </div>
 
-                <rect x={padL} y={padTop} width={chartW} height={chartH} fill="rgba(255,255,255,0.04)" rx="8" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
+            <svg width={chartWidth} height={height} style={{ overflow: 'visible' }}>
+                <defs>
+                    <linearGradient id="total-grad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#6366f1" stopOpacity="0.1" />
+                        <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
+                    </linearGradient>
+                </defs>
 
+                {/* Grid Lines */}
                 {yTicks.map(tick => (
                     <g key={tick}>
-                        <line
-                            x1={padL} y1={yAt(tick)} x2={padL + chartW} y2={yAt(tick)}
-                            stroke="rgba(255,255,255,0.12)" strokeWidth="1" strokeDasharray="5 5"
-                        />
-                        <text x={padL - 12} y={yAt(tick) + 5} textAnchor="end" fill="rgba(255,255,255,0.6)" fontSize="12" fontWeight="600">
-                            {tick}
-                        </text>
+                        <line x1={padL} y1={yAt(tick)} x2={padL + chartW} y2={yAt(tick)} stroke="rgba(226, 232, 240, 0.5)" strokeWidth="1" strokeDasharray="4 4" />
+                        <text x={padL - 15} y={yAt(tick) + 4} textAnchor="end" fill="#94a3b8" fontSize="11" fontWeight="500">{tick}</text>
                     </g>
                 ))}
 
-                <line x1={padL} y1={padTop + chartH} x2={padL + chartW} y2={padTop + chartH} stroke="rgba(255,255,255,0.45)" strokeWidth="2" />
+                {/* Series Rendering */}
+                {(() => {
+                    return CHART_LINES.map((s, idx) => {
+                        const vals = seriesByKey[s.key] || [];
+                        const pts = vals.map((v, i) => ({ x: xAt(i), y: yAt(v) }));
+                        if (pts.length < 2) return null;
 
-                {CHART_LINES.map(({ key, color, dash, strokeWidth }) => {
-                    const values = seriesByKey[key];
-                    const pts = values.map((v, i) => ({ x: xAt(i), y: yAt(v) }));
-                    const linePath = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-                    const showDots = key !== 'total';
-                    return (
-                        <g key={key}>
-                            <path
-                                d={linePath}
-                                fill="none"
-                                stroke={color}
-                                strokeWidth={strokeWidth}
-                                strokeDasharray={dash}
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                opacity={key === 'total' ? 0.9 : 1}
-                            />
-                            {showDots && pts.map((p, i) => values[i] > 0 && (
-                                <circle key={i} cx={p.x} cy={p.y} r="5" fill={color} stroke="#fff" strokeWidth="2" />
-                            ))}
-                        </g>
-                    );
-                })}
+                        const curve = getCurvePath(pts);
+                        const isTotal = s.key === 'total';
+                        const area = `${curve} L ${pts[pts.length-1].x} ${padTop + chartH} L ${pts[0].x} ${padTop + chartH} Z`;
 
+                        return (
+                            <g key={s.key}>
+                                {isTotal && (
+                                    <motion.path 
+                                        d={area} fill="url(#total-grad)" 
+                                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1.5 }}
+                                    />
+                                )}
+                                <motion.path
+                                    d={curve} fill="none" stroke={s.color} strokeWidth={isTotal ? "3" : "2"} strokeLinecap="round"
+                                    initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 2, ease: "easeInOut" }}
+                                />
+                                {pts.map((p, pi) => {
+                                    // Only show dots on every few points if range is long, or all if short
+                                    const showDot = rangeDays <= 7 || pi % Math.ceil(rangeDays / 10) === 0 || pi === pts.length - 1;
+                                    if (!showDot) return null;
+                                    return (
+                                        <motion.circle
+                                            key={pi} cx={p.x} cy={p.y} r={isTotal ? "4" : "3"} fill="white" stroke={s.color} strokeWidth="2"
+                                            initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 1 + pi * 0.02 }}
+                                        />
+                                    );
+                                })}
+                            </g>
+                        );
+                    });
+                })()}
+
+                {/* X Labels */}
                 {dates.map((date, i) => {
                     const label = getXLabel(date, i);
                     if (!label) return null;
                     return (
-                        <text key={date} x={xAt(i)} y={height - 14} textAnchor="middle" fill="rgba(255,255,255,0.75)" fontSize="12" fontWeight="600">
-                            {label}
-                        </text>
+                        <text key={i} x={xAt(i)} y={height - 20} textAnchor="middle" fill="#94a3b8" fontSize="11" fontWeight="600">{label}</text>
                     );
                 })}
+
+                {/* Interaction Overlay */}
+                <rect 
+                    x={padL} y={padTop} width={chartW} height={chartH} fill="transparent"
+                    onMouseMove={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const x = e.clientX - rect.left;
+                        const idx = Math.round((x / chartW) * (dates.length - 1));
+                        setHoverIndex(Math.max(0, Math.min(dates.length - 1, idx)));
+                    }}
+                    onMouseLeave={() => setHoverIndex(null)}
+                />
             </svg>
+
+            {/* Premium Black Pill Tooltip (Bloomery Style) */}
+            {hoverIndex !== null && (
+                <div style={{
+                    position: 'absolute',
+                    top: yAt(seriesByKey.total[hoverIndex]) - 45,
+                    left: xAt(hoverIndex) - 40,
+                    background: '#1e293b',
+                    color: 'white',
+                    padding: '6px 12px',
+                    borderRadius: '20px',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
+                    pointerEvents: 'none',
+                    zIndex: 200,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                }}>
+                    {seriesByKey.total[hoverIndex]}
+                    <div style={{
+                        position: 'absolute', bottom: -5, left: '50%', transform: 'translateX(-50%)',
+                        width: 0, height: 0, borderLeft: '6px solid transparent', borderRight: '6px solid transparent',
+                        borderTop: '6px solid #1e293b'
+                    }}></div>
+                </div>
+            )}
         </div>
     );
 };
-
-
 
 const MiniCalendar = ({ language, dueDays }: { language: string, dueDays: number[] }) => {
     const today = new Date();
@@ -1263,7 +1296,7 @@ const Dashboard: React.FC = () => {
                                             ))}
                                         </div>
                                     </div>
-                                    <div className="table-card-dash" style={{ height: '360px', overflow: 'hidden' }}>
+                                    <div className="table-card-dash" style={{ minHeight: '440px', overflow: 'hidden' }}>
                                         <div className="card-header" style={{ marginBottom: '10px', padding: 0 }}>
                                             <span className="card-icon" style={{ width: '28px', height: '28px' }}><TrendingUp size={16} color="#34d399"/></span>
                                             <h3 style={{ margin: 0, fontSize: '12px' }}>{t('Analyse de Croissance', 'Growth Analytics')}</h3>
@@ -1278,14 +1311,14 @@ const Dashboard: React.FC = () => {
                                                 ))}
                                             </div>
                                         </div>
-                                        <div style={{ height: '280px' }}>
+                                        <div style={{ height: '340px' }}>
                                             <PremiumCombinedChart
                                                 data={adminStats?.user_evolution || []}
                                                 connectedData={adminStats?.connected_evolution || []}
                                                 range={statRange}
                                                 labels={{
                                                     total: t('Total', 'Total'),
-                                                    student: t('Utilisateur', 'User'),
+                                                    student: t('Étudiant', 'Student'),
                                                     teacher: t('Prof', 'Teacher'),
                                                     admin: t('Admin', 'Admin'),
                                                     connected: t('Connectés', 'Connected'),
@@ -1620,6 +1653,33 @@ const Dashboard: React.FC = () => {
                                             <div className="card-content">
                                                 {renderNotionsListCultivees(stats?.cultivees || [], t('Atteignez ∑ ≥ 5 avec ≤ 2 échecs.', 'Reach ∑ ≥ 5 with ≤ 2 failures.'))}
                                             </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="dash-card full-width custom-card" style={{ minHeight: '460px', marginBottom: '30px' }}>
+                                        <div className="card-header" style={{ marginBottom: '20px' }}>
+                                            <span className="card-icon" style={{ background: '#10b98120', color: '#10b981' }}>
+                                                <TrendingUp size={22} strokeWidth={2.5}/>
+                                            </span>
+                                            <div>
+                                                <h3 style={{ margin: 0, fontSize: '18px' }}>{t('Analyse de Croissance', 'Growth Analytics')}</h3>
+                                                <p style={{ fontSize: '13px', color: 'var(--dash-text-muted)', margin: '4px 0 0 0' }}>
+                                                    {t("Suivi de votre progression et de votre assiduité.", 'Track your progress and consistency.')}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div style={{ height: '340px' }}>
+                                            <PremiumCombinedChart 
+                                                data={stats?.evolution || []}
+                                                range="30"
+                                                labels={{
+                                                    total: t('Progression', 'Progress'),
+                                                    student: t('Points acquis', 'Points earned'),
+                                                    teacher: t('Objectif', 'Target'),
+                                                    admin: t('Moyenne', 'Average'),
+                                                    connected: t('Activité', 'Activity')
+                                                }}
+                                            />
                                         </div>
                                     </div>
 
