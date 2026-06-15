@@ -25,35 +25,24 @@ class LabController extends Controller
     {
         $user = auth()->user();
 
-        if ($user->role === 'admin') {
-            // Admin : tous les labs
-            $labs = Lab::with(['sharedViews', 'teacher'])
-                ->withCount('participants as total_participants')
-                ->orderBy('created_at', 'desc')
-                ->get()
-                ->map(function ($lab) use ($user) {
-                    $lab->is_owner = $lab->user_id === $user->id;
-                    return $lab;
-                });
-        } else {
-            // Teacher / Student : labs créés + labs rejoints
-            $created = Lab::with(['sharedViews', 'teacher'])
-                ->withCount('participants as total_participants')
-                ->where('user_id', $user->id)
-                ->get()
-                ->map(function ($lab) { $lab->is_owner = true; return $lab; });
+        // Labs créés
+        $created = Lab::with(['sharedViews', 'teacher'])
+            ->withCount('participants as total_participants')
+            ->where('user_id', $user->id)
+            ->get()
+            ->map(function ($lab) { $lab->is_owner = true; return $lab; });
 
-            $joined = Lab::with(['sharedViews', 'teacher'])
-                ->withCount('participants as total_participants')
-                ->where('user_id', '!=', $user->id)
-                ->whereHas('participants', function ($q) use ($user) {
-                    $q->where('user_id', $user->id);
-                })
-                ->get()
-                ->map(function ($lab) { $lab->is_owner = false; return $lab; });
+        // Labs rejoints
+        $joined = Lab::with(['sharedViews', 'teacher'])
+            ->withCount('participants as total_participants')
+            ->where('user_id', '!=', $user->id)
+            ->whereHas('participants', function ($q) use ($user) {
+                $q->where('user_id', $user->id);
+            })
+            ->get()
+            ->map(function ($lab) { $lab->is_owner = false; return $lab; });
 
-            $labs = $created->concat($joined)->sortByDesc('created_at')->values();
-        }
+        $labs = $created->concat($joined)->sortByDesc('created_at')->values();
 
         return response()->json(['data' => $labs]);
     }
@@ -80,6 +69,7 @@ class LabController extends Controller
         $this->authorizeTeacherOrAdmin($lab);
         $lab->load(['sharedViews', 'teacher', 'participants']);
         $lab->total_participants = $lab->participants()->count();
+        $lab->is_owner = $lab->user_id === auth()->id();
         
         return response()->json(['data' => $lab]);
     }
@@ -104,11 +94,7 @@ class LabController extends Controller
         if (empty($ids)) return response()->json(['message' => __('messages.lab.no_ids')], 400);
 
         $user = auth()->user();
-        $query = Lab::whereIn('id', $ids);
-
-        if ($user->role !== 'admin') {
-            $query->where('user_id', $user->id);
-        }
+        $query = Lab::whereIn('id', $ids)->where('user_id', $user->id);
 
         $count = $query->delete();
 
@@ -135,7 +121,7 @@ class LabController extends Controller
 
         $sharedView = SharedView::findOrFail($sharedViewId);
 
-        if (auth()->user()->role !== 'admin' && $sharedView->user_id !== auth()->id()) {
+        if ($sharedView->user_id !== auth()->id()) {
             abort(403, __('messages.lab.not_owner'));
         }
 
@@ -188,12 +174,7 @@ class LabController extends Controller
      */
     public function mySharedViews(): JsonResponse
     {
-        $user = auth()->user();
-        $query = SharedView::orderBy('created_at', 'desc');
-
-        if ($user->role !== 'admin') {
-            $query->where('user_id', $user->id);
-        }
+        $query = SharedView::where('user_id', auth()->id())->orderBy('created_at', 'desc');
 
         $views = $query->with('labs')->get();
         return response()->json(['data' => $views]);
@@ -229,6 +210,7 @@ class LabController extends Controller
         }
         
         $lab->loadCount('participants as total_participants');
+        $lab->is_owner = $lab->user_id === ($user->id ?? null);
 
         return response()->json(['data' => $lab]);
     }
@@ -242,11 +224,7 @@ class LabController extends Controller
         if (empty($ids)) return response()->json(['message' => __('messages.lab.no_ids')], 400);
 
         $user = auth()->user();
-        $query = \App\Models\SharedView::whereIn('id', $ids);
-
-        if ($user->role !== 'admin') {
-            $query->where('user_id', $user->id);
-        }
+        $query = \App\Models\SharedView::whereIn('id', $ids)->where('user_id', $user->id);
 
         $count = $query->delete();
 
@@ -261,7 +239,7 @@ class LabController extends Controller
         $view = SharedView::findOrFail($sharedViewId);
         $user = auth()->user();
 
-        if ($user->role !== 'admin' && $view->user_id !== $user->id) {
+        if ($view->user_id !== $user->id) {
             abort(403, __('messages.general.access_denied'));
         }
 
@@ -283,7 +261,7 @@ class LabController extends Controller
         $view = SharedView::findOrFail($sharedViewId);
         $user = auth()->user();
 
-        if ($user->role !== 'admin' && $view->user_id !== $user->id) {
+        if ($view->user_id !== $user->id) {
             abort(403, __('messages.general.access_denied'));
         }
 
@@ -316,7 +294,7 @@ class LabController extends Controller
     private function authorizeTeacherOrAdmin(Lab $lab): void
     {
         $user = auth()->user();
-        if ($user->role !== 'admin' && $lab->user_id !== $user->id) {
+        if ($lab->user_id !== $user->id) {
             abort(403, __('messages.general.access_denied'));
         }
     }

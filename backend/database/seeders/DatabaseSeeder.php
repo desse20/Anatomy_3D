@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             Asset3dSeeder::class,
             AnatomySeeder::class,
             AvisSeeder::class,
+            RealisticMockSeeder::class,
         ]);
     }
 }

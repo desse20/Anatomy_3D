@@ -37,7 +37,7 @@ const LabViewer: React.FC = () => {
                 try {
                     const res = await apiCall(`labs/${id}`);
                     setLab(res.data);
-                    setIsOwner(true);
+                    setIsOwner(res.data.is_owner || false);
                     setLoading(false);
                     return;
                 } catch {
@@ -47,7 +47,7 @@ const LabViewer: React.FC = () => {
             // Étudiant ou teacher non-propriétaire → rejoindre comme participant
             const res = await apiCall(`labs/${id}/view`);
             setLab(res.data);
-            setIsOwner(false);
+            setIsOwner(res.data.is_owner || false);
         } catch (e: any) {
             console.error(e);
             setError(t('Impossible de rejoindre la salle. Le lien est peut-être invalide ou expiré.', 'Unable to join the room. The link may be invalid or expired.'));
