@@ -78,5 +78,14 @@ return [
     'conversation' => [
         'default_name' => 'Nouvelle discussion',
         'bone_discussion' => 'Discussion : :name',
+    ],
+    'auth' => [
+        'firstname_string' => 'Le prénom doit être une chaîne de caractères.',
+        'lastname_string'  => 'Le nom doit être une chaîne de caractères.',
+        'email_valid'      => 'Veuillez fournir une adresse email valide.',
+        'email_unique'     => 'Cette adresse email est déjà utilisée par un autre compte.',
+        'password_min'     => 'Le mot de passe doit contenir au moins 8 caractères.',
+        'password_confirmed' => 'La confirmation du mot de passe ne correspond pas.',
+        'role_invalid'     => 'Le rôle sélectionné est invalide.',
     ]
 ];

@@ -99,6 +99,12 @@ const AdminResourceDetail: React.FC = () => {
     const { language } = useLanguage();
     const t = (fr: string, en: string) => language === 'fr' ? fr : en;
 
+    const getLoc = (val: any, fallback: string = ''): string => {
+        if (!val) return fallback;
+        if (typeof val === 'string') return val;
+        return val[language] || val['fr'] || val['en'] || fallback;
+    };
+
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const [asset, setAsset] = useState<any>(null);
@@ -426,11 +432,11 @@ const AdminResourceDetail: React.FC = () => {
 
                         results.forEach((obj: any) => {
                             const item = document.createElement('div');
-                            item.style.padding = '8px 10px';
                             item.style.borderBottom = '1px solid #f3f4f6';
                             item.style.cursor = 'pointer';
                             item.style.transition = '0.2s';
-                            item.innerHTML = `<strong>${obj.name}</strong> <span style="color:#9ca3af; float:right;">ID: ${obj.id}</span>`;
+                            const localizedName = getLoc(obj.name);
+                            item.innerHTML = `<strong>${localizedName}</strong> <span style="color:#9ca3af; float:right;">ID: ${obj.id}</span>`;
                             
                             item.onmouseover = () => item.style.background = '#f0f9ff';
                             item.onmouseout = () => item.style.background = 'transparent';
@@ -666,11 +672,16 @@ const AdminResourceDetail: React.FC = () => {
                         </thead>
                         <tbody>
                             {(() => {
-                                const filtered = objects.filter(obj => 
-                                    obj.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                    obj.three_js_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                    obj.id.toString().includes(searchTerm)
-                                );
+                                const filtered = objects.filter(obj => {
+                                    const search = searchTerm.toLowerCase();
+                                    const nameMatch = typeof obj.name === 'string' 
+                                        ? obj.name.toLowerCase().includes(search)
+                                        : Object.values(obj.name || {}).some(v => String(v).toLowerCase().includes(search));
+                                    
+                                    return nameMatch || 
+                                        obj.three_js_name?.toLowerCase().includes(search) || 
+                                        obj.id.toString().includes(searchTerm);
+                                });
                                 if (filtered.length === 0 && searchTerm) {
                                     return (
                                         <tr>
@@ -688,11 +699,12 @@ const AdminResourceDetail: React.FC = () => {
                                     <td style={{ padding: '16px 12px' }}>
                                         {editingObjectId === obj.id ? (
                                             <input 
-                                                value={objectFormData.name} onChange={e => setObjectFormData({...objectFormData, name: e.target.value})}
+                                                value={typeof objectFormData.name === 'string' ? objectFormData.name : getLoc(objectFormData.name)} 
+                                                onChange={e => setObjectFormData({...objectFormData, name: e.target.value})}
                                                 style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #0ea5e9', background: 'transparent', color: 'var(--dash-text)' }}
                                             />
                                         ) : (
-                                            <div style={{ fontWeight: 600 }}>{obj.name}</div>
+                                            <div style={{ fontWeight: 600 }}>{getLoc(obj.name)}</div>
                                         )}
                                     </td>
                                             <td className="hide-mobile" style={{ padding: '16px 12px' }}>
@@ -744,7 +756,7 @@ const AdminResourceDetail: React.FC = () => {
                                                 lineHeight: '1.5em',
                                                 maxHeight: '4.5em'
                                             }}>
-                                                {obj.description || t('Aucune description', 'No description')}
+                                                {getLoc(obj.description) || t('Aucune description', 'No description')}
                                             </div>
                                         )}
                                     </td>
@@ -766,7 +778,7 @@ const AdminResourceDetail: React.FC = () => {
                                                                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                                                                         <div>
                                                                             <label style="display: block; font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700; margin-bottom: 6px;">${t('Nom de l\'objet', 'Object Name')}</label>
-                                                                            <input id="swal-edit-obj-name" class="swal2-input" style="width:100%; margin:0; font-size: 15px; font-weight: 600;" value="${obj.name || ''}">
+                                                                            <input id="swal-edit-obj-name" class="swal2-input" style="width:100%; margin:0; font-size: 15px; font-weight: 600;" value="${getLoc(obj.name) || ''}">
                                                                         </div>
                                                                         <div>
                                                                             <label style="display: block; font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700; margin-bottom: 6px;">ID ThreeJS</label>
@@ -792,7 +804,7 @@ const AdminResourceDetail: React.FC = () => {
 
                                                                     <div>
                                                                         <label style="display: block; font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700; margin-bottom: 6px;">Description</label>
-                                                                        <textarea id="swal-edit-obj-desc" class="swal2-textarea" style="width:100%; margin:0; height:400px; font-size: 15px; line-height: 1.6; border-radius: 12px; background: #fff;">${obj.description || ''}</textarea>
+                                                                        <textarea id="swal-edit-obj-desc" class="swal2-textarea" style="width:100%; margin:0; height:400px; font-size: 15px; line-height: 1.6; border-radius: 12px; background: #fff;">${getLoc(obj.description) || ''}</textarea>
                                                                     </div>
                                                                 </div>
                                                             `,
@@ -824,10 +836,10 @@ const AdminResourceDetail: React.FC = () => {
                                                                                 div.style.cursor = 'pointer';
                                                                                 div.style.borderBottom = '1px solid #f1f5f9';
                                                                                 div.style.fontSize = '12px';
-                                                                                div.innerHTML = `<strong>${r.name}</strong> <span style="color:#94a3b8; float:right;">ID: ${r.id}</span>`;
+                                                                                div.innerHTML = `<strong>${getLoc(r.name)}</strong> <span style="color:#94a3b8; float:right;">ID: ${r.id}</span>`;
                                                                                 div.onclick = () => {
                                                                                     currentParentId = r.id;
-                                                                                    display.value = `${r.name} (ID: ${r.id})`;
+                                                                                    display.value = `${getLoc(r.name)} (ID: ${r.id})`;
                                                                                     resultsContainer.innerHTML = '';
                                                                                     searchInput.value = '';
                                                                                 };

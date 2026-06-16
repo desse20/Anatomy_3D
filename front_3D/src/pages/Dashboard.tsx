@@ -439,6 +439,14 @@ const SectionCollapseHeading: React.FC<{
 
 const Dashboard: React.FC = () => {
     const { language, t } = useLanguage();
+    
+    // Helper pour extraire le texte depuis l'objet multilingue
+    const getLoc = (val: any, fallback: string = ''): string => {
+        if (!val) return fallback;
+        if (typeof val === 'string') return val;
+        return val[language] || val['fr'] || val['en'] || fallback;
+    };
+
     const [stats, setStats] = useState<any>(null);
     const [roots, setRoots] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -766,7 +774,7 @@ const Dashboard: React.FC = () => {
                         onMouseOut={e => e.currentTarget.style.background = 'var(--dash-bg)'}
                     >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dash-text)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.name}</span>
+                            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dash-text)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getLoc(n.name)}</span>
                             <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '10px', background: n.mastery_level >= 3 ? 'rgba(52,211,153,0.15)' : 'rgba(248,113,113,0.15)', color: n.mastery_level >= 3 ? '#34d399' : '#f87171' }}>Lvl {n.mastery_level}/5</span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -793,13 +801,13 @@ const Dashboard: React.FC = () => {
                 list.slice(0, 8).map((n, i) => (
                     <div
                         key={i}
-                        onClick={() => navigate('/chat', { state: { system: n.name } })}
+                        onClick={() => navigate('/chat', { state: { system: getLoc(n.name) } })}
                         style={{ display: 'flex', flexDirection: 'column', padding: '10px 14px', background: 'var(--dash-bg)', borderRadius: '10px', border: '1px solid var(--dash-border)', gap: '4px', cursor: 'pointer', transition: 'background 0.15s' }}
                         onMouseOver={e => e.currentTarget.style.background = 'var(--dash-accent-hover)'}
                         onMouseOut={e => e.currentTarget.style.background = 'var(--dash-bg)'}
                     >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: '13px', fontWeight: 600, color: '#a78bfa', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.name}</span>
+                            <span style={{ fontSize: '13px', fontWeight: 600, color: '#a78bfa', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getLoc(n.name)}</span>
                             <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '10px', background: 'rgba(167,139,250,0.15)', color: '#a78bfa' }}>🤖 Chat</span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -846,18 +854,36 @@ const Dashboard: React.FC = () => {
 
     // Compute global mastery mapped onto actual anatomy roots
     const computeRadarData = () => {
-        if (!roots.length || !stats) return [];
+        if (!stats) return [];
         
+        // Si le backend fournit déjà le radar pré-calculé (agrégé par système), on l'utilise
+        if (stats.radar && stats.radar.length > 0) {
+            return stats.radar.map((r: any) => ({
+                label: getLoc(r.label),
+                value: r.value,
+                max: 5
+            }));
+        }
+
+        // Sinon fallback sur le calcul client (moins précis car ne gère pas les descendants)
+        if (!roots.length) return [];
         const knownLevels: Record<string, number> = {};
-        [...(stats.learning_notions || []), ...(stats.mastered_notions || []), ...(stats.due_notions || []), ...(stats.not_started || [])].forEach((n: any) => {
-            knownLevels[n.name.toLowerCase()] = n.mastery_level || 0;
+        [
+            ...(stats.en_cours || []), 
+            ...(stats.maitrisees || []), 
+            ...(stats.totalement_maitrisees || []), 
+            ...(stats.due_notions || []), 
+            ...(stats.not_started || [])
+        ].forEach((n: any) => {
+            const nameStr = getLoc(n.name).toLowerCase();
+            knownLevels[nameStr] = n.mastery_level || 0;
         });
 
         return roots.map(root => {
-            const rName = root.name.toLowerCase();
+            const rName = getLoc(root.name).toLowerCase();
             const level = knownLevels[rName] !== undefined ? knownLevels[rName] : 0;
             return {
-                label: root.name,
+                label: getLoc(root.name),
                 value: level,
                 max: 5
             };
@@ -865,9 +891,11 @@ const Dashboard: React.FC = () => {
     };
 
     const radarData = computeRadarData();
-    const globalProgress = radarData.length > 0 
-        ? Math.round((radarData.reduce((acc, curr) => acc + curr.value, 0) / (radarData.length * 5)) * 100) 
-        : 0;
+    const globalProgress = (stats && stats.radar && stats.radar.length > 0)
+        ? Math.round((stats.radar.reduce((acc: number, curr: any) => acc + curr.value, 0) / (stats.radar.length * 5)) * 100)
+        : (radarData.length > 0 
+            ? Math.round((radarData.reduce((acc, curr) => acc + curr.value, 0) / (radarData.length * 5)) * 100) 
+            : 0);
 
     // User data
     const userJson = localStorage.getItem('user');
@@ -1050,7 +1078,7 @@ const Dashboard: React.FC = () => {
                                                 <div style={{ padding: '12px', background: 'var(--dash-bg)', borderRadius: '12px', border: '1px solid var(--dash-border)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
                                                         <span style={{ color: 'var(--dash-text-muted)' }}>{t('Cible', 'Target')}</span>
-                                                        <span style={{ fontWeight: 700 }}>{item.type === 'platform' ? 'Platform' : item.anatomical_object?.name}</span>
+                                                        <span style={{ fontWeight: 700 }}>{item.type === 'platform' ? 'Platform' : getLoc(item.anatomical_object?.name)}</span>
                                                     </div>
                                                     {item.anatomical_object?.asset3d && (
                                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
@@ -1096,7 +1124,7 @@ const Dashboard: React.FC = () => {
                                             <div key={obj.id} className="list-item-dash" style={{ padding: '15px' }}>
                                                 <span className="rank-dash" style={{ fontSize: '18px' }}>#{i+1}</span>
                                                 <div className="info-dash">
-                                                    <span className="name-dash" style={{ fontSize: '16px' }}>{obj.name}</span>
+                                                    <span className="name-dash" style={{ fontSize: '16px' }}>{getLoc(obj.name)}</span>
                                                     <span className="sub-dash">{obj.model_name}</span>
                                                 </div>
                                                 <span className="val-dash" style={{ fontSize: '18px' }}>{obj.visit_count}</span>
@@ -1110,7 +1138,7 @@ const Dashboard: React.FC = () => {
                                         {(usageStats.objects?.flop || []).map((obj: any) => (
                                             <div key={obj.id} className="list-item-dash" style={{ padding: '15px' }}>
                                                 <div className="info-dash">
-                                                    <span className="name-dash" style={{ fontSize: '16px' }}>{obj.name}</span>
+                                                    <span className="name-dash" style={{ fontSize: '16px' }}>{getLoc(obj.name)}</span>
                                                     <span className="sub-dash">{obj.model_name}</span>
                                                 </div>
                                                 <span className="val-dash" style={{ fontSize: '18px' }}>{obj.visit_count}</span>
@@ -1225,7 +1253,7 @@ const Dashboard: React.FC = () => {
                                                 <div key={obj.id} className="list-item-dash" style={{ padding: '15px' }}>
                                                     <span className="rank-dash" style={{ fontSize: '18px' }}>#{i+1}</span>
                                                     <div className="info-dash">
-                                                        <span className="name-dash" style={{ fontSize: '16px' }}>{obj.name}</span>
+                                                        <span className="name-dash" style={{ fontSize: '16px' }}>{getLoc(obj.name)}</span>
                                                         <span className="sub-dash">{obj.model_name}</span>
                                                     </div>
                                                     <span className="val-dash" style={{ fontSize: '18px' }}>{obj.visit_count}</span>
@@ -1242,7 +1270,7 @@ const Dashboard: React.FC = () => {
                                             {selectedUserStats.flop.map((obj: any) => (
                                                 <div key={obj.id} className="list-item-dash" style={{ padding: '15px' }}>
                                                     <div className="info-dash">
-                                                        <span className="name-dash" style={{ fontSize: '16px' }}>{obj.name}</span>
+                                                        <span className="name-dash" style={{ fontSize: '16px' }}>{getLoc(obj.name)}</span>
                                                         <span className="sub-dash">{obj.model_name}</span>
                                                     </div>
                                                     <span className="val-dash" style={{ fontSize: '18px' }}>{obj.visit_count}</span>
@@ -1288,7 +1316,7 @@ const Dashboard: React.FC = () => {
                                                 <div key={obj.id} className="list-item-dash">
                                                     <span className="rank-dash">#{i+1}</span>
                                                     <div className="info-dash">
-                                                        <span className="name-dash">{obj.name}</span>
+                                                        <span className="name-dash">{getLoc(obj.name)}</span>
                                                         <span className="sub-dash">{obj.model_name}</span>
                                                     </div>
                                                     <span className="val-dash">{obj.visit_count}</span>
@@ -1342,7 +1370,7 @@ const Dashboard: React.FC = () => {
                                     {(usageStats.models?.models || []).slice(0, 5).map((m: any) => (
                                         <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 0', borderBottom: '1px solid var(--dash-border)' }}>
                                             <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div style={{ fontWeight: 700, fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.name}</div>
+                                                <div style={{ fontWeight: 700, fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getLoc(m.name)}</div>
                                                 <div style={{ height: '3px', background: 'var(--dash-border)', borderRadius: '2px', marginTop: '4px', overflow: 'hidden' }}>
                                                     <div style={{ height: '100%', background: '#0ea5e9', width: `${Math.min((m.visit_count / (usageStats.models?.total || 1)) * 100, 100)}%` }}></div>
                                                 </div>
@@ -1441,7 +1469,7 @@ const Dashboard: React.FC = () => {
                                             </div>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px' }}>
                                                 <span style={{ color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>
-                                                    {rev.type === 'platform' ? 'Platform' : (rev.anatomical_object?.name + ' (' + rev.anatomical_object?.asset3d?.name + ')')}
+                                                    {rev.type === 'platform' ? 'Platform' : (getLoc(rev.anatomical_object?.name) + ' (' + rev.anatomical_object?.asset3d?.name + ')')}
                                                 </span>
                                                 <span style={{ color: 'var(--dash-text-muted)' }}>{new Date(rev.created_at).toLocaleDateString()}</span>
                                             </div>

@@ -23,6 +23,39 @@ class AnatomicalObject extends Model
         'description',
     ];
 
+    /**
+     * name et description sont stockés en JSON multilingue :
+     * { "en": "Clavicle", "fr": "Clavicule" }
+     */
+    protected $casts = [
+        'name'        => 'array',
+        'description' => 'array',
+    ];
+
+    /**
+     * Retourne le nom dans la langue demandée (fr par défaut, fallback en).
+     */
+    public function getName(string $locale = 'fr'): string
+    {
+        $name = $this->name;
+        if (is_array($name)) {
+            return $name[$locale] ?? $name['en'] ?? $name['fr'] ?? '';
+        }
+        return (string) $name;
+    }
+
+    /**
+     * Retourne la description dans la langue demandée.
+     */
+    public function getDescription(string $locale = 'fr'): string
+    {
+        $desc = $this->description;
+        if (is_array($desc)) {
+            return $desc[$locale] ?? $desc['en'] ?? $desc['fr'] ?? '';
+        }
+        return (string) $desc;
+    }
+
     // Relation récursive : un objet peut avoir un parent (ex: Main -> Poignet)
     public function parent(): BelongsTo
     {

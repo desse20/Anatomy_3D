@@ -23,7 +23,7 @@ interface MasteryLevel {
 }
 
 interface NotionStat {
-    name: string;
+    name: { en: string; fr: string } | string;
     success: number;
     failure: number;
     mastery_level: number;
@@ -76,7 +76,7 @@ const ScoreRing: React.FC<{ score: number }> = ({ score }) => {
                 {score}%
             </text>
             <text x="70" y="84" textAnchor="middle" fill="currentColor" style={{ color: 'var(--dash-text-muted)' }} fontSize="11">
-                global
+                {score >= 0 ? 'score' : ''}
             </text>
         </svg>
     );
@@ -91,7 +91,7 @@ const MasteryBar: React.FC<{ notion: NotionStat; variant: 'weak' | 'strong'; lan
     return (
         <div className="lv-notion-row">
             <div className="lv-notion-header">
-                <span className="lv-notion-name">{notion.name}</span>
+                <span className="lv-notion-name">{language === 'fr' ? (notion.name as any)?.fr || notion.name : (notion.name as any)?.en || notion.name}</span>
                 <span className="lv-notion-badge" style={{ background: meta.bg, color: meta.color }}>
                     {meta.label}
                 </span>
@@ -230,6 +230,34 @@ const Levels: React.FC = () => {
                     </motion.div>
                 ) : (
                     <>
+                        {/* ── Global Completion (Top Level) ──────────────────── */}
+                        {!loading && stats.radar && stats.radar.length > 0 && (() => {
+                            const globalCompletion = Math.round((stats.radar.reduce((acc: number, curr: any) => acc + curr.value, 0) / (stats.radar.length * 5)) * 100);
+                            return (
+                                <motion.div 
+                                    initial={{ opacity: 0, y: -10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    style={{ width: '100%', marginBottom: '24px', padding: '24px', background: 'var(--dash-card-bg)', borderRadius: '16px', border: '1px solid var(--dash-border)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}
+                                >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '12px' }}>
+                                        <div>
+                                            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--dash-text)' }}>{t('Complétion Anatomique', 'Anatomical Completion')}</h2>
+                                            <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--dash-text-muted)' }}>{t('Analyse de la maîtrise absolue sur l\'ensemble du corps humain', 'Analysis of absolute mastery over the entire human body')}</p>
+                                        </div>
+                                        <div style={{ fontSize: '32px', fontWeight: 900, color: '#0ea5e9', lineHeight: 1 }}>{globalCompletion}%</div>
+                                    </div>
+                                    <div style={{ width: '100%', height: '12px', background: 'var(--dash-border)', borderRadius: '100px', overflow: 'hidden' }}>
+                                        <motion.div 
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${globalCompletion}%` }}
+                                            transition={{ duration: 1.5, ease: "easeOut" }}
+                                            style={{ height: '100%', background: 'linear-gradient(90deg, #0ea5e9, #34d399, #8b5cf6)', borderRadius: '100px' }}
+                                        />
+                                    </div>
+                                </motion.div>
+                            );
+                        })()}
+
                         {/* ── Ligne de résumé ──────────────────── */}
                         <motion.div
                             className="lv-summary-row"
@@ -240,7 +268,7 @@ const Levels: React.FC = () => {
                             <div className="lv-card lv-score-card">
                                 <ScoreRing score={stats.global_score} />
                                 <div className="lv-score-meta">
-                                    <span className="lv-score-label">{t('Score global', 'Global Score')}</span>
+                                    <span className="lv-score-label">{t('Réussite', 'Success Rank')}</span>
                                     <span className="lv-score-attempts">
                                         {stats.total_attempts.toLocaleString()} {t('tentatives', 'attempts')}
                                     </span>
@@ -326,7 +354,7 @@ const Levels: React.FC = () => {
                                     stats.en_cours.length > 0
                                         ? stats.en_cours.map((n, i) => (
                                             <motion.div
-                                                key={n.name}
+                                                key={typeof n.name === 'string' ? n.name : n.name.fr}
                                                 initial={{ opacity: 0, x: -10 }}
                                                 animate={{ opacity: 1, x: 0 }}
                                                 transition={{ delay: i * 0.05 }}
@@ -340,7 +368,7 @@ const Levels: React.FC = () => {
                                     stats.maitrisees.length > 0
                                         ? stats.maitrisees.map((n, i) => (
                                             <motion.div
-                                                key={n.name}
+                                                key={typeof n.name === 'string' ? n.name : n.name.fr || n.name.en}
                                                 initial={{ opacity: 0, x: -10 }}
                                                 animate={{ opacity: 1, x: 0 }}
                                                 transition={{ delay: i * 0.05 }}
@@ -354,7 +382,7 @@ const Levels: React.FC = () => {
                                     stats.totalement_maitrisees.length > 0
                                         ? stats.totalement_maitrisees.map((n, i) => (
                                             <motion.div
-                                                key={n.name}
+                                                key={typeof n.name === 'string' ? n.name : n.name.fr || n.name.en}
                                                 initial={{ opacity: 0, x: -10 }}
                                                 animate={{ opacity: 1, x: 0 }}
                                                 transition={{ delay: i * 0.05 }}
@@ -368,7 +396,7 @@ const Levels: React.FC = () => {
                                     stats.cultivees.length > 0
                                         ? stats.cultivees.map((n, i) => (
                                             <motion.div
-                                                key={n.name}
+                                                key={typeof n.name === 'string' ? n.name : n.name.fr || n.name.en}
                                                 initial={{ opacity: 0, x: -10 }}
                                                 animate={{ opacity: 1, x: 0 }}
                                                 transition={{ delay: i * 0.05 }}
@@ -436,7 +464,7 @@ const Levels: React.FC = () => {
                 /* Summary row */
                 .lv-summary-row {
                     display: grid;
-                    grid-template-columns: 220px 1fr;
+                    grid-template-columns: 240px 1fr;
                     gap: 16px;
                     margin-bottom: 16px;
                 }

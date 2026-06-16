@@ -7,7 +7,14 @@ import { offlineCache } from '../services/offlineCache';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Loader2 } from 'lucide-react';
 
-interface AnatomyItem { id: number; name: string; three_js_name: string; parent_id?: number | null; type: string; description?: string; }
+interface AnatomyItem { 
+  id: number; 
+  name: { en: string; fr: string } | string; 
+  three_js_name: string; 
+  parent_id?: number | null; 
+  type: string; 
+  description?: { en: string; fr: string } | string; 
+}
 
 const AnatomyViewerPage: React.FC = () => {
     const { language } = useLanguage();

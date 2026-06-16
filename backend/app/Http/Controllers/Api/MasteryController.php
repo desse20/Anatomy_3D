@@ -114,6 +114,36 @@ class MasteryController extends Controller
             ->values()
             ->map($mapItem);
 
+        // Calcul du radar (maîtrise par racines anatomiques)
+        $radar = [];
+        $roots = \App\Models\AnatomicalObject::where('id', 1)->first()
+            ? \App\Models\AnatomicalObject::where('parent_id', 1)->get()
+            : \App\Models\AnatomicalObject::whereNull('parent_id')->get();
+        
+        // Si un seul nœud racine (ex: Human Anatomy), on descend d'un cran
+        if ($roots->count() === 1 && $roots->first()->children()->count() > 0) {
+            $roots = $roots->first()->children;
+        }
+
+        foreach ($roots as $root) {
+            // Trouver tous les descendants de ce root
+            $descendantIds = $this->getDescendantIds($root);
+            
+            // Calculer la maîtrise moyenne sur ces descendants
+            $relevantMasteries = $masteries->whereIn('anatomical_object_id', $descendantIds);
+            
+            $avgLevel = $relevantMasteries->count() > 0 
+                ? $relevantMasteries->avg('mastery_level') 
+                : 0;
+                
+            $radar[] = [
+                'id'    => $root->id,
+                'label' => $root->name, // Object avec langages
+                'value' => round($avgLevel, 2),
+                'count' => $relevantMasteries->count()
+            ];
+        }
+
         return response()->json([
             'has_data'               => true,
             'global_score'           => $globalScore,
@@ -126,7 +156,17 @@ class MasteryController extends Controller
             'cultivees'              => $cultivees,
             'due_notions'            => $due,
             'mastery_levels'         => $levelDistribution,
+            'radar'                  => $radar,
         ]);
+    }
+
+    private function getDescendantIds($node)
+    {
+        $ids = [$node->id];
+        foreach ($node->children as $child) {
+            $ids = array_merge($ids, $this->getDescendantIds($child));
+        }
+        return $ids;
     }
 
     /**
@@ -153,7 +193,10 @@ class MasteryController extends Controller
             return response()->json(['success' => true, 'message' => 'Review session, no level change']);
         }
 
-        $obj = \App\Models\AnatomicalObject::where('name', $request->anatomical_object_name)->first();
+        // Recherche multilingue (FR d'abord, puis EN)
+        $obj = \App\Models\AnatomicalObject::whereRaw("JSON_EXTRACT(name, '$.fr') = ?", [$request->anatomical_object_name])->first()
+            ?? \App\Models\AnatomicalObject::whereRaw("JSON_EXTRACT(name, '$.en') = ?", [$request->anatomical_object_name])->first();
+
         if (!$obj) {
             // Auto-creation if not found
             $maxId = \App\Models\AnatomicalObject::max('id') ?? 10000;
@@ -164,9 +207,12 @@ class MasteryController extends Controller
             $obj = \App\Models\AnatomicalObject::create([
                 'id' => $maxId + 1,
                 'asset_3d_id' => $defaultAssetId,
-                'name' => $request->anatomical_object_name,
+                'name' => [
+                    'fr' => $request->anatomical_object_name,
+                    'en' => ''
+                ],
                 'three_js_name' => strtolower($request->anatomical_object_name),
-                'description' => '',
+                'description' => ['fr' => '', 'en' => ''],
             ]);
         }
 

@@ -28,14 +28,31 @@ class AnatomyController extends Controller
 
             $objects = $query->get()
                 ->map(function($obj) {
+                    // name est un array casté depuis JSON : {"en":"...","fr":"..."}
+                    $name = $obj->name;
+                    if (!is_array($name)) {
+                        // Compatibilité ancien format plain string
+                        $name = ['fr' => preg_replace('/\.g$/i', '', (string)$name), 'en' => ''];
+                    } else {
+                        $name = [
+                            'fr' => preg_replace('/\.g$/i', '', $name['fr'] ?? ''),
+                            'en' => preg_replace('/\.g$/i', '', $name['en'] ?? ''),
+                        ];
+                    }
+
+                    $desc = $obj->description;
+                    if (!is_array($desc)) {
+                        $desc = ['en' => (string)$desc, 'fr' => ''];
+                    }
+
                     return [
-                        'id' => $obj->id,
-                        'name' => preg_replace('/\.g$/i', '', $obj->name),
+                        'id'           => $obj->id,
+                        'name'         => $name,
                         'three_js_name' => $obj->three_js_name,
-                        'parent_id' => $obj->parent_id,
-                        'type' => strtolower($obj->mesh ?? '') === 'mesh' ? 'mesh' : 'group',
-                        'description' => $obj->description,
-                        'updated_at' => $obj->updated_at
+                        'parent_id'    => $obj->parent_id,
+                        'type'         => strtolower($obj->mesh ?? '') === 'mesh' ? 'mesh' : 'group',
+                        'description'  => $desc,
+                        'updated_at'   => $obj->updated_at
                     ];
                 });
 
@@ -54,13 +71,11 @@ class AnatomyController extends Controller
         $excluded = ['Cross Section', 'HOW TO', 'Take a picture', 'Reference lines', 'Reference planes', 'Movements'];
 
         try {
-            // Le "vrai" parent de tous les systèmes a souvent l'ID 1 (Treatise on Man / Corps Humain)
             $topNode = AnatomicalObject::where('id', 1)->first();
             
             if ($topNode && AnatomicalObject::where('parent_id', $topNode->id)->count() > 0) {
                 $nodes = AnatomicalObject::where('parent_id', $topNode->id)->withCount('children')->get();
             } else {
-                // Secours : on prend ce qui est explicitement null, mais trié
                 $nodes = AnatomicalObject::whereNull('parent_id')->withCount('children')->get();
                 if ($nodes->count() === 1) {
                     $nodes = AnatomicalObject::where('parent_id', $nodes->first()->id)->withCount('children')->get();
@@ -68,18 +83,18 @@ class AnatomyController extends Controller
             }
 
             $roots = $nodes->filter(function ($node) use ($excluded) {
-                    $name = $node->name;
+                    $name = $node->getName('fr') ?: $node->getName('en');
                     foreach ($excluded as $ex) {
                         if (stripos($name, $ex) !== false) return false;
                     }
-                    return clone $node;
+                    return true;
                 })
                 ->map(function ($node) {
-                    $name = $node->name;
-                    $cleanName = preg_replace('/\.g$/i', '', $name);
+                    $nameFr  = preg_replace('/\.g$/i', '', $node->getName('fr'));
+                    $nameEn  = preg_replace('/\.g$/i', '', $node->getName('en'));
                     return [
-                        'name'        => $cleanName,
-                        'raw_name'    => $name,
+                        'name'        => ['en' => $nameEn, 'fr' => $nameFr],
+                        'raw_name'    => $node->three_js_name ?? ($nameFr ?: $nameEn),
                         'type'        => 'group',
                         'child_count' => $node->children_count,
                         'id'          => $node->id
@@ -100,20 +115,18 @@ class AnatomyController extends Controller
     public function subtree(string $name)
     {
         try {
-            $rootNode = AnatomicalObject::where('name', 'LIKE', $name . '%')->first();
+            // Cherche d'abord en FR puis EN dans le JSON
+            $rootNode = AnatomicalObject::whereRaw("JSON_EXTRACT(name, '$.fr') LIKE ?", ["%{$name}%"])->first()
+                     ?? AnatomicalObject::whereRaw("JSON_EXTRACT(name, '$.en') LIKE ?", ["%{$name}%"])->first();
 
             if (!$rootNode) {
-                // Essayer sans le cas
-                $rootNode = AnatomicalObject::where('name', 'LIKE', '%' . $name . '%')->first();
-                if (!$rootNode) {
-                    return response()->json(['error' => __('messages.anatomy.node_not_found', ['name' => $name])], 404);
-                }
+                return response()->json(['error' => __('messages.anatomy.node_not_found', ['name' => $name])], 404);
             }
 
             $allNames = [];
             $this->collectNamesFromDb($rootNode, $allNames);
 
-            $cleanName = preg_replace('/\.g$/i', '', $rootNode->name);
+            $cleanName = preg_replace('/\.g$/i', '', $rootNode->getName('fr') ?: $rootNode->getName('en'));
 
             return response()->json([
                 'root'      => $cleanName,
@@ -127,7 +140,9 @@ class AnatomyController extends Controller
 
     private function collectNamesFromDb($node, array &$names): void
     {
-        $cleanName = preg_replace('/\.g$/i', '', $node->name);
+        $nameFr = $node->getName('fr');
+        $nameEn = $node->getName('en');
+        $cleanName = preg_replace('/\.g$/i', '', $nameFr ?: $nameEn);
         
         if (!empty($cleanName) && strtolower($node->mesh ?? '') === 'mesh') {
             $names[] = $cleanName;
@@ -151,21 +166,27 @@ class AnatomyController extends Controller
         }
 
         try {
-            $results = [];
+            $results  = [];
             $excluded = ['Cross Section', 'HOW TO', 'Take a picture', 'Reference lines', 'Reference planes', 'Movements'];
 
-            $nodes = AnatomicalObject::where('name', 'LIKE', '%' . $query . '%')
-                        ->withCount('children')
-                        ->limit(20)
-                        ->get();
+            // Recherche dans name.fr ET name.en (JSON column)
+            $nodes = AnatomicalObject::
+                where(function($q) use ($query) {
+                    $q->whereRaw("JSON_EXTRACT(name, '$.fr') LIKE ?", ["%{$query}%"])
+                      ->orWhereRaw("JSON_EXTRACT(name, '$.en') LIKE ?", ["%{$query}%"]);
+                })
+                ->withCount('children')
+                ->limit(20)
+                ->get();
 
             foreach ($nodes as $node) {
-                $name = $node->name;
-                $cleanName = preg_replace('/\.g$/i', '', $name);
-                
+                $nameFr    = preg_replace('/\.g$/i', '', $node->getName('fr'));
+                $nameEn    = preg_replace('/\.g$/i', '', $node->getName('en'));
+                $cleanName = $nameFr ?: $nameEn;
+
                 $isExcluded = false;
                 foreach ($excluded as $ex) {
-                    if (stripos($name, $ex) !== false) {
+                    if (stripos($cleanName, $ex) !== false) {
                         $isExcluded = true;
                         break;
                     }
@@ -173,10 +194,10 @@ class AnatomyController extends Controller
 
                 if (!$isExcluded) {
                     $results[] = [
-                        'id' => $node->id,
-                        'name' => $cleanName,
-                        'raw_name' => $name,
-                        'type' => strtolower($node->mesh ?? '') === 'mesh' ? 'mesh' : 'group',
+                        'id'          => $node->id,
+                        'name'        => ['en' => $nameEn, 'fr' => $nameFr],
+                        'raw_name'    => $node->three_js_name ?? ($nameFr ?: $nameEn),
+                        'type'        => strtolower($node->mesh ?? '') === 'mesh' ? 'mesh' : 'group',
                         'child_count' => $node->children_count
                     ];
                 }
@@ -204,7 +225,9 @@ class AnatomyController extends Controller
 
         $objectId = $request->object_id;
         if (!$objectId && $request->object_name) {
-            $obj = AnatomicalObject::where('name', $request->object_name)->first();
+            // Cherche d'abord en FR, puis EN
+            $obj = AnatomicalObject::whereRaw("JSON_EXTRACT(name, '$.fr') = ?", [$request->object_name])->first()
+                ?? AnatomicalObject::whereRaw("JSON_EXTRACT(name, '$.en') = ?", [$request->object_name])->first();
             if ($obj) $objectId = $obj->id;
         }
 

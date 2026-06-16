@@ -9,7 +9,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 interface Message { role: 'ai' | 'user'; content: string; }
-interface AnatNode { name: string; raw_name: string; type: string; }
+interface AnatNode { name: { en: string; fr: string } | string; raw_name: string; type: string; }
 interface Session {
     id: string;
     conversationId?: string;
@@ -31,6 +31,13 @@ interface FloatingChatProps {
 const FloatingChat: React.FC<FloatingChatProps> = ({ isOpen: propIsOpen, onToggle, externalView, onViewChange }) => {
     const { language } = useLanguage();
     const t = (fr: string, en: string) => language === 'fr' ? fr : en;
+
+    // Helper pour extraire le texte depuis l'objet multilingue
+    const getLoc = (val: any, fallback: string = ''): string => {
+        if (!val) return fallback;
+        if (typeof val === 'string') return val;
+        return val[language] || val['fr'] || val['en'] || fallback;
+    };
 
     const [internalIsOpen, setInternalIsOpen] = useState(false);
     const isOpen = propIsOpen !== undefined ? propIsOpen : internalIsOpen;
@@ -182,7 +189,7 @@ const FloatingChat: React.FC<FloatingChatProps> = ({ isOpen: propIsOpen, onToggl
             const exists = prev.find(n => n.raw_name === node.raw_name);
             const next = exists ? prev.filter(n => n.raw_name !== node.raw_name) : [...prev, node];
             if (next.length > 0) {
-                setInput(language === 'fr' ? `Expliquez-moi : ${next.map(e => e.name).join(', ')}.` : `Explain: ${next.map(e => e.name).join(', ')}.`);
+                setInput(language === 'fr' ? `Expliquez-moi : ${next.map(e => getLoc(e.name)).join(', ')}.` : `Explain: ${next.map(e => getLoc(e.name)).join(', ')}.`);
             } else {
                 setInput('');
             }
@@ -202,7 +209,7 @@ const FloatingChat: React.FC<FloatingChatProps> = ({ isOpen: propIsOpen, onToggl
 
         if (!targetSession) {
             const baseName = selectedElements.length > 0
-                ? selectedElements.map(e => e.name).join(' & ')
+                ? selectedElements.map(e => getLoc(e.name)).join(' & ')
                 : t('Discussion Générale', 'General Discussion');
             targetSession = {
                 id: Date.now().toString(),
@@ -222,7 +229,7 @@ const FloatingChat: React.FC<FloatingChatProps> = ({ isOpen: propIsOpen, onToggl
 
         let contextText = t('Anatomie humaine en général', 'General human anatomy');
         if (targetSession.elements.length > 0) {
-            contextText = targetSession.elements.map(e => `- ${e.name} (${e.type})`).join('\n');
+            contextText = targetSession.elements.map(e => `- ${getLoc(e.name)} (${e.type})`).join('\n');
         }
 
         const userInput = language === 'fr'
@@ -262,8 +269,25 @@ const FloatingChat: React.FC<FloatingChatProps> = ({ isOpen: propIsOpen, onToggl
                         className="fc-toggle-btn"
                         onClick={() => { setIsOpen(true); setIsMinimized(false); }}
                         title={t('Chat Anatomie IA', 'Anatomy AI Chat')}
+                        style={{
+                            position: 'fixed',
+                            bottom: '30px',
+                            right: '30px',
+                            width: '60px',
+                            height: '60px',
+                            borderRadius: '50%',
+                            background: 'white',
+                            color: '#056CF2',
+                            border: 'none',
+                            boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 9999,
+                            cursor: 'pointer'
+                        }}
                     >
-                        <MessageSquare size={22} />
+                        <MessageSquare size={26} fill="currentColor" fillOpacity={0.1} />
                     </motion.button>
                 )}
             </AnimatePresence>
@@ -345,7 +369,7 @@ const FloatingChat: React.FC<FloatingChatProps> = ({ isOpen: propIsOpen, onToggl
                                         <div className="fc-tags">
                                             {activeElements.map(el => (
                                                 <span key={el.raw_name} className="fc-tag">
-                                                    {el.name}
+                                                    {getLoc(el.name)}
                                                     {!activeSession && <button onClick={() => toggleElement(el)}>×</button>}
                                                 </span>
                                             ))}
@@ -416,7 +440,7 @@ const FloatingChat: React.FC<FloatingChatProps> = ({ isOpen: propIsOpen, onToggl
                                                                         className={`fc-search-item ${selectedElements.find(n => n.raw_name === node.raw_name) ? 'selected' : ''}`}
                                                                         onClick={() => { toggleElement(node); }}
                                                                     >
-                                                                        <span>{node.name}</span>
+                                                                        <span>{getLoc(node.name)}</span>
                                                                         <small>{node.type}</small>
                                                                     </div>
                                                                 ))}

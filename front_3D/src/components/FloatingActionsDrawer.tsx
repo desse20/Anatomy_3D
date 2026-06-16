@@ -2,13 +2,17 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { MessageCircle, Star, Home, X, ChevronLeft } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
+
 import { motion, AnimatePresence } from 'framer-motion';
 import FloatingChat from './FloatingChat';
 import FloatingReview from './FloatingReview';
 
 const FloatingActionsDrawer: React.FC = () => {
     const { language } = useLanguage();
+    const { theme } = useTheme();
     const t = (fr: string, en: string) => language === 'fr' ? fr : en;
+
 
     const [isOpen, setIsOpen] = useState(false);
     const [activeTab, setActiveTab] = useState<'home' | 'chat' | 'review'>('home');
@@ -138,9 +142,10 @@ const FloatingActionsDrawer: React.FC = () => {
                 .unified-messenger .messenger-launcher {
                     width: 65px; height: 65px;
                     border-radius: 50%;
-                    background: linear-gradient(135deg, #056CF2 0%, #0C79F2 100%);
-                    color: white; border: none;
-                    box-shadow: 0 8px 30px rgba(5, 108, 242, 0.4);
+                    background: ${theme === 'light' ? '#056CF2' : 'white'};
+                    color: ${theme === 'light' ? 'white' : '#056CF2'}; 
+                    border: none;
+                    box-shadow: 0 8px 30px rgba(0,0,0,0.1);
                     cursor: pointer;
                     display: flex; align-items: center; justify-content: center;
                     transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -148,13 +153,13 @@ const FloatingActionsDrawer: React.FC = () => {
                 }
                 .unified-messenger .messenger-launcher:hover { 
                     transform: scale(1.05) translateY(-3px); 
-                    box-shadow: 0 12px 35px rgba(5, 108, 242, 0.5); 
+                    box-shadow: 0 12px 35px rgba(0,0,0,0.15); 
                 }
                 .unified-messenger .messenger-launcher.active { 
                     transform: rotate(90deg); 
-                    background: white; 
-                    color: #056CF2; 
-                    border: 2px solid #056CF2;
+                    background: ${theme === 'light' ? '#056CF2' : 'white'}; 
+                    color: ${theme === 'light' ? 'white' : '#056CF2'}; 
+                    border: none;
                     box-shadow: 0 5px 15px rgba(0,0,0,0.1);
                 }
 

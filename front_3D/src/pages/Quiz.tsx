@@ -70,19 +70,29 @@ const HASH_TO_TYPE: Record<string, string> = {
 
 const Quiz: React.FC = () => {
     const { language } = useLanguage();
+    
+    // Helper pour extraire le texte depuis l'objet multilingue
+    const getLoc = (val: any, fallback: string = ''): string => {
+        if (!val) return fallback;
+        if (typeof val === 'string') return val;
+        return val[language] || val['fr'] || val['en'] || fallback;
+    };
+
     const navigate = useNavigate();
     const location = useLocation();
 
     // Paramètres de révision ciblée venant de Review.tsx ou Dashboard
     const navState = (location.state as any) ?? {};
-    const targetSystem: string | null = navState.system ?? null;
-    const [targetSystemLabel, setTargetSystemLabel] = useState<string | null>(targetSystem);
+    const [targetSystem, setTargetSystem] = useState<any>(navState.system ?? null);
+
     // Resync quand on navigue vers /quiz avec un nouvel état (Dashboard → Quiz)
     useEffect(() => {
         if (navState.system) {
-            setTargetSystemLabel(navState.system);
+            setTargetSystem(navState.system);
         }
     }, [location.state]);
+
+    const targetSystemLabel = getLoc(targetSystem);
 
     const [step, setStep] = useState(1);
     const [quizType, setQuizType] = useState<string | null>(navState.quizType ?? null);
@@ -100,11 +110,11 @@ const Quiz: React.FC = () => {
     // Si on arrive depuis Review.tsx avec un système ciblé, on saute directement à l'étape 4
     useEffect(() => {
         if (navState.reviewMode && navState.quizType && navState.system) {
-            setTargetSystemLabel(navState.system);
+            setTargetSystem(navState.system);
             setQuizType(navState.quizType);
             setQuestionCount(navState.questionCount ?? 10);
             setStep(4);
-            handleStartWithSystem(navState.system, navState.quizType, navState.questionCount ?? 10);
+            handleStartWithSystem(getLoc(navState.system), navState.quizType, navState.questionCount ?? 10);
             return;
         }
         // Restore state from URL hash on initial load
@@ -210,8 +220,8 @@ const Quiz: React.FC = () => {
         try {
             const url = objectId ? `quiz/next-topic?object_id=${objectId}` : 'quiz/next-topic';
             const res = await apiCall(url);
-            if (res?.name) {
-                setTargetSystemLabel(res.name);
+            if (res) {
+                setTargetSystem(res.name);
                 setIsManualMode(false);
             }
         } catch (e) {
@@ -538,9 +548,9 @@ const Quiz: React.FC = () => {
                                                                 ) : searchResults.length > 0 ? (
                                                                     <div className="search-list">
                                                                         {searchResults.map((res: any) => (
-                                                                            <div key={res.id} className="search-item" onClick={() => fetchNextTopic(res.id)}>
+                                                                            <div key={res.id} className="search-item" onClick={() => { setTargetSystem(res.name); setIsManualMode(false); }}>
                                                                                 <FolderTree size={14} />
-                                                                                <span className="item-name">{res.name}</span>
+                                                                                <span className="item-name">{getLoc(res.name)}</span>
                                                                                 <small className="item-type">{res.type}</small>
                                                                             </div>
                                                                         ))}

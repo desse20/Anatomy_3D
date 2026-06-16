@@ -320,7 +320,7 @@ const TestPage: React.FC = () => {
             {!token ? (
               <a href="#register" className="custom-button blue large">{language === 'fr' ? "Démarrer gratuitement" : "Start for free"} <ArrowLg /></a>
             ) : (
-              <Link to="/dash" className="custom-button blue large">{language === 'fr' ? "Accéder à mon espace" : "Access my workspace"} <ArrowLg /></Link>
+              <Link to="/dash" className="custom-button white large" style={{ color: '#056CF2' }}>{language === 'fr' ? "Accéder à mon espace" : "Access my workspace"} <ArrowLg /></Link>
             )}
           </div>
 

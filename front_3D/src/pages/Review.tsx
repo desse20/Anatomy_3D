@@ -10,7 +10,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 interface AnatNode {
-    name: string;
+    name: { en: string; fr: string } | string;
     raw_name: string;
     type: string;
     child_count: number;
@@ -32,6 +32,13 @@ interface Session {
 const Review: React.FC = () => {
     const { language } = useLanguage();
     const t = (fr: string, en: string) => language === 'fr' ? fr : en;
+
+    // Helper pour extraire le texte depuis l'objet multilingue
+    const getLoc = (val: any, fallback: string = ''): string => {
+        if (!val) return fallback;
+        if (typeof val === 'string') return val;
+        return val[language] || val['fr'] || val['en'] || fallback;
+    };
 
     const loadSessions = (): Session[] => {
         const stored = localStorage.getItem('chat_sessions') || localStorage.getItem('review_sessions');
@@ -164,7 +171,7 @@ const Review: React.FC = () => {
             // Cannot easily modify existing session elements logic in UI, force new chat
             startNewChat();
             setSelectedElements([node]);
-            setChatInput(language === 'fr' ? `Expliquez-moi en détail : ${node.name}.` : `Explain in detail: ${node.name}.`);
+            setChatInput(language === 'fr' ? `Expliquez-moi en détail : ${getLoc(node.name)}.` : `Explain in detail: ${getLoc(node.name)}.`);
             return;
         }
         setSelectedElements(prev => {
@@ -177,7 +184,7 @@ const Review: React.FC = () => {
             }
             
             if (nextElements.length > 0) {
-                const names = nextElements.map(e => e.name).join(', ');
+                const names = nextElements.map(e => getLoc(e.name)).join(', ');
                 setChatInput(language === 'fr' 
                     ? `Expliquez-moi en détail : ${names}.` 
                     : `Explain in detail: ${names}.`
@@ -194,7 +201,7 @@ const Review: React.FC = () => {
         setSelectedElements(prev => {
             const nextElements = prev.filter(n => n.raw_name !== nodeRawName);
             if (nextElements.length > 0) {
-                const names = nextElements.map(e => e.name).join(', ');
+                const names = nextElements.map(e => getLoc(e.name)).join(', ');
                 setChatInput(language === 'fr' 
                     ? `Expliquez-moi en détail : ${names}.` 
                     : `Explain in detail: ${names}.`
@@ -230,7 +237,7 @@ const Review: React.FC = () => {
             } else {
                 // Create new session
                 const baseName = selectedElements.length > 0 
-                    ? selectedElements.map(e => e.name).join(' & ')
+                    ? selectedElements.map(e => getLoc(e.name)).join(' & ')
                     : t('Discussion Générale', 'General Discussion');
                 
                 targetSession = {
@@ -260,7 +267,7 @@ const Review: React.FC = () => {
         // Generate AI response — envoyer seulement le message brut + sujet + langue
         let contextText = t('Anatomie humaine en général', 'General human anatomy');
         if (targetSession.elements.length > 0) {
-            contextText = targetSession.elements.map(e => `- ${e.name} (${e.type})`).join('\n');
+            contextText = targetSession.elements.map(e => `- ${getLoc(e.name)} (${e.type})`).join('\n');
         }
 
         const userInput = language === 'fr'
@@ -393,7 +400,7 @@ const Review: React.FC = () => {
                         <div className="element-tags" style={{ flex: 1 }}>
                             {activeElements.map(el => (
                                 <span key={el.raw_name} className="element-tag">
-                                    {el.name} <small>{el.type}</small>
+                                    {getLoc(el.name)} <small>{el.type}</small>
                                     {!activeSession && (
                                         <button onClick={() => removeElement(el.raw_name)}>×</button>
                                     )}
@@ -502,7 +509,7 @@ const Review: React.FC = () => {
                                                         className={`search-item ${selectedElements.find(n => n.raw_name === node.raw_name) ? 'selected' : ''}`}
                                                         onClick={() => toggleElement(node)}
                                                     >
-                                                        <span>{node.name}</span>
+                                                        <span>{getLoc(node.name)}</span>
                                                         <small>{node.type}</small>
                                                     </div>
                                                 ))}

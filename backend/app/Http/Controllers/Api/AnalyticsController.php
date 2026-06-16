@@ -61,27 +61,39 @@ class AnalyticsController extends Controller
             $flop = collect([]); // Pas de flop si trop peu de données
             $average = collect([]);
         } else {
-            // Top — au-dessus de la moyenne, limité à $limit entrées
-            $top = $ranked->filter(fn($r) => $r->visit_count > $avg)->take($limit)->values();
-            // Si le filtre strict ne donne rien (ex: tous à 1), on prend le début
-            if ($top->isEmpty()) $top = $ranked->take($limit)->values();
+            // Top — au-dessus de la moyenne ET au moins 2 visites, limité à $limit entrées
+            $top = $ranked->filter(fn($r) => $r->visit_count > $avg && $r->visit_count >= 2)->take($limit)->values();
+            $topIds = $top->pluck('id')->toArray();
 
-            // Flop — en dessous de la moyenne
-            $flop = $ranked->filter(fn($r) => $r->visit_count < $avg)
-                ->sortBy('visit_count')->take($limit)->values();
+            // Flop — en dessous de la moyenne et pas dans le top
+            $flop = $ranked->whereNotIn('id', $topIds)
+                ->filter(fn($r) => $r->visit_count < $avg)
+                ->sortBy('visit_count')
+                ->take($limit)
+                ->values();
 
-            // Moyenne — dans un écart de ±20 % de la moyenne
+            // Moyenne — dans un écart de ±20 % de la moyenne et pas dans le top/flop de tête
             $band  = max(1, $avg * 0.2);
-            $average = $ranked->filter(fn($r) => abs($r->visit_count - $avg) <= $band)
+            $average = $ranked->whereNotIn('id', $topIds)
+                ->filter(fn($r) => abs($r->visit_count - $avg) <= $band)
                 ->take($limit)->values();
         }
+
+        $decodeNames = function($collection) {
+            return $collection->map(function($item) {
+                if (isset($item->name) && is_string($item->name) && str_starts_with($item->name, '{')) {
+                    $item->name = json_decode($item->name, true);
+                }
+                return $item;
+            });
+        };
 
         return response()->json([
             'total'   => $total,
             'average' => round($avg, 1),
-            'top'     => $top,
-            'flop'    => $flop,
-            'in_avg'  => $average,
+            'top'     => $decodeNames($top),
+            'flop'    => $decodeNames($flop),
+            'in_avg'  => $decodeNames($average),
             'period'  => $days,
         ]);
     }
@@ -230,6 +242,21 @@ class AnalyticsController extends Controller
             ->orderByDesc('visit_count')
             ->get();
 
+        $stats = $stats->map(function($item) {
+            if (isset($item->name) && is_string($item->name) && str_starts_with($item->name, '{')) {
+                $item->name = json_decode($item->name, true);
+            }
+            return $item;
+        });
+
+        $top = $stats->filter(fn($s) => $s->visit_count >= 2)->take(10)->values();
+        $topIds = $top->pluck('id')->toArray();
+        
+        $flop = $stats->whereNotIn('id', $topIds)
+            ->sortBy('visit_count')
+            ->take(10)
+            ->values();
+
         return response()->json([
             'user' => [
                 'id' => $user->id,
@@ -238,8 +265,8 @@ class AnalyticsController extends Controller
                 'role' => $user->role
             ],
             'visited_objects' => $stats,
-            'top' => $stats->take(10),
-            'flop' => $stats->sortBy('visit_count')->take(10)->values(),
+            'top' => $top,
+            'flop' => $flop,
         ]);
     }
 }

@@ -10,9 +10,18 @@ import Swal from 'sweetalert2';
 import { getSwalTheme } from '../services/swalTheme';
 import { motion } from 'framer-motion';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 import '../styles/anatomy-viewer.css';
 
-interface AnatomyItem { id: number; name: string; three_js_name: string; parent_id?: number | null; type: string; description?: string; }
+
+interface AnatomyItem { 
+  id: number; 
+  name: { en: string; fr: string } | string; 
+  three_js_name: string; 
+  parent_id?: number | null; 
+  type: string; 
+  description?: { en: string; fr: string } | string; 
+}
 interface ExtendedMesh extends THREE.Mesh { userData: { info?: AnatomyItem; [key: string]: any }; }
 interface SceneSnapshot {
     camera: { pos: { x: number; y: number; z: number }; target: { x: number; y: number; z: number } };
@@ -23,7 +32,20 @@ interface Props { assetId?: string | number; modelPath?: string; initialAnatomic
 
 const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, initialAnatomicalData, isOffline, modelName, sharedViewData, readOnly, onSelect }) => {
   const { language } = useLanguage();
+  const { theme } = useTheme();
   const t = (fr: string, en: string) => language === 'fr' ? fr : en;
+
+
+  // Helper pour extraire le texte depuis l'objet multilingue
+  const getLoc = (val: any, fallback: string = '', forceLanguage: boolean = false): string => {
+    if (!val) return fallback;
+    if (typeof val === 'string') return val;
+    const localized = val[language];
+    if (localized && localized.trim() !== '') return localized;
+    if (forceLanguage) return fallback;
+    return val['fr'] || val['en'] || fallback;
+  };
+
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const labelRef = useRef<HTMLDivElement>(null);
@@ -50,8 +72,13 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saveNote, setSaveNote] = useState('');
   const [saving, setSaving] = useState(false);
-  const [bgColor, setBgColor] = useState(localStorage.getItem('anatomy_bg') || '#0a0a0a');
+  const [bgColor, setBgColor] = useState(() => {
+    const saved = localStorage.getItem('anatomy_bg');
+    if (saved) return saved;
+    return theme === 'light' ? '#f3f4f6' : '#0a0a0a';
+  });
   const [showLabels, setShowLabels] = useState(true);
+
 
   const raycaster = useRef(new THREE.Raycaster());
   const mouse = useRef(new THREE.Vector2());
@@ -237,7 +264,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     row.dataset.id = String(item.id);
     const iso = document.createElement('button'); iso.className = 'iso-btn'; iso.innerHTML = ICONS.target; iso.title = "Isoler ce groupe";
     const eye = document.createElement('button'); eye.className = 'eye-btn';
-    const span = document.createElement('span'); span.textContent = item.name;
+    const span = document.createElement('span'); span.textContent = getLoc(item.name);
     row.appendChild(eye); row.appendChild(iso); row.appendChild(span); li.appendChild(row);
 
     const mesh = sceneRef.current?.getObjectByName(item.three_js_name) as ExtendedMesh | null ?? null;
@@ -321,17 +348,21 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
         row.classList.add('selected-item');
         const info = mesh.userData.info;
         const itemDesc = info?.description || item.description;
-        const itemName = info?.name || item.name;
-        if (itemDesc) desc(itemDesc, itemName);
-        else desc('<em>Description non disponible.</em>', itemName);
+        const itemName = getLoc(info?.name || item.name);
+        const localizedDesc = getLoc(itemDesc, '', true);
+        if (localizedDesc) desc(localizedDesc, itemName);
+        else desc(`<em>${t('Pas de description.', 'No description available.')}</em>`, itemName);
+
       } else {
         // No mesh found (group node)
         deselect();
         select(item, null);
         document.querySelectorAll('.item-row').forEach(el => el.classList.remove('selected-item'));
         row.classList.add('selected-item');
-        if (item.description) desc(item.description, item.name);
-        else desc('<em>Description non disponible.</em>', item.name);
+        const itemName = getLoc(item.name);
+        const localizedDesc = getLoc(item.description, '', true);
+        if (localizedDesc) desc(localizedDesc, itemName);
+        else desc(`<em>${t('Pas de description.', 'No description available.')}</em>`, itemName);
       }
       if (children.length) {
         const c = li.querySelector('ul');
@@ -350,20 +381,20 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
 
   // ── Actions ──
   function isolate() {
-    const t = selRef.current; 
-    if (!t) return;
+    const selected = selRef.current; 
+    if (!selected) return;
     
     // On identifie tous les ancêtres et descendants de l'objet sélectionné
     const ancestors = new Set<string>();
-    let p = t.parent;
+    let p = selected.parent;
     while (p) { ancestors.add(p.uuid); p = p.parent; }
 
     const descendants = new Set<string>();
-    t.traverse(c => descendants.add(c.uuid));
+    selected.traverse(c => descendants.add(c.uuid));
     
-    console.log(`[isolate] Tool active for: ${t.name || 'unnamed'} (${t.userData.info?.name || 'no info'}). Descendants: ${descendants.size}`);
+    console.log(`[isolate] Tool active for: ${selected.name || 'unnamed'} (${selected.userData.info?.name || 'no info'}). Descendants: ${descendants.size}`);
     
-    const targetUuid = t.uuid;
+    const targetUuid = selected.uuid;
     sceneRef.current?.traverse(obj => {
       // On ne touche pas à la scène elle-même ou aux lumières/caméras de base
       if (obj instanceof THREE.Scene || obj instanceof THREE.Light || obj instanceof THREE.Camera) return;
@@ -389,27 +420,30 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     syncEyes();
     countHidden();
     rebuildLabels();
-    if (t.userData.info) logUsage(t.userData.info);
+    if (selected.userData.info) logUsage(selected.userData.info);
   }
   function hide() {
-    const t = selRef.current; if (!t) return;
-    t.visible = false; deselect(); desc('', 'Élément masqué'); syncEyes(); countHidden(); rebuildLabels();
-    if (t.userData.info) logUsage(t.userData.info);
+    const selected = selRef.current; if (!selected) return;
+    selected.visible = false; deselect(); desc('', 'Élément masqué'); syncEyes(); countHidden(); rebuildLabels();
+    if (selected.userData.info) logUsage(selected.userData.info);
   }
   function show() {
-    const t = selRef.current; if (!t) return;
-    t.visible = true;
-    let p = t.parent; while (p) { p.visible = true; p = p.parent; }
-    if (t.material instanceof THREE.MeshStandardMaterial) t.material.emissive.setHex(0x224488);
-    const info = t.userData.info;
-    if (info?.description) desc(info.description, info.name);
+    const selected = selRef.current; if (!selected) return;
+    selected.visible = true;
+    let p = selected.parent; while (p) { p.visible = true; p = p.parent; }
+    if (selected.material instanceof THREE.MeshStandardMaterial) selected.material.emissive.setHex(0x224488);
+    const info = selected.userData.info;
+    const localizedDesc = getLoc(info?.description, '', true);
+    const itemName = getLoc(info?.name || selected.name);
+    if (localizedDesc) desc(localizedDesc, itemName);
+    else desc(`<em>${t('Pas de description.', 'No description available.')}</em>`, itemName);
     syncEyes(); countHidden(); rebuildLabels();
     if (info) logUsage(info);
   }
   function revealAll() {
     sceneRef.current?.traverse(c => {
       c.visible = true;
-      if (c instanceof THREE.Mesh && c.material instanceof THREE.MeshStandardMaterial) {
+    if (c instanceof THREE.Mesh && c.material instanceof THREE.MeshStandardMaterial) {
         c.material.emissive.setHex(0x000000); 
         c.material.opacity = 1; 
         c.material.transparent = false; 
@@ -417,35 +451,35 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
         c.material.needsUpdate = true;
       }
     });
-    deselect(); desc('Cliquez sur un os pour voir sa description.');
+    deselect(); desc(t('Cliquez sur un os pour voir sa description.', 'Click on a bone to see its description.'));
     rebuildLabels(); // Rebuild labels on revealAll
     syncEyes(); setHiddenCount(0);
   }
   function fade() {
-    const t = selRef.current; if (!t) return;
-    const mat = t.material as any;
+    const selected = selRef.current; if (!selected) return;
+    const mat = selected.material as any;
     if (mat) {
       mat.transparent = true; mat.opacity = 0.1; mat.depthWrite = false; mat.needsUpdate = true;
     }
   }
   function unfade() {
-    const t = selRef.current; if (!t) return;
-    const mat = t.material as any;
+    const selected = selRef.current; if (!selected) return;
+    const mat = selected.material as any;
     if (mat) {
       mat.transparent = false; mat.opacity = 1; mat.depthWrite = true; mat.needsUpdate = true;
     }
   }
   function fadeOthers() {
-    const t = selRef.current;
-    if (!t) return;
+    const selected = selRef.current;
+    if (!selected) return;
 
     const ancestors = new Set<string>();
-    let p = t.parent;
+    let p = selected.parent;
     while (p) { ancestors.add(p.uuid); p = p.parent; }
     
     eachMesh(m => {
       if (!(m.material instanceof THREE.MeshStandardMaterial)) return;
-      if (m.uuid === t.uuid || ancestors.has(m.uuid)) {
+      if (m.uuid === selected.uuid || ancestors.has(m.uuid)) {
         m.material.transparent = false; m.material.opacity = 1; m.material.depthWrite = true;
       } else {
         m.material.transparent = true; m.material.opacity = 0.05; m.material.depthWrite = false;
@@ -454,11 +488,11 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     });
 
     // Parents toujours visibles
-    let p2 = t.parent;
+    let p2 = selected.parent;
     while (p2) { p2.visible = true; p2 = p2.parent; }
 
     syncEyes(); countHidden(); rebuildLabels();
-    if (t.userData.info) logUsage(t.userData.info);
+    if (selected.userData.info) logUsage(selected.userData.info);
   }
 
   function zoom(d: number) {
@@ -488,9 +522,12 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
   }
   
   function cycleBg() {
-    const colors = ['#0a0a0a', '#1a1a2e', '#2d2d2d', '#444444', '#777777', '#cccccc'];
+    const colors = theme === 'light' 
+      ? ['#ffffff', '#f3f4f6', '#e5e7eb', '#d1d5db', '#1a1a2e', '#0a0a0a']
+      : ['#0a0a0a', '#1a1a2e', '#2d2d2d', '#444444', '#777777', '#cccccc'];
     const idx = colors.indexOf(bgColor);
     const next = colors[(idx + 1) % colors.length];
+
     setBgColor(next);
     localStorage.setItem('anatomy_bg', next);
     if (sceneRef.current) sceneRef.current.background = new THREE.Color(next);
@@ -665,7 +702,14 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     const main = new THREE.DirectionalLight(0xfff5e0, 1.5); main.position.set(5, 10, 7); main.castShadow = true; scene.add(main);
     const fill = new THREE.PointLight(0x4466cc, 0.6); fill.position.set(-2, 1, 3); scene.add(fill);
     const back = new THREE.PointLight(0xffaa66, 0.5); back.position.set(0, 1, -2); scene.add(back);
-    const grid = new THREE.GridHelper(4, 20, 0x88aaff, 0x335588); grid.position.y = -0.8; scene.add(grid);
+    const gridColor = theme === 'light' ? 0xcccccc : 0x88aaff;
+    const gridColorCenter = theme === 'light' ? 0x999999 : 0x335588;
+    const grid = new THREE.GridHelper(4, 20, gridColor, gridColorCenter); 
+    grid.position.y = -0.8; 
+    if (theme === 'light') (grid.material as THREE.Material).opacity = 0.5;
+    (grid.material as THREE.Material).transparent = true;
+    scene.add(grid);
+
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true; controls.dampingFactor = 0.08;
     controls.minDistance = 0.3; controls.maxDistance = 20;
@@ -828,8 +872,18 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
         m.castShadow = true; m.receiveShadow = true;
 
         const targetName = clean(obj.name);
-        // On essaye de matcher sur three_js_name d'abord, puis sur le nom simple
-        let info = data.find(i => (i.three_js_name && clean(i.three_js_name) === targetName) || (i.name && clean(i.name) === targetName));
+        // On essaye de matcher sur three_js_name d'abord, puis sur les noms (fr puis en)
+        let info = data.find(i => {
+          if (i.three_js_name && clean(i.three_js_name) === targetName) return true;
+          if (typeof i.name === 'string') return clean(i.name) === targetName;
+          if (i.name && typeof i.name === 'object') {
+             // On check fr puis en pour le matching mesh
+             const n = i.name as any;
+             if (n.fr && clean(n.fr) === targetName) return true;
+             if (n.en && clean(n.en) === targetName) return true;
+          }
+          return false;
+        });
         
         if (info) {
           m.userData.info = info;
@@ -915,7 +969,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
       if (obj.visible) {
         labelRef.current.style.display = 'block';
         const s = labelRef.current.querySelector('span');
-        if (s) s.textContent = obj.userData.info?.name || obj.name;
+        if (s) s.textContent = getLoc(obj.userData.info?.name) || obj.name;
         document.body.style.cursor = 'pointer'; return;
       }
     }
@@ -947,17 +1001,20 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
         document.querySelectorAll('.item-row').forEach(el => el.classList.remove('selected-item'));
         if (info) {
           for (const row of Array.from(document.querySelectorAll<HTMLElement>('.item-row'))) {
-            const s = row.querySelector('span:last-child');
-            if (s && s.textContent === info.name) { 
+            // Utilisation de l'ID pour la correspondance plutôt que le nom texte
+            if (row.dataset.id === String(info.id)) { 
               row.classList.add('selected-item'); 
               row.scrollIntoView({ behavior: 'smooth', block: 'center' }); 
               break;
             }
           }
-          desc(info.description || '<em>Description non disponible.</em>', info.name);
+          const localizedDesc = getLoc(info.description, '', true);
+          if (localizedDesc) desc(localizedDesc, getLoc(info.name));
+          else desc(`<em>${t('Pas de description.', 'No description available.')}</em>`, getLoc(info.name));
         } else {
-          desc('<em>Description non disponible pour cet élément.</em>', obj.name);
+          desc(`<em>${t('Pas de description.', 'No description available.')}</em>`, obj.name);
         }
+
       }
     } else deselect();
   }
@@ -1019,7 +1076,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
         // Create clickable label text with DIRECT onclick handler
         const labelText = document.createElement('div');
         labelText.className = 'label-text';
-        labelText.textContent = m.userData.info?.name || m.name;
+        labelText.textContent = getLoc(m.userData.info?.name) || m.name;
         labelText.onclick = (ev) => {
           ev.stopPropagation();
           ev.preventDefault();
@@ -1033,11 +1090,14 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
           // Select the new mesh
           select(m.userData.info || null, m);
           if (m.material instanceof THREE.MeshStandardMaterial) m.material.emissive.setHex(0x224488);
-          desc(m.userData.info?.description || '<em>Pas de description.</em>', m.userData.info?.name || m.name);
+          const localizedDesc = getLoc(m.userData.info?.description, '', true);
+          if (localizedDesc) desc(localizedDesc, getLoc(m.userData.info?.name) || m.name);
+          else desc(`<em>${t('Pas de description.', 'No description available.')}</em>`, getLoc(m.userData.info?.name) || m.name);
+
           
           // Sync hierarchy selection
           document.querySelectorAll('.item-row').forEach(r => r.classList.remove('selected-item'));
-          const boneName = m.userData.info?.name || m.name;
+          const boneName = getLoc(m.userData.info?.name) || m.name;
           for (const row of Array.from(document.querySelectorAll<HTMLElement>('.item-row'))) {
             const s = row.querySelector('span:last-child');
             if (s && s.textContent === boneName) { 
@@ -1151,11 +1211,14 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
           }
           select(mesh.userData.info || null, mesh);
           if (mesh.material instanceof THREE.MeshStandardMaterial) mesh.material.emissive.setHex(0x224488);
-          desc(mesh.userData.info?.description || '<em>Pas de description.</em>', mesh.userData.info?.name || mesh.name);
+          const localizedDesc = getLoc(mesh.userData.info?.description, '', true);
+          if (localizedDesc) desc(localizedDesc, getLoc(mesh.userData.info?.name) || mesh.name);
+          else desc(`<em>${t('Pas de description.', 'No description available.')}</em>`, getLoc(mesh.userData.info?.name) || mesh.name);
+
           
           // Sync hierarchy selection
           document.querySelectorAll('.item-row').forEach(el => el.classList.remove('selected-item'));
-          const boneName = mesh.userData.info?.name || mesh.name;
+          const boneName = getLoc(mesh.userData.info?.name) || mesh.name;
           for (const row of Array.from(document.querySelectorAll<HTMLElement>('.item-row'))) {
             const s = row.querySelector('span:last-child');
             if (s && s.textContent === boneName) { 

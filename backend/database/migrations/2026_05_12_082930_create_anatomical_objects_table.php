@@ -10,10 +10,10 @@ return new class extends Migration {
             $table->integer('parent_id')->nullable();
             $table->foreign('parent_id')->references('id')->on('anatomical_objects')->nullOnDelete();
             $table->foreignUuid('asset_3d_id')->constrained('assets_3d')->cascadeOnDelete();
-            $table->string('name');
+            $table->json('name');                           // {"en": "...", "fr": "..."}
             $table->string('three_js_name');
             $table->string('mesh')->nullable();
-            $table->text('description')->nullable();
+            $table->json('description')->nullable();          // {"en": "...", "fr": "..."}
             $table->timestamps();
         });
     }
