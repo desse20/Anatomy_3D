@@ -37,13 +37,15 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
 
 
   // Helper pour extraire le texte depuis l'objet multilingue
-  const getLoc = (val: any, fallback: string = '', forceLanguage: boolean = false): string => {
+  const getLoc = (val: any, fallback: string = ''): string => {
     if (!val) return fallback;
     if (typeof val === 'string') return val;
-    const localized = val[language];
-    if (localized && localized.trim() !== '') return localized;
-    if (forceLanguage) return fallback;
-    return val['fr'] || val['en'] || fallback;
+    const primary = val[language];
+    if (primary && primary.trim() !== '') return primary;
+    // Si la langue principale est vide, on tente l'autre langue
+    const other = language === 'fr' ? val['en'] : val['fr'];
+    if (other && other.trim() !== '') return other;
+    return fallback;
   };
 
   const clean = (s: string) => {
@@ -163,16 +165,14 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     if (!item.description || (typeof item.description === 'object' && !item.description[language === 'fr' ? 'fr' : 'en'])) {
         desc(`<div class="loading-desc"><span class="spin">⏳</span> ${t('Chargement des détails...', 'Loading details...')}</div>`, itemName);
         apiCall(`anatomy/show/${item.id}`).then((res: any) => {
-          if (res.description) {
-            item.description = res.description; // Mise à jour de l'objet en mémoire
-            const localizedDesc = getLoc(res.description, '', true);
+            if (res.description) item.description = res.description;
+            const localizedDesc = getLoc(res.description);
             desc(localizedDesc || `<em>${t('Pas de description.', 'No description available.')}</em>`, itemName);
-          }
         }).catch(() => {
           desc(`<em>${t('Erreur de chargement.', 'Loading error.')}</em>`, itemName);
         });
     } else {
-        const localizedDesc = getLoc(item.description, '', true);
+        const localizedDesc = getLoc(item.description);
         desc(localizedDesc || `<em>${t('Pas de description.', 'No description available.')}</em>`, itemName);
     }
   };
@@ -485,7 +485,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     let p = selected.parent; while (p) { p.visible = true; p = p.parent; }
     if (selected.material instanceof THREE.MeshStandardMaterial) selected.material.emissive.setHex(0x224488);
     const info = selected.userData.info;
-    const localizedDesc = getLoc(info?.description, '', true);
+    const localizedDesc = getLoc(info?.description);
     const itemName = getLoc(info?.name || selected.name);
     if (localizedDesc) desc(localizedDesc, itemName);
     else desc(`<em>${t('Pas de description.', 'No description available.')}</em>`, itemName);
@@ -1194,9 +1194,8 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
           // Select the new mesh
           select(m.userData.info || null, m);
           if (m.material instanceof THREE.MeshStandardMaterial) m.material.emissive.setHex(0x224488);
-          const localizedDesc = getLoc(m.userData.info?.description, '', true);
-          if (localizedDesc) desc(localizedDesc, getLoc(m.userData.info?.name) || m.name);
-          else desc(`<em>${t('Pas de description.', 'No description available.')}</em>`, getLoc(m.userData.info?.name) || m.name);
+          const itemName = getLoc(m.userData.info?.name) || m.name;
+          loadDescriptionLazily(m.userData.info, itemName);
 
           
           // Sync hierarchy selection
@@ -1333,9 +1332,8 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
           }
           select(mesh.userData.info || null, mesh);
           if (mesh.material instanceof THREE.MeshStandardMaterial) mesh.material.emissive.setHex(0x224488);
-          const localizedDesc = getLoc(mesh.userData.info?.description, '', true);
-          if (localizedDesc) desc(localizedDesc, getLoc(mesh.userData.info?.name) || mesh.name);
-          else desc(`<em>${t('Pas de description.', 'No description available.')}</em>`, getLoc(mesh.userData.info?.name) || mesh.name);
+          const itemName = getLoc(mesh.userData.info?.name) || mesh.name;
+          loadDescriptionLazily(mesh.userData.info, itemName);
 
           
           // Sync hierarchy selection

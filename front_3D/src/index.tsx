@@ -8,6 +8,7 @@ import { authService, apiCall, reviewService } from './services/api';
 import { useLanguage } from './contexts/LanguageContext';
 import FloatingActionsDrawer from './components/FloatingActionsDrawer';
 import './styles/landing.css';
+import mobileHeroImage from './assets/image.png';
 
 /* ── SVGs ── */
 const ArrowSm = () => (
@@ -326,12 +327,7 @@ const TestPage: React.FC = () => {
 
           <div className="hiro-visual">
             <div className="video-phone-frame">
-              <iframe 
-                src="https://www.youtube.com/embed/qbBPYTuQVnk?autoplay=1&mute=1&controls=0&loop=1&playlist=qbBPYTuQVnk&modestbranding=1&rel=0&disablekb=1&fs=0"
-                title="Anatomy 3D Preview"
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              ></iframe>
+              <img src={mobileHeroImage} alt="Anatomy 3D Preview" className="hero-static-image" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
           </div>
         </div>

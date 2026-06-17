@@ -54,7 +54,10 @@ const App: React.FC<AppProps> = ({ children, breadcrumb, title }) => {
         window.location.reload();
     };
 
-    const isActive = (path: string) => location.pathname === path;
+    const isActive = (path: string) => {
+        if (path === '/') return location.pathname === '/';
+        return location.pathname === path || location.pathname.startsWith(path + '/');
+    };
 
     return (
         <div className={`dash-layout ${isCollapsed ? 'sidebar-collapsed' : ''} ${isMobileMenuOpen ? 'mobile-menu-open' : ''}`}>

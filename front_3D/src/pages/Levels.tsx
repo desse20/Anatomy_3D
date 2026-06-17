@@ -4,13 +4,11 @@ import App from '../components/layouts/App';
 import { apiCall } from '../services/api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { 
-    Sparkles, 
     GraduationCap, 
     Rocket, 
     BookOpen, 
     Brain,
     Trophy,
-    Target,
     Zap,
     CheckCircle2,
     Star,

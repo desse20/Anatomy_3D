@@ -722,6 +722,19 @@ const FloatingChat: React.FC<FloatingChatProps> = ({ isOpen: propIsOpen, onToggl
                 .unified-messenger .fc-bubble { max-width: 85%; padding: 12px 16px; border-radius: 16px; font-size: 14px; line-height: 1.5; }
                 .unified-messenger .fc-bubble.ai { align-self: flex-start; background: #f1f5f9; color: #1f2937; border-bottom-left-radius: 4px; }
                 .unified-messenger .fc-bubble.user { align-self: flex-end; background: linear-gradient(135deg, #056CF2 0%, #0C79F2 100%); color: white; border-bottom-right-radius: 4px; box-shadow: 0 4px 12px rgba(5, 108, 242, 0.2); }
+                
+                .unified-messenger .fc-welcome {
+                    padding: 40px 20px;
+                    text-align: center;
+                    opacity: 0.9;
+                }
+                .unified-messenger .fc-welcome p {
+                    font-size: 16px;
+                    font-weight: 700;
+                    color: #056CF2;
+                    margin-bottom: 8px;
+                    line-height: 1.5;
+                }
 
                 /* Loading dots animation */
                 .unified-messenger .fc-dots { display: flex; gap: 4px; align-items: center; padding: 5px 0; }

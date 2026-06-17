@@ -137,11 +137,11 @@ const countFor = (data: EvolutionPoint[], date: string, role: string) =>
     data.filter(d => d.date === date && d.role === role).reduce((s, d) => s + d.count, 0);
 
 const CHART_LINES = [
-    { key: 'admin', color: '#f43f5e', dash: undefined, strokeWidth: 3, gradient: 'grad-admin' }, // Rose
-    { key: 'teacher', color: '#3b82f6', dash: undefined, strokeWidth: 3, gradient: 'grad-teacher' }, // Blue
-    { key: 'connected', color: '#f59e0b', dash: undefined, strokeWidth: 3, gradient: 'grad-connected' }, // Amber
-    { key: 'student', color: '#10b981', dash: undefined, strokeWidth: 4, gradient: 'grad-student' }, // Emerald (Plus épais pour être vu)
-    { key: 'total', color: '#6366f1', dash: '5,5', strokeWidth: 2, gradient: 'grad-total' }, // Indigo (Pointillés pour le total)
+    { key: 'admin', color: '#f43f5e', strokeWidth: 3 }, // Rose
+    { key: 'teacher', color: '#3b82f6', strokeWidth: 3 }, // Blue
+    { key: 'connected', color: '#f59e0b', strokeWidth: 3 }, // Amber
+    { key: 'student', color: '#10b981', strokeWidth: 4 }, // Emerald
+    { key: 'total', color: '#6366f1', strokeWidth: 2, dash: '5,5' }, // Indigo
 ] as const;
 
 /** Graduations Y entières uniques (évite 0, 1, 1, 2) */
@@ -163,8 +163,7 @@ const PremiumCombinedChart: React.FC<{
     labels: { total: string; student: string; teacher: string; admin: string; connected?: string };
     connectedData?: unknown[];
     cumulative?: boolean;
-}> = ({ data, range, labels, connectedData, cumulative = true }) => {
-    const { t } = useLanguage();
+}> = ({ data, range, labels, connectedData }) => {
     const wrapRef = useRef<HTMLDivElement>(null);
     const [chartWidth, setChartWidth] = useState(960);
     const [hoverIndex, setHoverIndex] = useState<number | null>(null);
@@ -272,7 +271,7 @@ const PremiumCombinedChart: React.FC<{
 
                 {/* Series Rendering */}
                 {(() => {
-                    return CHART_LINES.map((s, idx) => {
+                    return CHART_LINES.map((s) => {
                         const vals = seriesByKey[s.key] || [];
                         const pts = vals.map((v, i) => ({ x: xAt(i), y: yAt(v) }));
                         if (pts.length < 2) return null;

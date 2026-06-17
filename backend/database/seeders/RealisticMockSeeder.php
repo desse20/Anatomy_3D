@@ -142,6 +142,53 @@ class RealisticMockSeeder extends Seeder
         // ---------------------------------------------------------------
         // 1. Générer les Admins (objectif 5 au total)
         // ---------------------------------------------------------------
+        // Listes de noms béninois pour l'authenticité (enrichies : Fon, Yoruba, Musulmans, etc.)
+        $beninFirstNames = [
+            'Sènan', 'Mahugnon', 'Koffi', 'Kojo', 'Oluwafemi', 'Babatunde', 'Afi', 'Mawuena', 
+            'Dossou', 'Tunde', 'Femi', 'Sèmèvo', 'Ekoué', 'Sessi', 'Djidjoho', 'Vignon',
+            'Sèdami', 'Mawulé', 'Noudéhouénou', 'Fidèle', 'Pascaline', 'Benoît', 'Gisèle',
+            'Mohamed', 'Matinou', 'Adjao', 'Rachad', 'Latif', 'Hamidou', 'Fatouma', 'Zaliatou',
+            'Saliou', 'Kadir', 'Moussa', 'Issa', 'Idrissou', 'Bachirou', 'Abdoulaye', 'Yasmine'
+        ];
+        $beninLastNames = [
+            'Dossou', 'Houngbédji', 'Gnonlonfoun', 'Soglo', 'Talon', 'Yayi', 'Zinsou', 'Bio',
+            'Kérékou', 'Adjovi', 'Gbaguidi', 'Adadé', 'Kodjo', 'Lawson', 'Ajavon', 'Toli',
+            'Houndété', 'Amoussou', 'Degla', 'Agbakou', 'Migan', 'Codjia', 'Sodjinou',
+            'BELLO', 'Damasho', 'Alidou', 'Tijani', 'Salami', 'Orou', 'Mama', 'Abdou', 'Tidjani'
+        ];
+
+        // --- Création d'étudiants (environ 150) ---
+        $this->command->info('Création de 150 étudiants béninois...');
+        for ($i = 0; $i < 150; $i++) {
+            $fname = $this->faker->randomElement($beninFirstNames);
+            $lname = $this->faker->randomElement($beninLastNames);
+            User::create([
+                'id'         => (string) Str::uuid(),
+                'firstname' => $fname,
+                'lastname'  => $lname,
+                'email'     => strtolower($fname . '.' . $lname . $i) . '@gmail.com',
+                'password'  => Hash::make('password'),
+                'role'      => 'student',
+                'created_at' => $this->faker->dateTimeBetween('-6 months', 'now'),
+            ]);
+        }
+
+        // --- Création de professeurs (environ 20) ---
+        $this->command->info('Création de 20 professeurs béninois...');
+        for ($i = 0; $i < 20; $i++) {
+            $fname = $this->faker->randomElement($beninFirstNames);
+            $lname = $this->faker->randomElement($beninLastNames);
+            User::create([
+                'id'         => (string) Str::uuid(),
+                'firstname' => 'Dr. ' . $fname,
+                'lastname'  => $lname,
+                'email'     => strtolower('prof.' . $fname . '.' . $lname . $i) . '@gmail.com',
+                'password'  => Hash::make('password'),
+                'role'      => 'teacher',
+                'created_at' => $this->faker->dateTimeBetween('-6 months', 'now'),
+            ]);
+        }
+
         $currentAdmins = User::where('role', 'admin')->count();
         for ($i = 0; $i < (5 - $currentAdmins); $i++) {
             User::create([
@@ -155,90 +202,78 @@ class RealisticMockSeeder extends Seeder
             ]);
         }
 
-        // ---------------------------------------------------------------
-        // 2. Générer les Enseignants (objectif 20 au total)
-        // ---------------------------------------------------------------
-        $currentTeachers = User::where('role', 'teacher')->count();
         $allAssets = Asset3d::all();
 
-        for ($i = 0; $i < (20 - $currentTeachers); $i++) {
-            $teacher = User::create([
-                'id'         => (string) Str::uuid(),
-                'firstname'  => $this->faker->firstName,
-                'lastname'   => $this->faker->lastName,
-                'email'      => $this->faker->unique()->safeEmail,
-                'password'   => Hash::make('password'),
-                'role'       => 'teacher',
-                'created_at' => $this->faker->dateTimeBetween('-6 months', 'now'),
-            ]);
+        // Enrichir TOUS les enseignants avec des Labs et des Vues s'ils n'en ont pas
+        $teachers = User::where('role', 'teacher')->get();
+        foreach ($teachers as $teacher) {
+            $existingLabsCount = Lab::where('user_id', $teacher->id)->count();
+            if ($existingLabsCount > 0) continue;
 
             $labNames = [
-                'Licence 1 - FSS', 'Licence 2 - FSS', 'Licence 3 - FSS',
-                'Master 1 - Chirurgie', 'Master 2 - Anatomie',
-                'L1 - FSS - Parakou', 'L2 - FSS - Parakou',
-                'Internat FSS', 'UE Anatomie', 'UE Physiologie',
+                'Licence 1 - FSS Cotonou', 'Licence 2 - FSS Cotonou', 
+                'Licence 1 - FM Parakou', 'Master - Anatomie Chirurgicale',
             ];
 
-            if ($this->faker->boolean(70)) {
-                $numLabs = $this->faker->numberBetween(1, 5);
+            if ($this->faker->boolean(95)) { 
+                $numLabs = $this->faker->numberBetween(2, 4);
                 for ($j = 0; $j < $numLabs; $j++) {
                     $descriptions = [
-                        'Introduction aux bases de l\'anatomie humaine.',
-                        'Étude approfondie du système cardio-vasculaire.',
-                        'Analyse des structures osseuses et articulaires.',
-                        'Focus sur le système nerveux central et périphérique.',
-                        'Examen des organes thoraciques et abdominaux.',
-                        'Révision générale des membres supérieurs et inférieurs.',
-                        'Séance pratique sur les modèles 3D complexes.',
+                        'Supports de cours pour les séances de travaux pratiques.',
+                        'Focus sur l\'anatomie descriptive et fonctionnelle.',
+                        'Vues 3D annotées pour la préparation de l\'examen.',
+                        'Étude détaillée des rapports anatomiques.',
                     ];
                     $lab = Lab::create([
+                        'id'          => (string) Str::uuid(),
                         'user_id'     => $teacher->id,
-                        'name'        => $this->faker->randomElement($labNames) . ' - Grp ' . $this->faker->unique()->numberBetween(100, 9999),
+                        'name'        => ($labNames[$j] ?? 'UE Anatomie') . ' - ' . $teacher->lastname . ' (Grp ' . $this->faker->unique()->numberBetween(100, 9999) . ')',
                         'description' => $this->faker->randomElement($descriptions),
                     ]);
 
-                    if ($this->faker->boolean(60) && $allAssets->count() > 0) {
-                        $numViews = $this->faker->numberBetween(1, 4);
+                    if ($allAssets->count() > 0) {
+                        $numViews = $this->faker->numberBetween(3, 7);
                         for ($k = 0; $k < $numViews; $k++) {
                             $teacherNotes = [
                                 'Observez bien l\'insertion des tendons sur cette zone.',
                                 'Focus sur la vascularisation de cet organe.',
                                 'Attention à la distinction entre artère et veine ici.',
                                 'Notez la courbure spécifique visible sous cet angle.',
-                                'À mémoriser pour l\'examen de la semaine prochaine.',
+                                'À mémoriser pour l\'examen final.',
                                 'Détails importants sur les structures nerveuses environnantes.',
-                                'Comparez cette vue avec le schéma du cours (page 42).',
+                                'Comparez cette vue avec le schéma du manuel.',
+                                'Observez la symétrie des structures présentées.',
+                                'Focus sur les rapports anatomiques profonds.',
+                                'Angle de vue optimal pour comprendre la profondeur.',
                             ];
                             $view = SharedView::create([
                                 'user_id'         => $teacher->id,
                                 'asset_3d_id'     => $allAssets->random()->id,
                                 'status'          => 'visible',
-                                'camera_position' => ['x' => rand(0, 10), 'y' => rand(0, 10), 'z' => rand(0, 10)],
+                                'camera_position' => ['x' => rand(-5, 5), 'y' => rand(0, 5), 'z' => rand(-5, 5)],
                                 'camera_target'   => ['x' => 0, 'y' => 0, 'z' => 0],
                                 'scene_state'     => [],
-                                'teacher_note'    => $this->faker->optional(0.8)->randomElement($teacherNotes),
+                                'teacher_note'    => $this->faker->randomElement($teacherNotes), // Pas de optional() ici, note obligatoire
                             ]);
 
-                            if ($this->faker->boolean(50)) {
-                                LabSharedView::create([
-                                    'lab_id'         => $lab->id,
-                                    'shared_view_id' => $view->id,
-                                ]);
-                            }
+                            LabSharedView::create([
+                                'lab_id'         => $lab->id,
+                                'shared_view_id' => $view->id,
+                            ]);
                         }
                     }
                 }
             }
         }
 
-        // ---------------------------------------------------------------
         // 3. Générer les Étudiants (objectif 130 au total)
         // ---------------------------------------------------------------
+        $targetStudentCount = 130;
         $currentStudents = User::where('role', 'student')->count();
         $allLabs = Lab::all();
 
-        for ($i = 0; $i < (130 - $currentStudents); $i++) {
-            $student = User::create([
+        for ($i = 0; $i < ($targetStudentCount - $currentStudents); $i++) {
+            User::create([
                 'id'         => (string) Str::uuid(),
                 'firstname'  => $this->faker->firstName,
                 'lastname'   => $this->faker->lastName,
@@ -247,10 +282,17 @@ class RealisticMockSeeder extends Seeder
                 'role'       => 'student',
                 'created_at' => $this->faker->dateTimeBetween('-6 months', 'now'),
             ]);
+        }
 
-            // Participer à des labs
+        // Inscrire TOUS les étudiants à des labs s'ils n'ont pas de participation
+        $students = User::where('role', 'student')->get();
+        foreach ($students as $student) {
+            $existingCount = LabParticipant::where('user_id', $student->id)->count();
+            if ($existingCount > 0) continue;
+
             if ($allLabs->count() > 0) {
-                $myLabs = $allLabs->random($this->faker->numberBetween(0, min(5, $allLabs->count())));
+                $numToJoin = $this->faker->numberBetween(1, min(5, $allLabs->count()));
+                $myLabs = $allLabs->random($numToJoin);
                 foreach ($myLabs as $lab) {
                     LabParticipant::create([
                         'lab_id'    => $lab->id,
@@ -349,29 +391,15 @@ class RealisticMockSeeder extends Seeder
             // --- Étudiants (500 – 1200 objets) ---
             $this->command->info('Génération de la maîtrise pour les étudiants...');
             $studentIds = User::where('role', 'student')->pluck('id')->toArray();
+            
             $minStudent = min(500, $totalObjects);
             $maxStudent = min(1200, $totalObjects);
-            // On passe les fractions calculées depuis les bornes fixes
-            $this->seedMasteryForUsers(
-                $studentIds,
-                $anatomyIds,
-                $totalObjects > 0 ? $minStudent / $totalObjects : 0,
-                $totalObjects > 0 ? $maxStudent / $totalObjects : 0,
-                $weightedLevels
-            );
-            $this->command->info(count($studentIds) . ' étudiant(s) traité(s).');
+            $this->seedMasteryForUsers($studentIds, $anatomyIds, $minStudent/$totalObjects, $maxStudent/$totalObjects, $weightedLevels);
 
             // --- Enseignants (80 – 90%) ---
             $this->command->info('Génération de la maîtrise pour les enseignants...');
             $teacherIds = User::where('role', 'teacher')->pluck('id')->toArray();
-            $this->seedMasteryForUsers(
-                $teacherIds,
-                $anatomyIds,
-                0.80,
-                0.90,
-                $weightedLevels
-            );
-            $this->command->info(count($teacherIds) . ' enseignant(s) traité(s).');
+            $this->seedMasteryForUsers($teacherIds, $anatomyIds, 0.80, 0.90, $weightedLevels);
 
             // --- Admins (2 – 5%) ---
             $this->command->info('Génération de la maîtrise pour les administrateurs...');

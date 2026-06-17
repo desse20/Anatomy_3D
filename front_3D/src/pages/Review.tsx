@@ -771,6 +771,25 @@ const Review: React.FC = () => {
                 .gpt-header { padding: 16px; border-bottom: 1px solid var(--dash-border); display: flex; align-items: center; gap: 16px; }
                 .sidebar-toggle { background: none; border: none; color: var(--dash-text-muted); cursor: pointer; }
                 
+                .gpt-empty-state {
+                    text-align: center;
+                    padding: 40px 20px;
+                    margin-top: 80px;
+                }
+                .gpt-empty-state h2 {
+                    font-size: 26px;
+                    font-weight: 800;
+                    margin-bottom: 16px;
+                    color: var(--dash-text-main);
+                }
+                .gpt-empty-state p {
+                    font-size: 15px;
+                    color: var(--dash-text-muted);
+                    max-width: 450px;
+                    margin: 0 auto;
+                    line-height: 1.6;
+                }
+
                 .gpt-messages-container { flex: 1; overflow-y: auto; padding: 20px 0; }
                 .gpt-message {
                     display: flex; flex-direction: column; margin-bottom: 24px;

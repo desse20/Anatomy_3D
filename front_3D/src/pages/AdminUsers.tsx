@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Plus, Edit2, Trash2, X, Shield, BookOpen, GraduationCap, FileSpreadsheet, FileText, User } from 'lucide-react';
+import { Search, Filter, Plus, Edit2, Trash2, X, Shield, BookOpen, GraduationCap, User } from 'lucide-react';
 import Swal from 'sweetalert2';
-import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import App from '../components/layouts/App';
 import { apiCall } from '../services/api';
 import { getSwalTheme } from '../services/swalTheme';
@@ -213,75 +210,6 @@ const AdminUsers: React.FC = () => {
     };
 
     // ── EXPORTS ──────────────────────────────────────────────────────────────
-    const getRoleLabel = (role: string) =>
-        role === 'admin' ? t('Administrateur', 'Administrator') : role === 'teacher' ? t('Professeur', 'Teacher') : t('Étudiant', 'Student');
-
-    const exportExcel = () => {
-        const rows = users.map((u, i) => {
-            const row: any = {};
-            row['#'] = i + 1;
-            row[t('Prénom', 'First Name')] = u.firstname;
-            row[t('Nom', 'Last Name')] = u.lastname;
-            row[t('Email', 'Email')] = u.email;
-            row[t('Rôle', 'Role')] = getRoleLabel(u.role);
-            row[t('Inscrit le', 'Registered at')] = u.created_at ? new Date(u.created_at).toLocaleDateString('fr-FR') : '—';
-            return row;
-        });
-        const ws = XLSX.utils.json_to_sheet(rows);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, t('Utilisateurs', 'Users'));
-        // Largeurs de colonnes
-        ws['!cols'] = [{ wch: 5 }, { wch: 18 }, { wch: 18 }, { wch: 30 }, { wch: 16 }, { wch: 14 }];
-        XLSX.writeFile(wb, `utilisateurs_${new Date().toISOString().slice(0,10)}.xlsx`);
-    };
-
-    const exportPdf = () => {
-        const doc = new jsPDF({ orientation: 'landscape' });
-        const today = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
-
-        // En-tête
-        doc.setFillColor(14, 165, 233);
-        doc.rect(0, 0, 297, 18, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(13);
-        doc.setFont('helvetica', 'bold');
-        doc.text(t('Liste des Utilisateurs — Anatomy 3D', 'User List — Anatomy 3D'), 14, 12);
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`${t('Généré le', 'Generated on')} ${today}  •  ${users.length} ${t('utilisateur(s)', 'user(s)')}`, 148, 12, { align: 'center' });
-
-        autoTable(doc, {
-            startY: 22,
-            head: [[t('#', '#'), t('Prénom', 'First Name'), t('Nom', 'Last Name'), t('Email', 'Email'), t('Rôle', 'Role'), t('Créé le', 'Created at')]],
-            body: users.map((u, i) => [
-                i + 1,
-                u.firstname,
-                u.lastname,
-                u.email,
-                getRoleLabel(u.role),
-                u.created_at ? new Date(u.created_at).toLocaleDateString('fr-FR') : '—',
-            ]),
-            styles: { fontSize: 9, cellPadding: 4 },
-            headStyles: { fillColor: [14, 165, 233], textColor: 255, fontStyle: 'bold' },
-            alternateRowStyles: { fillColor: [245, 250, 255] },
-            columnStyles: {
-                0: { halign: 'center', cellWidth: 10 },
-                4: { halign: 'center', cellWidth: 28 },
-                5: { halign: 'center', cellWidth: 28 },
-            },
-        });
-
-        // Pied de page
-        const pageCount = (doc as any).internal.getNumberOfPages();
-        for (let i = 1; i <= pageCount; i++) {
-            doc.setPage(i);
-            doc.setFontSize(8);
-            doc.setTextColor(150);
-            doc.text(`${t('Page', 'Page')} ${i} / ${pageCount}`, 290, 205, { align: 'right' });
-        }
-
-        doc.save(`utilisateurs_${new Date().toISOString().slice(0,10)}.pdf`);
-    };
 
     return (
         <App breadcrumb={t("Administration", "Administration")} title={t("Gestion des Utilisateurs", "User Management")}>
@@ -442,7 +370,7 @@ const AdminUsers: React.FC = () => {
                                                 </div>
                                             </td>
                                             <td style={{ padding: '16px 20px' }}>
-                                                <span style={{ padding: '4px 10px', borderRadius: '100px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', background: u.role === 'admin' ? '#f8717115' : u.role === 'teacher' ? '#fbbf2415' : '#34d39915', color: u.role === 'admin' ? '#f87171' : u.role === 'teacher' ? '#f59e0b' : '#10b981' }}>{getRoleLabel(u.role)}</span>
+                                                <span style={{ padding: '4px 10px', borderRadius: '100px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', background: u.role === 'admin' ? '#f8717115' : u.role === 'teacher' ? '#fbbf2415' : '#34d39915', color: u.role === 'admin' ? '#f87171' : u.role === 'teacher' ? '#f59e0b' : '#10b981' }}>{u.role === 'admin' ? t('Admin', 'Administrator') : u.role === 'teacher' ? t('Professeur', 'Teacher') : t('Étudiant', 'Student')}</span>
                                             </td>
                                             <td style={{ padding: '16px 20px' }}>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
