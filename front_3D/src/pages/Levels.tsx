@@ -236,7 +236,7 @@ const Levels: React.FC = () => {
                                 <motion.div 
                                     initial={{ opacity: 0, y: -10 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    style={{ width: '100%', marginBottom: '24px', padding: '24px', background: 'var(--dash-card-bg)', borderRadius: '16px', border: '1px solid var(--dash-border)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}
+                                    className="lv-global-card"
                                 >
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '12px' }}>
                                         <div>
@@ -454,6 +454,20 @@ const Levels: React.FC = () => {
                     border-radius: 16px;
                     padding: 24px;
                 }
+                @media (max-width: 600px) {
+                    .lv-card { padding: 16px; }
+                }
+                .lv-global-card {
+                    width: 100%; margin-bottom: 24px; padding: 24px;
+                    background: var(--dash-card-bg); border-radius: 16px;
+                    border: 1px solid var(--dash-border);
+                    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+                }
+                @media (max-width: 600px) {
+                    .lv-global-card { padding: 16px; margin-bottom: 16px; }
+                    .lv-global-card h2 { font-size: 16px; }
+                    .lv-global-card div[style*="font-size: 32px"] { font-size: 24px !important; }
+                }
                 .lv-card-title {
                     margin: 0 0 18px;
                     font-size: 15px; font-weight: 700;
@@ -509,7 +523,7 @@ const Levels: React.FC = () => {
                     display: flex; justify-content: space-between; align-items: center;
                     margin-bottom: 20px; flex-wrap: wrap; gap: 10px;
                 }
-                .lv-tabs { display: flex; gap: 8px; }
+                .lv-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
                 .lv-tab {
                     padding: 7px 14px; border-radius: 8px;
                     border: 1px solid var(--dash-border);
@@ -517,6 +531,18 @@ const Levels: React.FC = () => {
                     color: var(--dash-text-muted);
                     font-size: 13px; cursor: pointer;
                     transition: all 0.2s;
+                    white-space: nowrap;
+                }
+                @media (max-width: 600px) {
+                    .lv-tab { 
+                        padding: 8px 4px; 
+                        font-size: 11px; 
+                        flex: 1 1 calc(50% - 8px);
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                    }
+                    .lv-tabs { gap: 8px; width: 100%; }
                 }
                 .lv-tab:hover { border-color: var(--tab-color, #0ea5e9); }
                 .lv-tab.active {

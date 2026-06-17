@@ -161,7 +161,11 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     else descRef.current.innerHTML = text;
   }
 
-  const loadDescriptionLazily = (item: AnatomyItem, itemName: string) => {
+  const loadDescriptionLazily = (item: AnatomyItem | null | undefined, itemName: string) => {
+    if (!item) {
+        desc(`<em>${t('Pas de description.', 'No description available.')}</em>`, itemName);
+        return;
+    }
     if (!item.description || (typeof item.description === 'object' && !item.description[language === 'fr' ? 'fr' : 'en'])) {
         desc(`<div class="loading-desc"><span class="spin">⏳</span> ${t('Chargement des détails...', 'Loading details...')}</div>`, itemName);
         apiCall(`anatomy/show/${item.id}`).then((res: any) => {
