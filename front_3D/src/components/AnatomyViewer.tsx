@@ -907,6 +907,22 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
 
         
       const unmatchedNames: string[] = [];
+      
+      // OPTIMISATION: Pré-calculer les index une seule fois
+      const indexedData = data.map(item => ({
+        item,
+        cleanNames: [
+          item.three_js_name ? clean(item.three_js_name) : '',
+          typeof item.name === 'string' ? clean(item.name) : clean((item.name as any)?.fr || ''),
+          typeof item.name === 'object' ? clean((item.name as any)?.en || '') : ''
+        ].filter(Boolean),
+        keywords: Array.from(new Set([
+          ...getK(item.three_js_name || ''),
+          ...getK(typeof item.name === 'string' ? item.name : (item.name as any)?.fr || ''),
+          ...getK(typeof item.name === 'object' ? (item.name as any)?.en || '' : '')
+        ]))
+      }));
+
       model.traverse((obj: THREE.Object3D) => {
         if (!(obj instanceof THREE.Mesh)) return;
         totalMeshes++;
@@ -914,42 +930,23 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
         m.material = new THREE.MeshStandardMaterial({ color: 0xECE2D0, roughness: 0.4, metalness: 0.1 });
         m.castShadow = true; m.receiveShadow = true;
 
-        const targetName = clean(obj.name);
-        // On essaye de matcher sur three_js_name d'abord, puis sur les noms (fr puis en)
-        let info = data.find(i => {
-          if (i.three_js_name && clean(i.three_js_name) === targetName) return true;
-          if (typeof i.name === 'string') return clean(i.name) === targetName;
-          if (i.name && typeof i.name === 'object') {
-             const n = i.name as any;
-             if (n.fr && clean(n.fr) === targetName) return true;
-             if (n.en && clean(n.en) === targetName) return true;
-          }
-          return false;
-        });
-
-        // Fallback: Recherche par mots-clés (Keyword Matching) assouplie
-        if (!info) {
-          const targetK = getK(obj.name);
-          if (targetK.length > 0) {
-            info = data.find(i => {
-              const namesToTest = [
-                i.three_js_name,
-                typeof i.name === 'string' ? i.name : (i.name as any)?.fr,
-                (i.name as any)?.en
-              ].filter(Boolean);
-              
-              return namesToTest.some(candidate => {
-                const candK = getK(candidate!);
-                const matches = targetK.filter(tk => candK.some(ck => ck.includes(tk) || tk.includes(ck)));
-                // Match si on trouve au moins n-1 mots-clés (plus tolérant pour les adjectifs)
-                return matches.length >= Math.max(1, targetK.length - 1);
-              });
-            });
-          }
-        }
+        const targetName = obj.name;
+        const targetClean = clean(targetName);
+        const targetK = getK(targetName);
         
-        if (info) {
-          m.userData.info = info;
+        // 1. Recherche rapide (Match exact)
+        let found = indexedData.find(idx => idx.cleanNames.includes(targetClean));
+        
+        // 2. Recherche par mots-clés (Fallback n-1)
+        if (!found && targetK.length > 0) {
+          found = indexedData.find(idx => {
+            const matches = targetK.filter(tk => idx.keywords.some(ck => ck.includes(tk) || tk.includes(ck)));
+            return matches.length >= Math.max(1, targetK.length - 1);
+          });
+        }
+
+        if (found) {
+          m.userData.info = found.item;
           m.visible = true;
         } else {
           const l = obj.name.toLowerCase();

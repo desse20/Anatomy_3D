@@ -327,23 +327,6 @@ const FloatingChat: React.FC<FloatingChatProps> = ({ isOpen: propIsOpen, onToggl
                         className="fc-toggle-btn"
                         onClick={() => { setIsOpen(true); setIsMinimized(false); }}
                         title={t('Chat Anatomie IA', 'Anatomy AI Chat')}
-                        style={{
-                            position: 'fixed',
-                            bottom: '30px',
-                            right: '30px',
-                            width: '60px',
-                            height: '60px',
-                            borderRadius: '50%',
-                            background: 'white',
-                            color: '#056CF2',
-                            border: 'none',
-                            boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            zIndex: 9999,
-                            cursor: 'pointer'
-                        }}
                     >
                         <MessageSquare size={26} fill="currentColor" fillOpacity={0.1} />
                     </motion.button>
@@ -537,6 +520,36 @@ const FloatingChat: React.FC<FloatingChatProps> = ({ isOpen: propIsOpen, onToggl
             </AnimatePresence>
 
             <style>{`
+                .fc-toggle-btn {
+                    position: fixed;
+                    bottom: 30px;
+                    right: 30px;
+                    width: 60px;
+                    height: 60px;
+                    border-radius: 50%;
+                    background: white;
+                    color: #056CF2;
+                    border: none;
+                    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 9999;
+                    cursor: pointer;
+                    transition: transform 0.2s, bottom 0.2s, right 0.2s, left 0.2s;
+                }
+                .fc-toggle-btn:hover {
+                    transform: scale(1.1);
+                }
+
+                @media (max-width: 768px) {
+                    .fc-toggle-btn {
+                        bottom: 20px;
+                        right: auto;
+                        left: 20px; /* Déplacer à gauche sur mobile */
+                    }
+                }
+
                 .unified-messenger .fc-container {
                     display: flex;
                     flex-direction: column;

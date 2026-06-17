@@ -129,7 +129,7 @@ const App: React.FC<AppProps> = ({ children, breadcrumb, title }) => {
                         </Link>
                     )}
                     <Link to="/atlas" className={`nav-item ${isActive('/atlas') ? 'active' : ''}`} title="Atlas 3D">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"></path><path d="m3.3 7 8.7 5 8.7-5"></path><path d="M12 22V12"></path></svg>
                         {!isCollapsed && <span>{language === 'fr' ? 'Atlas 3D' : '3D Atlas'}</span>}
                     </Link>
                     {isStudent && (
@@ -257,7 +257,7 @@ const App: React.FC<AppProps> = ({ children, breadcrumb, title }) => {
                 
                 {(isStudent || isTeacher || isAdmin) && (
                     <Link to="/atlas" className={`bottom-nav-item ${isActive('/atlas') ? 'active' : ''}`}>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"></path><path d="m3.3 7 8.7 5 8.7-5"></path><path d="M12 22V12"></path></svg>
                         <span>Atlas</span>
                     </Link>
                 )}
