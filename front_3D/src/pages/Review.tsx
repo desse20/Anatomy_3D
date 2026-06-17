@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
+import Swal from 'sweetalert2';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Copy, Pencil, Trash2, MessageSquare, Plus, Send, Menu } from 'lucide-react';
+import { Copy, Pencil, Trash2, MessageSquare, Plus, Send, Menu, Maximize2, Minimize2 } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
 import App from '../components/layouts/App';
 import { apiCall } from '../services/api';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -27,11 +29,14 @@ interface Session {
     messages: Message[];
     updatedAt: number;
     createdAt?: number;
+    pendingJobId?: string; 
 }
 
 const Review: React.FC = () => {
     const { language } = useLanguage();
     const t = (fr: string, en: string) => language === 'fr' ? fr : en;
+    const { id: urlId } = useParams();
+    const navigate = useNavigate();
 
     // Helper pour extraire le texte depuis l'objet multilingue
     const getLoc = (val: any, fallback: string = ''): string => {
@@ -52,7 +57,13 @@ const Review: React.FC = () => {
 
     const [sessions, setSessions] = useState<Session[]>(loadSessions);
     
-    const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+    // Initialiser currentSessionId à partir de l'URL si présent
+    const [currentSessionId, setCurrentSessionId] = useState<string | null>(() => {
+        if (!urlId) return null;
+        const stored = loadSessions();
+        const found = stored.find(s => s.id === urlId || s.conversationId === urlId);
+        return found ? found.id : null;
+    });
     const [selectedElements, setSelectedElements] = useState<AnatNode[]>([]);
     
     // UI states
@@ -70,6 +81,8 @@ const Review: React.FC = () => {
     const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
     const [editingTitle, setEditingTitle] = useState('');
 
+    const [isMaximized, setIsMaximized] = useState(false);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     // ── Sync localStorage ↔ backend ────────────────────────────────────────
@@ -102,8 +115,88 @@ const Review: React.FC = () => {
                 });
             })
             .catch(console.error);
+
+        // REPRISE DES JOBS EN COURS
+        const stored = loadSessions();
+        stored.forEach(s => {
+            if (s.pendingJobId) resumeJob(s.pendingJobId, s.id);
+        });
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // Sync currentSessionId with URL
+    useEffect(() => {
+        if (currentSessionId) {
+            const session = sessions.find(s => s.id === currentSessionId);
+            const idToUse = session?.conversationId || session?.id;
+            if (idToUse && idToUse !== urlId) {
+                navigate(`/chat/${idToUse}`, { replace: true });
+            }
+        } else if (urlId) {
+            // Find session by local id or conversationId
+            const found = sessions.find(s => s.id === urlId || s.conversationId === urlId);
+            if (found) {
+                setCurrentSessionId(found.id);
+            }
+        }
+    }, [currentSessionId, sessions, navigate, urlId]);
+
+    // Handle back/forward navigation or initial load from URL
+    useEffect(() => {
+        if (urlId) {
+            const found = sessions.find(s => s.id === urlId || s.conversationId === urlId);
+            if (found && found.id !== currentSessionId) {
+                setCurrentSessionId(found.id);
+            }
+        } else if (currentSessionId) {
+            // Si on est sur /chat mais qu'on a une session active, on pourrait vouloir la garder?
+            // Mais pour l'instant on suit l'URL : /chat => pas de session.
+            setCurrentSessionId(null);
+        }
+    }, [urlId, sessions]);
+
+    const resumeJob = async (jobId: string, sessionId: string) => {
+        if (sessionId === currentSessionId) setIsChatting(true);
+        try {
+            let attempts = 0;
+            const poll = setInterval(async () => {
+                attempts++;
+                const res = await aiService.pollStatus(jobId);
+                
+                if (res.status === 'done') {
+                    clearInterval(poll);
+                    const aiMessage: Message = { role: 'ai', content: res.response };
+                    setSessions(prev => prev.map(s => 
+                        s.id === sessionId ? { ...s, pendingJobId: undefined, messages: [...s.messages, aiMessage] } : s
+                    ));
+                    if (sessionId === currentSessionId) {
+                        setIsChatting(false);
+                        showSuccessToast();
+                    }
+                } else if (res.status === 'error' || attempts > 100) {
+                    clearInterval(poll);
+                    setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, pendingJobId: undefined } : s));
+                    if (sessionId === currentSessionId) setIsChatting(false);
+                }
+            }, 3000);
+        } catch (e) {
+            setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, pendingJobId: undefined } : s));
+            if (sessionId === currentSessionId) setIsChatting(false);
+        }
+    };
+
+    const showSuccessToast = () => {
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true,
+            background: '#fff',
+            color: '#056CF2'
+        });
+        Toast.fire({ icon: 'success', title: t('IA: Réponse prête !', 'AI: Response ready!') });
+    };
 
     // Save to local storage on change
     useEffect(() => {
@@ -117,6 +210,22 @@ const Review: React.FC = () => {
     useEffect(() => {
         scrollToBottom();
     }, [sessions, currentSessionId]);
+
+    // Auto-resize textarea
+    useEffect(() => {
+        if (textareaRef.current) {
+            // Recalculate after a tiny delay to ensure width change has been applied by React
+            const adjust = () => {
+                if (!textareaRef.current) return;
+                textareaRef.current.style.height = 'auto';
+                const maxHeight = isMaximized ? 600 : 300;
+                textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, maxHeight)}px`;
+            };
+            adjust();
+            const timer = setTimeout(adjust, 10); // Safety second pass
+            return () => clearTimeout(timer);
+        }
+    }, [chatInput, isMaximized]);
 
     // Root elements for initial search view
     const [roots, setRoots] = useState<AnatNode[]>([]);
@@ -264,7 +373,7 @@ const Review: React.FC = () => {
             return s;
         }));
 
-        // Generate AI response — envoyer seulement le message brut + sujet + langue
+        // Generate AI response
         let contextText = t('Anatomie humaine en général', 'General human anatomy');
         if (targetSession.elements.length > 0) {
             contextText = targetSession.elements.map(e => `- ${getLoc(e.name)} (${e.type})`).join('\n');
@@ -280,31 +389,28 @@ const Review: React.FC = () => {
              if (!conversationId) {
                  const conv = await aiService.createConversation(targetSession.name);
                  conversationId = conv.id;
-                 // Sauvegarder le conversationId dans la session locale immédiatement
                  setSessions(prev => prev.map(s =>
                      s.id === targetSession!.id ? { ...s, conversationId } : s
                  ));
              }
 
-             const response = await aiService.generate('phi3:latest', userInput, undefined, 'explain', conversationId);
-             const aiMessage: Message = { role: 'ai', content: response.response };
-             setSessions(prev => prev.map(s => {
-                 if (s.id === targetSession!.id) {
-                     return { ...s, conversationId: response.conversation_id ?? conversationId, messages: [...s.messages, aiMessage] };
-                 }
-                 return s;
-             }));
+             const res = await aiService.startGenerate('phi3:latest', userInput, undefined, 'explain', conversationId);
+             
+             if (res.job_id) {
+                 // On marque la session avec le jobId en cours
+                 setSessions(prev => prev.map(s => 
+                     s.id === targetSession!.id ? { ...s, conversationId: res.conversation_id || conversationId, pendingJobId: res.job_id } : s
+                 ));
+                 // On lance le polling
+                 resumeJob(res.job_id, targetSession.id);
+             }
         } catch (error) {
              console.error(error);
              const aiMessage: Message = { role: 'ai', content: t("_(Erreur: Impossible de joindre l'IA)_", "_(Error: Could not reach AI)_") };
-             setSessions(prev => prev.map(s => {
-                 if (s.id === targetSession!.id) {
-                     return { ...s, messages: [...s.messages, aiMessage] };
-                 }
-                 return s;
-             }));
-        } finally {
-            setIsChatting(false);
+             setSessions(prev => prev.map(s =>
+                 s.id === targetSession!.id ? { ...s, messages: [...s.messages, aiMessage] } : s
+             ));
+             setIsChatting(false);
         }
     };
 
@@ -342,7 +448,7 @@ const Review: React.FC = () => {
     };
 
     return (
-        <App breadcrumb={t('Chat', 'Chat')}>
+        <App>
             <div className="gpt-layout">
                 {/* SIDEBAR SESSIONS */}
                 <aside className={`gpt-sidebar ${isSidebarOpen ? 'open' : 'closed'}`}>
@@ -377,11 +483,13 @@ const Review: React.FC = () => {
                                     )}
                                 </div>
                                 <div className="session-actions">
-                                    <button type="button" className="icon-action-btn" title={t('Renommer', 'Rename')} aria-label={t('Renommer', 'Rename')} onClick={(e) => { e.stopPropagation(); setEditingTitle(s.name); setEditingSessionId(s.id); }}>
+                                    <button type="button" className="icon-action-btn" onClick={(e) => { e.stopPropagation(); setEditingTitle(s.name); setEditingSessionId(s.id); }}>
                                         <Pencil size={15} strokeWidth={2} />
+                                        <span className="btn-text">{t('Renommer', 'Rename')}</span>
                                     </button>
-                                    <button type="button" className="icon-action-btn danger" title={t('Supprimer', 'Delete')} aria-label={t('Supprimer', 'Delete')} onClick={(e) => { e.stopPropagation(); deleteSession(s.id); }}>
+                                    <button type="button" className="icon-action-btn danger" onClick={(e) => { e.stopPropagation(); deleteSession(s.id); }}>
                                         <Trash2 size={15} strokeWidth={2} />
+                                        <span className="btn-text">{t('Supprimer', 'Delete')}</span>
                                     </button>
                                 </div>
                             </div>
@@ -438,8 +546,8 @@ const Review: React.FC = () => {
                                                     onClick={() => navigator.clipboard.writeText(getCopyText(msg.content))}
                                                     title={t('Copier', 'Copy')}
                                                 >
-                                                    <Copy size={14} strokeWidth={2} />
-                                                    <span>{t('Copier', 'Copy')}</span>
+                                                    <Copy size={16} strokeWidth={2} />
+                                                    <span className="btn-text">{t('Copier', 'Copy')}</span>
                                                 </button>
                                                 {msg.role === 'user' && (
                                                     <button
@@ -448,8 +556,8 @@ const Review: React.FC = () => {
                                                         onClick={() => { setChatInput(msg.content); scrollToBottom(); }}
                                                         title={t('Modifier', 'Edit')}
                                                     >
-                                                        <Pencil size={14} strokeWidth={2} />
-                                                        <span>{t('Modifier', 'Edit')}</span>
+                                                        <Pencil size={16} strokeWidth={2} />
+                                                        <span className="btn-text">{t('Modifier', 'Edit')}</span>
                                                     </button>
                                                 )}
                                             </div>
@@ -475,7 +583,7 @@ const Review: React.FC = () => {
                     <div className="gpt-input-wrapper">
                         
                         {/* Selected tags helper inside input area if floating */}
-                        <form className="gpt-input-box" onSubmit={handleChatSubmit}>
+                        <form className={`gpt-input-box ${chatInput.length > 50 || isMaximized ? 'expanded' : ''}`} onSubmit={handleChatSubmit}>
                             
                             <div className="plus-btn-container">
                                 <button type="button" className={`plus-btn ${isSearchOpen ? 'active' : ''}`} onClick={() => setIsSearchOpen(!isSearchOpen)} title={t('Ajouter un élément', 'Add element')}>
@@ -519,60 +627,61 @@ const Review: React.FC = () => {
                                 </AnimatePresence>
                             </div>
 
-                            <input 
-                                type="text" 
+                            <textarea 
+                                ref={textareaRef}
+                                rows={1}
                                 placeholder={t("Posez une question à l'IA...", "Ask the AI a question...")}
                                 value={chatInput}
                                 onChange={e => setChatInput(e.target.value)}
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        handleChatSubmit(e as any);
+                                    }
+                                }}
                                 disabled={isChatting}
                             />
-                            
-                            <button type="submit" className="send-btn" disabled={isChatting || !chatInput.trim()} title={t('Envoyer', 'Send')}>
-                                <Send size={18} strokeWidth={2.5} />
-                            </button>
+
+                            <div className="input-actions-right">
+                                <button 
+                                    type="button" 
+                                    className="maximize-btn" 
+                                    onClick={() => setIsMaximized(!isMaximized)}
+                                    title={isMaximized ? t('Réduire', 'Minimize') : t('Agrandir', 'Expand')}
+                                >
+                                    {isMaximized ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                                </button>
+                                
+                                <button type="submit" className="send-btn" disabled={isChatting || !chatInput.trim()} title={t('Envoyer', 'Send')}>
+                                    <Send size={18} strokeWidth={2.5} />
+                                </button>
+                            </div>
                         </form>
                     </div>
                 </main>
             </div>
 
             <style>{`
-                .gpt-layout {
-                    display: flex;
-                    height: calc(100vh - 120px);
-                    background: var(--dash-bg);
-                    border: 1px solid var(--dash-border);
-                    border-radius: 20px;
-                    overflow: hidden;
-                    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+                /* Override App.tsx global layout constraints for Chat */
+                .dash-content-container {
+                    max-width: 100% !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    height: 100%;
+                }
+                .dash-main {
+                    padding: 0 !important;
+                }
+                .dash-top-header {
+                    display: none !important;
                 }
 
-                @media (max-width: 800px) {
-                    .gpt-layout {
-                        height: calc(100vh - 180px);
-                        border: none;
-                        border-radius: 0;
-                        box-shadow: none;
-                        margin: 0 -20px; /* Offset the parent padding if needed */
-                        width: calc(100% + 40px);
-                    }
-                    .gpt-sidebar {
-                        position: absolute;
-                        z-index: 1001;
-                        height: 100%;
-                        box-shadow: 10px 0 30px rgba(0,0,0,0.1);
-                    }
-                    .gpt-messages-container {
-                        padding: 15px 5px;
-                    }
-                    .gpt-message.ai, .gpt-message.user {
-                        width: 100% !important;
-                    }
-                    .gpt-bubble {
-                        max-width: 100% !important;
-                        width: 100% !important;
-                        padding: 16px;
-                        border-radius: 12px;
-                    }
+                .gpt-layout {
+                    display: flex;
+                    height: 100%;
+                    width: 100%;
+                    background: var(--dash-bg);
+                    overflow: hidden;
                 }
 
                 /* Sidebar */
@@ -581,7 +690,8 @@ const Review: React.FC = () => {
                     background: var(--dash-bg);
                     border-right: 1px solid var(--dash-border);
                     display: flex; flex-direction: column;
-                    transition: margin 0.3s ease;
+                    transition: all 0.3s ease;
+                    z-index: 100;
                 }
                 .gpt-sidebar.closed {
                     margin-left: -260px;
@@ -591,71 +701,24 @@ const Review: React.FC = () => {
                     display: none;
                     padding: 16px;
                     border-bottom: 1px solid var(--dash-border);
-                    justify-content: space-between;
-                    align-items: center;
+                    justify-content: space-between; align-items: center;
                 }
 
+                /* Mobile Sidebar Adjustments */
                 @media (max-width: 800px) {
-                    .gpt-layout {
-                        height: calc(100vh - 160px);
-                        border: none;
-                        border-radius: 0;
-                        box-shadow: none;
-                        margin: 0 -20px;
-                        width: calc(100% + 40px);
-                    }
                     .gpt-sidebar {
-                        position: absolute;
-                        top: 0; bottom: 0; left: 0;
-                        z-index: 1001;
+                        position: absolute; top: 0; bottom: 0; left: 0;
                         width: 280px;
                         box-shadow: 10px 0 30px rgba(0,0,0,0.15);
                     }
                     .gpt-sidebar.closed {
-                        margin-left: -280px;
-                        opacity: 0;
-                        width: 0;
-                        pointer-events: none;
+                        margin-left: -280px; opacity: 0; pointer-events: none;
                     }
-                    .sidebar-header-mobile {
-                        display: flex;
-                    }
-                    .gpt-input-wrapper {
-                        padding: 10px;
-                        background: var(--dash-bg);
-                        border-top: 1px solid var(--dash-border);
-                        position: sticky;
-                        bottom: 0;
-                        z-index: 10;
-                    }
-                    .gpt-header {
-                        flex-direction: row;
-                        justify-content: space-between;
-                        flex-wrap: wrap;
-                        gap: 12px;
-                        padding: 12px 16px;
-                    }
-                    .element-tags {
-                        order: 1;
-                        flex: 1;
-                    }
-                    .sidebar-toggle {
-                        order: 2;
-                    }
-                    .session-date {
-                        order: 3;
-                        width: 100%;
-                    }
-                    .gpt-input-box {
-                        padding: 10px 14px;
-                        min-height: 54px;
-                        background: var(--dash-card-bg);
-                    }
+                    .sidebar-header-mobile { display: flex; }
+                    .gpt-layout { height: calc(100vh - 160px); }
                 }
-                
-                .close-sidebar-btn {
-                    background: none; border: none; font-size: 24px; color: var(--dash-text-muted); cursor: pointer; padding: 0 10px;
-                }
+
+                /* Sidebar elements */
                 .new-chat-btn {
                     margin: 16px; padding: 12px;
                     background: #0ea5e9; color: white;
@@ -665,224 +728,195 @@ const Review: React.FC = () => {
                 }
                 .new-chat-btn:hover { background: #0284c7; }
 
-                .sessions-list {
-                    flex: 1; overflow-y: auto; padding: 0 12px 16px;
-                }
+                .sessions-list { flex: 1; overflow-y: auto; padding: 0 12px 16px; }
                 .session-item {
                     display: flex; align-items: center; justify-content: space-between;
                     padding: 10px 12px; margin-bottom: 6px;
-                    border-radius: 8px; cursor: pointer;
-                    color: var(--dash-text); transition: 0.2s;
+                    border-radius: 8px; cursor: pointer; color: var(--dash-text); transition: 0.2s;
                 }
-                .session-item:hover, .session-item.active {
-                    background: color-mix(in srgb, var(--dash-text) 5%, transparent);
-                }
-                .session-item-main {
-                    display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;
-                }
+                .session-item:hover, .session-item.active { background: color-mix(in srgb, var(--dash-text) 5%, transparent); }
+                .session-item-main { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
                 .session-item-main svg { color: var(--dash-text-muted); flex-shrink: 0; }
-                .session-name {
-                    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-                    font-size: 14px;
-                }
+                .session-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; }
                 .session-item input {
                     width: 100%; border: 1px solid #0ea5e9; background: transparent;
-                    color: var(--dash-text); font-size: 14px; padding: 2px 4px; border-radius: 4px;
-                    outline: none;
+                    color: var(--dash-text); font-size: 14px; padding: 2px 4px; border-radius: 4px; outline: none;
                 }
-                
                 .session-actions {
-                    display: none; align-items: center; gap: 4px; flex-shrink: 0;
+                    display: flex; align-items: center; gap: 4px;
+                    opacity: 0; transition: opacity 0.2s ease;
                 }
-                .session-item:hover .session-actions,
-                .session-item.active .session-actions {
-                    display: flex;
-                }
+                .session-item:hover .session-actions, .session-item.active .session-actions { opacity: 1; }
                 .icon-action-btn {
-                    background: var(--dash-bg);
-                    border: 1px solid var(--dash-border);
-                    color: var(--dash-text-muted);
-                    cursor: pointer;
-                    padding: 6px;
-                    border-radius: 8px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    transition: 0.2s;
+                    background: var(--dash-bg); border: 1px solid var(--dash-border); color: var(--dash-text-muted);
+                    padding: 6px; border-radius: 8px; display: flex; align-items: center; gap: 0; transition: all 0.2s;
+                    overflow: hidden;
                 }
                 .icon-action-btn:hover {
-                    color: #0ea5e9;
-                    border-color: rgba(14, 165, 233, 0.45);
-                    background: color-mix(in srgb, #0ea5e9 10%, var(--dash-bg));
+                    color: #0ea5e9; border-color: #0ea5e9; background: color-mix(in srgb, #0ea5e9 10%, var(--dash-bg));
+                    gap: 6px; padding: 6px 10px;
                 }
                 .icon-action-btn.danger:hover {
-                    color: #f87171;
-                    border-color: rgba(248, 113, 113, 0.45);
-                    background: color-mix(in srgb, #f87171 10%, var(--dash-bg));
+                    color: #f87171; border-color: #f87171; background: color-mix(in srgb, #f87171 10%, var(--dash-bg));
+                }
+                .icon-action-btn .btn-text {
+                    font-size: 11px; font-weight: 600; width: 0; opacity: 0; white-space: nowrap; transition: all 0.2s;
+                }
+                .icon-action-btn:hover .btn-text {
+                    width: auto; opacity: 1;
                 }
 
-                /* Main */
-                .gpt-main {
-                    flex: 1; display: flex; flex-direction: column; min-width: 0;
-                    position: relative;
-                }
-                .gpt-header {
-                    padding: 16px; border-bottom: 1px solid var(--dash-border);
-                    display: flex; align-items: center; gap: 16px;
-                }
-                .sidebar-toggle {
-                    background: none; border: none; color: var(--dash-text-muted); cursor: pointer;
-                }
-                .element-tags {
-                    display: flex; flex-wrap: wrap; gap: 8px;
-                }
-                .element-tag {
-                    display: flex; align-items: center; gap: 6px;
-                    background: color-mix(in srgb, #0ea5e9 15%, transparent);
-                    color: #0ea5e9; padding: 4px 12px; border-radius: 100px;
-                    font-size: 13px; font-weight: 600;
-                }
-                .element-tag.general {
-                    background: var(--dash-border); color: var(--dash-text-muted);
-                }
-                .element-tag small { opacity: 0.6; font-weight: normal; }
-                .element-tag button {
-                    background: none; border: none; color: inherit; font-size: 16px; cursor: pointer;
-                    margin-left: 4px;
-                }
-
-                .gpt-messages-container {
-                    flex: 1; overflow-y: auto; padding: 20px;
-                }
-                .gpt-empty-state {
-                    display: flex; flex-direction: column; align-items: center; justify-content: center;
-                    height: 100%; text-align: center; color: var(--dash-text-muted);
-                }
-                .gpt-empty-state h2 { color: var(--dash-text); margin-bottom: 12px; }
+                /* Main Chat Area */
+                .gpt-main { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--dash-bg); }
+                .gpt-header { padding: 16px; border-bottom: 1px solid var(--dash-border); display: flex; align-items: center; gap: 16px; }
+                .sidebar-toggle { background: none; border: none; color: var(--dash-text-muted); cursor: pointer; }
                 
-                .gpt-messages {
-                    width: 100%; display: flex; flex-direction: column; gap: 24px;
-                }
+                .gpt-messages-container { flex: 1; overflow-y: auto; padding: 20px 0; }
                 .gpt-message {
-                    display: flex; width: 100%;
+                    display: flex; flex-direction: column; margin-bottom: 24px;
+                    width: 100%; max-width: none; padding: 0 10px;
                 }
-                .gpt-message.user { justify-content: flex-end; }
-                .gpt-message.ai { justify-content: flex-start; }
-                
-                .gpt-bubble {
-                    max-width: 85%; padding: 18px 24px; border-radius: 20px;
-                    position: relative;
-                }
-                .message-actions-bottom {
-                    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px;
-                    padding-top: 10px; border-top: 1px solid var(--dash-border);
-                }
-                .msg-action-btn {
-                    background: var(--dash-bg);
-                    border: 1px solid var(--dash-border);
-                    color: var(--dash-text-muted);
-                    padding: 6px 10px;
-                    border-radius: 8px;
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 6px;
-                    cursor: pointer;
-                    font-size: 12px;
-                    font-weight: 600;
-                    transition: 0.2s;
-                }
-                .msg-action-btn:hover {
-                    background: color-mix(in srgb, #0ea5e9 12%, var(--dash-bg));
-                    color: #0ea5e9;
-                    border-color: rgba(14, 165, 233, 0.4);
-                }
-                
-                @media (max-width: 800px) {
-                    .message-actions-bottom { margin-top: 16px; }
-                    .msg-action-btn { padding: 8px 12px; }
-                }
+                @media (max-width: 800px) { .gpt-message { padding: 0 5px; } }
+
+                .gpt-bubble { max-width: 100%; }
                 .gpt-message.user .gpt-bubble {
                     background: color-mix(in srgb, #0ea5e9 12%, var(--dash-card-bg));
-                    color: var(--dash-text);
-                    border-bottom-right-radius: 4px;
+                    color: var(--dash-text); border-radius: 12px; padding: 16px 20px; align-self: flex-end;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.02);
                 }
+                .gpt-message.ai .gpt-bubble { background: transparent; color: var(--dash-text); padding: 0; }
 
-                
-                .gpt-message.ai .gpt-bubble {
-                    background: transparent; border: none;
-                    color: var(--dash-text);
-                }
-                
-                .user-text { font-size: 15px; white-space: pre-wrap; }
-
-                /* Input wrapper */
+                /* Input Section - EDGE TO EDGE */
                 .gpt-input-wrapper {
-                    padding: 20px;
+                    padding: 20px 10px 40px;
+                    width: 100%;
+                    display: flex;
+                    justify-content: center;
                 }
+                @media (max-width: 800px) { 
+                    .gpt-input-wrapper { padding: 10px; } 
+                    .gpt-input-box {
+                        min-width: 0 !important;
+                        width: 100% !important;
+                    }
+                }
+
                 .gpt-input-box {
                     width: 100%;
-                    display: flex; align-items: center; gap: 12px;
+                    max-width: 500px; /* Even more compact by default */
+                    display: flex; align-items: flex-end;
                     background: var(--dash-card-bg); border: 1px solid var(--dash-border);
-                    padding: 10px 12px 10px 16px; border-radius: 24px;
+                    padding: 4px 0 4px 16px; border-radius: 24px;
                     position: relative;
+                    min-height: 52px;
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
                 }
-                .gpt-input-box:focus-within {
-                    border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+                .gpt-input-box.expanded {
+                    max-width: 100%;
                 }
-                .gpt-input-box input[type="text"] {
+                .gpt-input-box:focus-within { border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1); }
+                
+                .gpt-input-box textarea {
                     flex: 1; background: transparent; border: none; outline: none;
-                    color: var(--dash-text); font-size: 15px;
+                    color: var(--dash-text-main); font-size: 15px;
+                    resize: none; padding: 14px 100px 14px 0; max-height: 500px;
+                    line-height: 1.5; font-family: inherit;
+                    scrollbar-width: thin;
                 }
                 
-                .plus-btn-container { position: relative; }
+                /* Custom ultra-thin discreet scrollbar */
+                .gpt-input-box textarea::-webkit-scrollbar {
+                    width: 5px;
+                }
+                .gpt-input-box textarea::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+                .gpt-input-box textarea::-webkit-scrollbar-thumb {
+                    background: rgba(0, 0, 0, 0.1);
+                    border-radius: 10px;
+                    border: 1px solid transparent;
+                    background-clip: content-box;
+                }
+                .gpt-input-box textarea::-webkit-scrollbar-thumb:hover {
+                    background: rgba(0, 0, 0, 0.2);
+                }
+                .gpt-input-box textarea {
+                    scrollbar-width: thin;
+                    scrollbar-color: rgba(0, 0, 0, 0.1) transparent;
+                }
+
+                .plus-btn-container { margin-bottom: 8px; margin-right: 12px; position: relative; }
                 .plus-btn {
                     display: flex; align-items: center; justify-content: center;
-                    width: 36px; height: 36px; border-radius: 50%;
-                    background: var(--dash-bg); color: var(--dash-text-muted); border: 1px solid var(--dash-border);
-                    cursor: pointer; transition: 0.2s;
+                    width: 34px; height: 34px; border-radius: 50%;
+                    background: var(--dash-bg); color: var(--dash-text-muted); border: 1px solid var(--dash-border); cursor: pointer;
                 }
-                .plus-btn:hover, .plus-btn.active { color: #0ea5e9; border-color: #0ea5e9; }
                 
+                .input-actions-right {
+                    position: absolute; right: 8px; bottom: 8px;
+                    display: flex; align-items: center; gap: 8px; z-index: 5;
+                }
+
+                .maximize-btn, .send-btn { 
+                    display: flex; align-items: center; justify-content: center;
+                    border: none; border-radius: 50%; cursor: pointer; transition: 0.2s;
+                }
+                .maximize-btn {
+                    background: var(--dash-bg); border: 1px solid var(--dash-border); color: var(--dash-text-muted);
+                    width: 30px; height: 30px;
+                }
+                .send-btn {
+                    width: 36px; height: 36px; background: #0ea5e9; color: white;
+                }
+                .send-btn:hover:not(:disabled) { transform: scale(1.05); background: #0284c7; }
+                .send-btn:disabled { background: var(--dash-border); color: var(--dash-text-muted); cursor: not-allowed; }
+
+                /* Search popover */
                 .search-popover {
                     position: absolute; bottom: 50px; left: 0;
                     width: 380px; background: var(--dash-bg);
                     border: 1px solid var(--dash-border); border-radius: 16px;
-                    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-                    display: flex; flex-direction: column; overflow: hidden;
-                    z-index: 1000;
+                    box-shadow: 0 10px 40px rgba(0,0,0,0.15); display: flex; flex-direction: column; z-index: 1000;
                 }
-                .search-popover input {
-                    padding: 14px; border-bottom: 1px solid var(--dash-border);
-                    background: transparent; border-top: none; border-left: none; border-right: none;
-                    color: var(--dash-text); outline: none; width: 100%;
-                }
-                .search-results {
-                    max-height: 250px; overflow-y: auto;
-                }
-                .search-item {
-                    padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;
-                    cursor: pointer; border-bottom: 1px solid var(--dash-border);
-                }
-                .search-item:hover { background: var(--dash-bg); }
-                .search-item.selected { background: color-mix(in srgb, #0ea5e9 10%, transparent); color: #0ea5e9; }
-                .search-item small { opacity: 0.6; font-size: 11px; }
-                .popover-msg { padding: 14px; text-align: center; color: var(--dash-text-muted); font-size: 13px; white-space: nowrap; }
+                .search-popover input { padding: 14px; border: none; border-bottom: 1px solid var(--dash-border); background: transparent; color: var(--dash-text-main); outline: none; }
+                .search-results { max-height: 250px; overflow-y: auto; }
+                .search-item { padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border-bottom: 1px solid var(--dash-border); color: var(--dash-text-main); }
+                .search-item:hover { background: var(--dash-accent-hover); }
 
-                .send-btn {
-                    display: flex; align-items: center; justify-content: center;
-                    width: 38px; height: 38px; border-radius: 50%;
-                    background: #0ea5e9; color: white; border: none; cursor: pointer;
-                    flex-shrink: 0;
+                .gpt-bubble { max-width: 100%; position: relative; }
+                
+                .message-actions-bottom {
+                    display: flex; gap: 4px; margin-top: 8px;
+                    opacity: 0; transition: opacity 0.2s ease;
                 }
-                .send-btn:disabled { background: var(--dash-border); cursor: not-allowed; }
+                .gpt-message:hover .message-actions-bottom {
+                    opacity: 1;
+                }
+                .msg-action-btn {
+                    background: transparent; border: 1px solid transparent; color: var(--dash-text-muted);
+                    padding: 6px; border-radius: 8px; display: inline-flex; align-items: center; gap: 0;
+                    cursor: pointer; transition: all 0.2s; overflow: hidden;
+                }
+                .msg-action-btn:hover {
+                    background: color-mix(in srgb, var(--dash-text) 5%, transparent);
+                    border-color: var(--dash-border);
+                    color: #0ea5e9;
+                    gap: 8px; padding: 6px 12px;
+                }
+                .msg-action-btn .btn-text {
+                    font-size: 12px; font-weight: 600;
+                    width: 0; opacity: 0; white-space: nowrap; transition: all 0.2s;
+                }
+                .msg-action-btn:hover .btn-text {
+                    width: auto; opacity: 1;
+                }
 
-                /* Markdown fixes for messages */
+                /* Markdown fixes */
                 .review-markdown { font-size: 15px; line-height: 1.7; }
-                .review-markdown p { margin-bottom: 1em; margin-top: 0; }
-                .review-markdown ul, .review-markdown ol { padding-left: 24px; margin-bottom: 1.2em; }
-                .review-markdown ul { list-style-type: disc; }
-                .review-markdown ol { list-style-type: decimal; }
-                .review-markdown li { margin-bottom: 0.4em; }
+                .review-markdown p { margin-bottom: 1em; }
+                .review-markdown strong { font-weight: 700; color: #0ea5e9; }
+                .user-text { font-size: 15px; white-space: pre-wrap; }
+
                 .review-markdown h1, .review-markdown h2, .review-markdown h3 { margin-top: 1.5em; margin-bottom: 0.7em; }
                 .review-markdown table { width: 100%; border-collapse: collapse; margin-bottom: 1.2em; font-size: 14px; }
                 .review-markdown th, .review-markdown td { border: 1px solid var(--dash-border); padding: 8px 12px; }

@@ -17,6 +17,7 @@ interface Session {
     elements: AnatNode[];
     messages: Message[];
     updatedAt: number;
+    pendingJobId?: string; 
 }
 
 type View = 'sessions' | 'chat';
@@ -109,6 +110,58 @@ const FloatingChat: React.FC<FloatingChatProps> = ({ isOpen: propIsOpen, onToggl
 
         apiCall('anatomy/roots').then((res: any) => setRoots(res.roots || [])).catch(console.error);
     }, [isOpen]);
+
+    // Resume polling for pending jobs
+    useEffect(() => {
+        sessions.forEach(session => {
+            if (session.pendingJobId && !isLoading) {
+                resumeJob(session.pendingJobId, session.id);
+            }
+        });
+    }, [currentSessionId]);
+
+    const resumeJob = async (jobId: string, sessionId: string) => {
+        setIsLoading(true);
+        try {
+            let attempts = 0;
+            const poll = setInterval(async () => {
+                attempts++;
+                const res = await aiService.pollStatus(jobId);
+                
+                if (res.status === 'done') {
+                    clearInterval(poll);
+                    const aiMessage: Message = { role: 'ai', content: res.response };
+                    setSessions(prev => prev.map(s => 
+                        s.id === sessionId ? { ...s, pendingJobId: undefined, messages: [...s.messages, aiMessage] } : s
+                    ));
+                    if (sessionId === currentSessionId) {
+                        setIsLoading(false);
+                        showSuccessToast();
+                    }
+                } else if (res.status === 'error' || attempts > 100) {
+                    clearInterval(poll);
+                    setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, pendingJobId: undefined } : s));
+                    if (sessionId === currentSessionId) setIsLoading(false);
+                }
+            }, 3000);
+        } catch (e) {
+            setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, pendingJobId: undefined } : s));
+            if (sessionId === currentSessionId) setIsLoading(false);
+        }
+    };
+
+    const showSuccessToast = () => {
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true,
+            background: '#fff',
+            color: '#056CF2'
+        });
+        Toast.fire({ icon: 'success', title: t('IA: Réponse prête !', 'AI: Response ready!') });
+    };
 
     // Persist sessions
     useEffect(() => {
@@ -243,17 +296,22 @@ const FloatingChat: React.FC<FloatingChatProps> = ({ isOpen: propIsOpen, onToggl
                 conversationId = conv.id;
                 setSessions(prev => prev.map(s => s.id === targetSession!.id ? { ...s, conversationId } : s));
             }
-            const res = await aiService.generate('phi3:latest', userInput, undefined, 'explain', conversationId);
-            const aiMessage: Message = { role: 'ai', content: res.response };
-            setSessions(prev => prev.map(s =>
-                s.id === targetSession!.id ? { ...s, conversationId: res.conversation_id ?? conversationId, messages: [...s.messages, aiMessage] } : s
-            ));
-        } catch {
-            const aiMessage: Message = { role: 'ai', content: t("_(Erreur de génération)_", "_(Generation error)_") };
+            
+            const initialRes = await aiService.startGenerate('phi3:latest', userInput, undefined, 'explain', conversationId);
+            
+            if (initialRes.job_id) {
+                // On marque la session avec le jobId en cours
+                setSessions(prev => prev.map(s => 
+                    s.id === targetSession!.id ? { ...s, conversationId: initialRes.conversation_id || conversationId, pendingJobId: initialRes.job_id } : s
+                ));
+                // On lance le polling
+                resumeJob(initialRes.job_id, targetSession.id);
+            }
+        } catch (err: any) {
+            const aiMessage: Message = { role: 'ai', content: t("_(Erreur de génération)_", "_(Generation error)_") + "\n\n" + (err.message || "") };
             setSessions(prev => prev.map(s =>
                 s.id === targetSession!.id ? { ...s, messages: [...s.messages, aiMessage] } : s
             ));
-        } finally {
             setIsLoading(false);
         }
     };

@@ -117,6 +117,24 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     else descRef.current.innerHTML = text;
   }
 
+  const loadDescriptionLazily = (item: AnatomyItem, itemName: string) => {
+    if (!item.description || (typeof item.description === 'object' && !item.description[language === 'fr' ? 'fr' : 'en'])) {
+        desc(`<div class="loading-desc"><span class="spin">⏳</span> ${t('Chargement des détails...', 'Loading details...')}</div>`, itemName);
+        apiCall(`anatomy/show/${item.id}`).then((res: any) => {
+          if (res.description) {
+            item.description = res.description; // Mise à jour de l'objet en mémoire
+            const localizedDesc = getLoc(res.description, '', true);
+            desc(localizedDesc || `<em>${t('Pas de description.', 'No description available.')}</em>`, itemName);
+          }
+        }).catch(() => {
+          desc(`<em>${t('Erreur de chargement.', 'Loading error.')}</em>`, itemName);
+        });
+    } else {
+        const localizedDesc = getLoc(item.description, '', true);
+        desc(localizedDesc || `<em>${t('Pas de description.', 'No description available.')}</em>`, itemName);
+    }
+  };
+
   function eachMesh(fn: (m: ExtendedMesh) => void) {
     sceneRef.current?.traverse(c => { if (c instanceof THREE.Mesh) fn(c as ExtendedMesh); });
   }
@@ -347,12 +365,8 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
         document.querySelectorAll('.item-row').forEach(el => el.classList.remove('selected-item'));
         row.classList.add('selected-item');
         const info = mesh.userData.info;
-        const itemDesc = info?.description || item.description;
         const itemName = getLoc(info?.name || item.name);
-        const localizedDesc = getLoc(itemDesc, '', true);
-        if (localizedDesc) desc(localizedDesc, itemName);
-        else desc(`<em>${t('Pas de description.', 'No description available.')}</em>`, itemName);
-
+        loadDescriptionLazily(info || item, itemName);
       } else {
         // No mesh found (group node)
         deselect();
@@ -360,9 +374,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
         document.querySelectorAll('.item-row').forEach(el => el.classList.remove('selected-item'));
         row.classList.add('selected-item');
         const itemName = getLoc(item.name);
-        const localizedDesc = getLoc(item.description, '', true);
-        if (localizedDesc) desc(localizedDesc, itemName);
-        else desc(`<em>${t('Pas de description.', 'No description available.')}</em>`, itemName);
+        loadDescriptionLazily(item, itemName);
       }
       if (children.length) {
         const c = li.querySelector('ul');
@@ -986,11 +998,11 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     const hits = raycaster.current.intersectObject(modelRef.current, true);
     if (hits.length) {
       const obj = hits[0].object as ExtendedMesh;
-      const info = obj.userData.info;
+      let info = obj.userData.info;
       if (obj.visible) {
         if (selRef.current === obj) return;
         
-        // Reset previous selection emissive without triggering onSelect(null)
+        // Reset previous selection emissive
         if (selRef.current && selRef.current.material instanceof THREE.MeshStandardMaterial) {
           selRef.current.material.emissive.setHex(0x000000);
         }
@@ -999,22 +1011,22 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
         if (obj.material instanceof THREE.MeshStandardMaterial) obj.material.emissive.setHex(0x224488);
         
         document.querySelectorAll('.item-row').forEach(el => el.classList.remove('selected-item'));
+        
         if (info) {
+          // Sync hierarchy selection
           for (const row of Array.from(document.querySelectorAll<HTMLElement>('.item-row'))) {
-            // Utilisation de l'ID pour la correspondance plutôt que le nom texte
             if (row.dataset.id === String(info.id)) { 
               row.classList.add('selected-item'); 
               row.scrollIntoView({ behavior: 'smooth', block: 'center' }); 
               break;
             }
           }
-          const localizedDesc = getLoc(info.description, '', true);
-          if (localizedDesc) desc(localizedDesc, getLoc(info.name));
-          else desc(`<em>${t('Pas de description.', 'No description available.')}</em>`, getLoc(info.name));
+
+          const itemName = getLoc(info.name);
+          loadDescriptionLazily(info, itemName);
         } else {
           desc(`<em>${t('Pas de description.', 'No description available.')}</em>`, obj.name);
         }
-
       }
     } else deselect();
   }

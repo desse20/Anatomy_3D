@@ -21,6 +21,7 @@ Route::get('/public/reviews', [PublicStatsController::class, 'reviews']);
 
 Route::prefix('ai')->middleware(['simple_auth', 'role:student'])->group(function () {
     Route::post('generate', [AiController::class, 'generate']);
+    Route::get('status/{jobId}', [AiController::class, 'status']);
     Route::post('evaluate', [AiController::class, 'evaluate']);
     Route::get('models',   [AiController::class, 'models']);
 });
@@ -64,6 +65,7 @@ Route::prefix('users')->middleware('simple_auth')->group(function () {
 // Anatomy hierarchy (Accès aux étudiants, profs et admins)
 Route::prefix('anatomy')->middleware(['simple_auth'])->group(function () {
     Route::get('all',             [AnatomyController::class, 'all']);
+    Route::get('show/{id}',       [AnatomyController::class, 'show']);
     Route::get('roots',           [AnatomyController::class, 'roots']);
     Route::get('subtree/{name}',  [AnatomyController::class, 'subtree']);
     Route::get('search',          [AnatomyController::class, 'search']);

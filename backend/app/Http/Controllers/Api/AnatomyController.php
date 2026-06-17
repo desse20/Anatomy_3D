@@ -16,7 +16,8 @@ class AnatomyController extends Controller
     public function all(Request $request)
     {
         try {
-            $query = AnatomicalObject::select('id', 'name', 'parent_id', 'mesh', 'description', 'three_js_name', 'updated_at');
+            // OPTIMISATION : On ne charge PLUS la description ici (trop lourd pour 3000 objets)
+            $query = AnatomicalObject::select('id', 'name', 'parent_id', 'mesh', 'three_js_name', 'updated_at');
             
             if ($request->has('asset_3d_id')) {
                 $query->where('asset_3d_id', $request->asset_3d_id);
@@ -51,7 +52,6 @@ class AnatomyController extends Controller
                         'three_js_name' => $obj->three_js_name,
                         'parent_id'    => $obj->parent_id,
                         'type'         => strtolower($obj->mesh ?? '') === 'mesh' ? 'mesh' : 'group',
-                        'description'  => $desc,
                         'updated_at'   => $obj->updated_at
                     ];
                 });
@@ -59,6 +59,26 @@ class AnatomyController extends Controller
             return response()->json($objects);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * GET /api/anatomy/show/{id}
+     * Retourne les détails d'un objet (dont sa description XL)
+     */
+    public function show($id)
+    {
+        try {
+            $obj = AnatomicalObject::findOrFail($id);
+            return response()->json([
+                'id'          => $obj->id,
+                'name'        => $obj->name,
+                'description' => $obj->description,
+                'mesh'        => $obj->mesh,
+                'asset_3d_id' => $obj->asset_3d_id
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Object not found'], 404);
         }
     }
 

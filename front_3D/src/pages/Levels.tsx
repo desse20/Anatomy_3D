@@ -44,6 +44,7 @@ interface MasteryStats {
     cultivees: NotionStat[];
     due_notions: NotionStat[];
     mastery_levels: MasteryLevel[];
+    radar?: any[];
 }
 
 const LEVEL_META = [

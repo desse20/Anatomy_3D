@@ -56,9 +56,28 @@ const AdminUsers: React.FC = () => {
     const [users, setUsers] = useState<any[]>([]);
     const [search, setSearch] = useState('');
     const [roleFilter, setRoleFilter] = useState('');
+    const [dateStart, setDateStart] = useState('');
+    const [dateEnd, setDateEnd] = useState('');
     const [loading, setLoading] = useState(false);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [roleCounts, setRoleCounts] = useState<{total: number; admin: number; teacher: number; student: number} | null>(null);
+    
+    const formatRelativeTime = (dateString: string) => {
+        if (!dateString) return '—';
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now.getTime() - date.getTime();
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+        if (diffDays < 1) return t("moins d'un jour", "less than a day");
+        if (diffDays < 30) return `${diffDays} ${t('j', 'd')}`;
+        
+        const diffMonths = Math.floor(diffDays / 30);
+        if (diffMonths < 12) return `${diffMonths} ${t('mois', 'mon')}`;
+        
+        const diffYears = Math.floor(diffDays / 365);
+        return `${diffYears} ${t('an' + (diffYears > 1 ? 's' : ''), 'y' + (diffYears > 1 ? 's' : ''))}`;
+    };
 
     const currentLoggedUser = (() => {
         try { return JSON.parse(localStorage.getItem('user') || '{}'); }
@@ -98,6 +117,8 @@ const AdminUsers: React.FC = () => {
             const params = new URLSearchParams();
             if (search) params.append('search', search);
             if (roleFilter) params.append('role', roleFilter);
+            if (dateStart) params.append('date_start', dateStart);
+            if (dateEnd) params.append('date_end', dateEnd);
             const url = `users${params.toString() ? '?' + params.toString() : ''}`;
             const res = await apiCall(url);
             const usersList = Array.isArray(res) ? res : (res.data || []);
@@ -111,7 +132,7 @@ const AdminUsers: React.FC = () => {
     useEffect(() => {
         const delayDebounceFn = setTimeout(() => { fetchUsers(); }, 300);
         return () => clearTimeout(delayDebounceFn);
-    }, [search, roleFilter]);
+    }, [search, roleFilter, dateStart, dateEnd]);
 
     const handleCreateWrapper = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -272,6 +293,7 @@ const AdminUsers: React.FC = () => {
                         </button>
                     )}
                     {/* ── Boutons Export ── */}
+                    {/* Temporairement masqués
                     <button
                         id="btn-export-excel"
                         onClick={exportExcel}
@@ -290,6 +312,7 @@ const AdminUsers: React.FC = () => {
                     >
                         <FileText size={17} /> PDF
                     </button>
+                    */}
                 </div>
                 <button 
                     onClick={() => { setIsAddingUser(!isAddingUser); setIsEditModalOpen(false); if(!isAddingUser) setFormData({firstname:'', lastname:'', email:'compte@gmail.com', password:generateSecurePassword(), role:'student'}); }}
@@ -358,6 +381,22 @@ const AdminUsers: React.FC = () => {
                         <option value="teacher">{t('Professeurs', 'Teachers')}</option>
                         <option value="admin">{t('Administrateurs', 'Administrators')}</option>
                     </select>
+
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'rgba(0,0,0,0.02)', padding: '4px 12px', borderRadius: '8px', border: '1px solid var(--dash-border)' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--dash-text-muted)' }}>{t('Période:', 'Period:')}</span>
+                        <input type="date" value={dateStart} onChange={(e) => setDateStart(e.target.value)} style={{ border: 'none', background: 'transparent', fontSize: '13px', color: 'var(--dash-text)', outline: 'none' }} />
+                        <span style={{ color: 'var(--dash-text-muted)' }}>→</span>
+                        <input type="date" value={dateEnd} onChange={(e) => setDateEnd(e.target.value)} style={{ border: 'none', background: 'transparent', fontSize: '13px', color: 'var(--dash-text)', outline: 'none' }} />
+                    </div>
+
+                    {(search || roleFilter || dateStart || dateEnd) && (
+                        <button 
+                            onClick={() => { setSearch(''); setRoleFilter(''); setDateStart(''); setDateEnd(''); }}
+                            style={{ background: 'none', border: 'none', color: '#f43f5e', fontSize: '12px', fontWeight: 600, cursor: 'pointer', padding: '10px' }}
+                        >
+                            {t('Réinitialiser', 'Reset')}
+                        </button>
+                    )}
                 </div>
 
                 <div className="table-container-responsive">
@@ -369,6 +408,7 @@ const AdminUsers: React.FC = () => {
                                 </th>
                                 <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>{t('Utilisateur', 'User')}</th>
                                 <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>Rôle</th>
+                                <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>{t('Inscrit le', 'Registered on')}</th>
                                 <th className="hide-mobile" style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase' }}>Email</th>
                                 <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--dash-text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>Actions</th>
                             </tr>
@@ -403,6 +443,16 @@ const AdminUsers: React.FC = () => {
                                             </td>
                                             <td style={{ padding: '16px 20px' }}>
                                                 <span style={{ padding: '4px 10px', borderRadius: '100px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', background: u.role === 'admin' ? '#f8717115' : u.role === 'teacher' ? '#fbbf2415' : '#34d39915', color: u.role === 'admin' ? '#f87171' : u.role === 'teacher' ? '#f59e0b' : '#10b981' }}>{getRoleLabel(u.role)}</span>
+                                            </td>
+                                            <td style={{ padding: '16px 20px' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                    <span style={{ fontSize: '13px', color: 'var(--dash-text)', fontWeight: 600 }}>
+                                                        {u.created_at ? new Date(u.created_at).toLocaleDateString('fr-FR') : '—'}
+                                                    </span>
+                                                    <span style={{ fontSize: '11px', color: 'var(--dash-text-muted)' }}>
+                                                        {t('il y a', 'ago')} {formatRelativeTime(u.created_at)}
+                                                    </span>
+                                                </div>
                                             </td>
                                             <td className="hide-mobile" style={{ padding: '16px 20px', color: 'var(--dash-text-muted)' }}>{u.email}</td>
                                             <td style={{ padding: '16px 20px', textAlign: 'right' }}>

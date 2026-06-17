@@ -116,13 +116,18 @@ class MasteryController extends Controller
 
         // Calcul du radar (maîtrise par racines anatomiques)
         $radar = [];
-        $roots = \App\Models\AnatomicalObject::where('id', 1)->first()
+        $rootsQuery = \App\Models\AnatomicalObject::where('id', 1)->exists()
             ? \App\Models\AnatomicalObject::where('parent_id', 1)->get()
             : \App\Models\AnatomicalObject::whereNull('parent_id')->get();
-        
+
+        $roots = $rootsQuery;
+
         // Si un seul nœud racine (ex: Human Anatomy), on descend d'un cran
-        if ($roots->count() === 1 && $roots->first()->children()->count() > 0) {
-            $roots = $roots->first()->children;
+        if ($roots->count() === 1) {
+            $firstChild = \App\Models\AnatomicalObject::where('parent_id', $roots->first()->id)->get();
+            if ($firstChild->count() > 0) {
+                $roots = $firstChild;
+            }
         }
 
         foreach ($roots as $root) {
@@ -160,12 +165,20 @@ class MasteryController extends Controller
         ]);
     }
 
-    private function getDescendantIds($node)
+    private function getDescendantIds($node): array
     {
+        // OPTIMISATION : On évite le N+1 en faisant une seule requête bulk par niveau
         $ids = [$node->id];
-        foreach ($node->children as $child) {
-            $ids = array_merge($ids, $this->getDescendantIds($child));
+        $toVisit = [$node->id];
+
+        while (!empty($toVisit)) {
+            $childIds = \App\Models\AnatomicalObject::whereIn('parent_id', $toVisit)
+                ->pluck('id')
+                ->toArray();
+            $ids = array_merge($ids, $childIds);
+            $toVisit = $childIds; // Niveau suivant
         }
+
         return $ids;
     }
 

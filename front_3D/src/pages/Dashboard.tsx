@@ -894,7 +894,7 @@ const Dashboard: React.FC = () => {
     const globalProgress = (stats && stats.radar && stats.radar.length > 0)
         ? Math.round((stats.radar.reduce((acc: number, curr: any) => acc + curr.value, 0) / (stats.radar.length * 5)) * 100)
         : (radarData.length > 0 
-            ? Math.round((radarData.reduce((acc, curr) => acc + curr.value, 0) / (radarData.length * 5)) * 100) 
+            ? Math.round((radarData.reduce((acc: number, curr: any) => acc + curr.value, 0) / (radarData.length * 5)) * 100) 
             : 0);
 
     // User data

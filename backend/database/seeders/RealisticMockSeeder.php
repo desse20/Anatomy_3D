@@ -118,6 +118,10 @@ class RealisticMockSeeder extends Seeder
      */
     public function run()
     {
+        // On fixe le fuseau sur +01:00 (Porto-Novo) pour éviter les erreurs de DST
+        // car ce fuseau n'a pas de changements d'heure (contrairement à l'Europe)
+        DB::statement("SET time_zone='+01:00'");
+
         $this->faker = Faker::create('fr_FR');
 
         // ---------------------------------------------------------------

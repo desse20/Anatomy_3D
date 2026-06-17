@@ -7,7 +7,6 @@ import {
     RotateCcw,
     AlertCircle,
     Search,
-    Plus,
     X,
     FolderTree,
 } from 'lucide-react';
@@ -128,8 +127,49 @@ const Quiz: React.FC = () => {
         if (!navState.system) {
             fetchNextTopic();
         }
+
+        // REPRISE DU JOB EN COURS
+        if (pendingJobId) {
+            setStep(4);
+            setIsLoading(true);
+            resumeQuizJob(pendingJobId);
+        }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    const resumeQuizJob = async (jobId: string) => {
+        setIsLoading(true);
+        try {
+            let attempts = 0;
+            const poll = setInterval(async () => {
+                attempts++;
+                const res = await aiService.pollStatus(jobId);
+                if (res.status === 'done') {
+                    clearInterval(poll);
+                    const parsed = parseAndSetQuestionsSingle(res.response, quizType, 0);
+                    if (parsed) {
+                        setQuestions(parsed);
+                        setMasterQuestions(parsed);
+                        setIsLoading(false);
+                        setPendingJobId(null);
+                        localStorage.removeItem('pending_quiz_job');
+                    } else {
+                        throw new Error("Format invalide");
+                    }
+                } else if (res.status === 'error' || attempts > 100) {
+                    clearInterval(poll);
+                    setError("Relancez le quiz.");
+                    setIsLoading(false);
+                    setPendingJobId(null);
+                    localStorage.removeItem('pending_quiz_job');
+                }
+            }, 3000);
+        } catch (e) {
+            setIsLoading(false);
+            setPendingJobId(null);
+            localStorage.removeItem('pending_quiz_job');
+        }
+    };
 
     // Recherche d'objets
     useEffect(() => {
@@ -149,6 +189,7 @@ const Quiz: React.FC = () => {
     }, [searchQuery]);
 
     const [isLoading, setIsLoading] = useState(false);
+    const [pendingJobId, setPendingJobId] = useState<string | null>(localStorage.getItem('pending_quiz_job'));
     const [questions, setQuestions] = useState<Question[]>([]);
     const [currentIdx, setCurrentIdx] = useState(0);
     const [selectedOpts, setSelectedOpts] = useState<number[]>([]);
@@ -236,36 +277,18 @@ const Quiz: React.FC = () => {
         setIsLoading(true);
         setError(null);
         try {
-            // Générer les questions une par une pour éviter les problèmes de l'IA
-            const allQuestions: Question[] = [];
-            let attempts = 0;
-            const maxAttempts = questionCount * 3; // 3 essais par question
+            const prompt = buildPrompt(targetSystemLabel, quizType, questionCount);
+            const res = await aiService.startGenerate('phi3:latest', prompt, targetSystemLabel ?? undefined);
             
-            while (allQuestions.length < questionCount && attempts < maxAttempts) {
-                const prompt = buildPrompt(targetSystemLabel, quizType, 1);
-                const response = await aiService.generate('phi3:latest', prompt, targetSystemLabel ?? undefined);
-                const parsed = parseAndSetQuestionsSingle(response.response, quizType, allQuestions.length);
-                if (parsed) {
-                    allQuestions.push(...parsed);
-                }
-                attempts++;
+            if (res.job_id) {
+                setPendingJobId(res.job_id);
+                localStorage.setItem('pending_quiz_job', res.job_id);
+                resumeQuizJob(res.job_id);
             }
-            
-            if (allQuestions.length === 0) {
-                throw new Error("No questions generated");
-            }
-            
-            if (allQuestions.length < questionCount) {
-                console.warn(`Seulement ${allQuestions.length} questions générées sur ${questionCount} demandées`);
-            }
-            
-            setQuestions(allQuestions);
-            setMasterQuestions(allQuestions);
-            setIsReviewMode(false);
         } catch (err: any) {
-            console.error("Quiz Start Error:", err);
             setError(language === 'fr' ? `Erreur: ${err.message || "IA Indisponible"}` : `Error: ${err.message || "AI Unavailable"}`);
-        } finally { setIsLoading(false); }
+            setIsLoading(false);
+        }
     };
 
     // Parsing JSON ultra-robuste — partagé avec handleStartWithSystem (Review.tsx)

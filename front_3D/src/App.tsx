@@ -46,6 +46,7 @@ function App() {
           <Route path="/atlas/viewer" element={<RoleRoute allowedRoles={['student', 'admin', 'teacher']}><AnatomyViewerPage /></RoleRoute>} />
           <Route path="/quiz" element={<RoleRoute allowedRoles={['student']}><Quiz /></RoleRoute>} />
           <Route path="/chat" element={<RoleRoute allowedRoles={['student']}><Review /></RoleRoute>} />
+          <Route path="/chat/:id" element={<RoleRoute allowedRoles={['student']}><Review /></RoleRoute>} />
           <Route path="/review" element={<Navigate to="/chat" replace />} />
           <Route path="/levels" element={<RoleRoute allowedRoles={['student']}><Levels /></RoleRoute>} />
 

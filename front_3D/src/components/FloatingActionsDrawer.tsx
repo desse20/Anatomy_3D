@@ -134,7 +134,7 @@ const FloatingActionsDrawer: React.FC = () => {
             <style>{`
                 .unified-messenger {
                     position: fixed;
-                    bottom: 25px;
+                    bottom: 80px;
                     right: 25px;
                     z-index: 10000;
                     font-family: 'Manrope', 'Inter', system-ui, sans-serif;

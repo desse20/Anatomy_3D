@@ -29,7 +29,18 @@ class UserController extends Controller
             $query->where('role', $request->role);
         }
 
-        $users = $query->paginate($request->get('per_page', 15));
+        if ($request->has('date_start') && !empty($request->date_start)) {
+            $query->whereDate('created_at', '>=', $request->date_start);
+        }
+        if ($request->has('date_end') && !empty($request->date_end)) {
+            $query->whereDate('created_at', '<=', $request->date_end);
+        }
+
+        $orderBy = $request->get('order_by', 'created_at');
+        $order = $request->get('order', 'desc');
+        $query->orderBy($orderBy, $order);
+
+        $users = $query->paginate($request->get('per_page', 50));
 
         return UserResource::collection($users)->additional([
             'role_counts' => [
