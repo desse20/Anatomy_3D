@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { MessageCircle, Star, Home, X, ChevronLeft } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
@@ -11,8 +11,12 @@ import FloatingReview from './FloatingReview';
 const FloatingActionsDrawer: React.FC = () => {
     const { language } = useLanguage();
     const { theme } = useTheme();
+    const location = useLocation();
     const t = (fr: string, en: string) => language === 'fr' ? fr : en;
 
+    // Ne pas afficher si on est déjà sur la page Chat ou Quiz (inclut les sous-routes avec ID)
+    const isHiddenPath = location.pathname.startsWith('/chat') || location.pathname.startsWith('/quiz');
+    if (isHiddenPath) return null;
 
     const [isOpen, setIsOpen] = useState(false);
     const [activeTab, setActiveTab] = useState<'home' | 'chat' | 'review'>('home');
