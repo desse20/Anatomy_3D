@@ -46,6 +46,47 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     return val['fr'] || val['en'] || fallback;
   };
 
+  const clean = (s: string) => {
+    if (!s) return '';
+    return s.toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Supprimer les accents (é -> e)
+      .replace(/^os\s+/, '')         
+      .replace(/\s+bone$/, '')      
+      .replace(/_bone$/, '')        
+      .replace(/_bonel$/, '')       
+      .replace(/_bone_\d+$/, '')    
+      .replace(/cle$/, 'cule')      
+      .replace(/incisor/g, 'incisive')
+      .replace(/upper/g, 'superieur')
+      .replace(/medial/g, 'central') // "Medial incisor" -> "Incisive centrale"
+      .replace(/[\s\._-]/g, '')     
+      .replace(/\d+$/, '')          
+      .replace(/\.[lr]$/i, '')      // Supprimer les suffixes .L / .R
+      .replace(/^os/, '')           
+      .replace(/bone$/, '')         
+      .trim();
+  };
+
+  const getK = (s: string) => {
+    const trans: Record<string, string> = {
+      'first': 'premier', 'second': 'deuxieme', 'third': 'troisieme', 'fourth': 'quatrieme', 'fifth': 'cinquieme',
+      '1': 'premier', '2': 'deuxieme', '3': 'troisieme', '4': 'quatrieme', '5': 'cinquieme',
+      'i': 'premier', 'ii': 'deuxieme', 'iii': 'troisieme', 'iv': 'quatrieme', 'v': 'cinquieme',
+      'phalanx': 'phalange', 'metacarpal': 'metacarpien', 'finger': 'doigt', 'middle': 'moyen', 'hand': 'main',
+      'incisor': 'incisive', 'upper': 'superieur', 'lower': 'inferieur', 'medial': 'central', 'central': 'central', 'distal': 'distal', 'proximal': 'proximal',
+      'superior': 'superieur', 'inferior': 'inferieur', 'lateral': 'lateral', 'premolar': 'premolaire', 'molar': 'molaire', 'canine': 'canine', 'vertebra': 'vertebre'
+    };
+    return (s||'').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/supero/g, 'superieur ').replace(/infero/g, 'inferieur ').replace(/latero/g, 'lateral ').replace(/medio/g, 'central ')
+      .split(/[\s\._-]/)
+      .map(v => {
+          let t = trans[v] || v;
+          if (t === 'medial') return 'central'; 
+          return t;
+      })
+      .filter(v => (v.length > 2 || /\d/.test(v) || ['i','ii','iii','iv','v'].includes(v)) && v !== 'bone' && v !== 'os');
+  };
+
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const labelRef = useRef<HTMLDivElement>(null);
@@ -61,6 +102,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
 
   const [history, setHistory] = useState<SceneSnapshot[]>([]);
   const [future, setFuture] = useState<SceneSnapshot[]>([]);
+  const anatomyDataRef = useRef<AnatomyItem[]>([]);
   
   // ── Selection: ref for imperative code, state for React re-renders ──
   const selRef = useRef<ExtendedMesh | null>(null);
@@ -77,12 +119,12 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     if (saved) return saved;
     return theme === 'light' ? '#f3f4f6' : '#0a0a0a';
   });
-  const [showLabels, setShowLabels] = useState(true);
+  const [showLabels, setShowLabels] = useState(false);
 
 
   const raycaster = useRef(new THREE.Raycaster());
   const mouse = useRef(new THREE.Vector2());
-  const showLabelsRef = useRef(true);
+  const showLabelsRef = useRef(false);
   const onSelectRef = useRef(onSelect);
   const lastLogRef = useRef<Record<number, number>>({});
 
@@ -97,7 +139,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
         method: 'POST',
         body: JSON.stringify({ object_id: item.id })
       });
-    } catch (e) { console.warn("Analytics error:", e); }
+    } catch (e) { /* Analytics error silenced */ }
   };
 
   useEffect(() => { onSelectRef.current = onSelect; }, [onSelect]);
@@ -246,7 +288,6 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
   }
 
   function deselect() {
-    console.log('[AnatomyViewer] deselect called');
     if (selRef.current && selRef.current.material instanceof THREE.MeshStandardMaterial) {
       selRef.current.material.emissive.setHex(0x000000);
     }
@@ -404,7 +445,6 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     const descendants = new Set<string>();
     selected.traverse(c => descendants.add(c.uuid));
     
-    console.log(`[isolate] Tool active for: ${selected.name || 'unnamed'} (${selected.userData.info?.name || 'no info'}). Descendants: ${descendants.size}`);
     
     const targetUuid = selected.uuid;
     sceneRef.current?.traverse(obj => {
@@ -454,8 +494,14 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
   }
   function revealAll() {
     sceneRef.current?.traverse(c => {
+      const lowerName = c.name.toLowerCase();
+      // On ne réaffiche pas les objets système/texte masqués au chargement
+      if (lowerName.includes('skeletal') || lowerName.includes('system') || lowerName.includes('scene')) {
+        return;
+      }
+      
       c.visible = true;
-    if (c instanceof THREE.Mesh && c.material instanceof THREE.MeshStandardMaterial) {
+      if (c instanceof THREE.Mesh && c.material instanceof THREE.MeshStandardMaterial) {
         c.material.emissive.setHex(0x000000); 
         c.material.opacity = 1; 
         c.material.transparent = false; 
@@ -748,7 +794,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
             }
           }
         } catch (e) { 
-          console.warn("[Cache] Impossible de joindre le backend pour les métadonnées", e); 
+          /* Error silenced */
         }
       }
 
@@ -769,7 +815,6 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
       const hasLocalData = !!(cachedGlb && cachedHierarchyData);
       const isUpToDate = assetIdStr && hasLocalData && (isOffline || !assetMeta || localVersion >= remoteVersion);
 
-      console.log(`[Cache Debug] ID: ${assetIdStr}, hasLocal: ${hasLocalData}, vLocal: ${localVersion}, vRemote: ${remoteVersion}, isUpToDate: ${isUpToDate}`);
 
       // 2. Charger la hiérarchie
       if (initialAnatomicalData?.length) {
@@ -779,7 +824,6 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
           if (!isOffline) {
              const lastSync = cachedAsset?.hierarchy_updated_at;
              const ep = `/anatomy/all?asset_3d_id=${assetIdStr}${lastSync ? `&since=${lastSync}` : ''}`;
-             console.log(`[Network] Tentative sync hiérarchie... ${lastSync ? '(Incrémental)' : '(Complet)'}`);
              
              const updates: AnatomyItem[] = await apiCall(ep);
              
@@ -817,7 +861,6 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
           }
         } catch (e) {
           if (cachedHierarchyData) {
-            console.warn("[Cache] Échec réseau hiérarchie, fallback cache", e);
             data = cachedHierarchyData as AnatomyItem[];
           } else {
             throw new Error(t("Modèle non disponible.", "Model not available."));
@@ -828,7 +871,6 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
       // 3. Charger le binaire GLB
       let gltf;
       if (isUpToDate && cachedGlb) {
-        console.log(`[Cache DB] GLB chargé depuis le cache (v${localVersion})`);
         const blob = new Blob([cachedGlb], { type: 'model/gltf-binary' });
         const blobUrl = URL.createObjectURL(blob);
         gltf = await new Promise<any>((res, rej) => 
@@ -836,7 +878,6 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
         );
       } else {
         // Téléchargement si nécessaire
-        console.log(`[Network] Téléchargement GLB depuis ${path}...`);
         const response = await fetch(path);
         if (!response.ok) throw new Error(t("Échec du téléchargement du modèle.", "Failed to download model."));
         const arrayBuffer = await response.arrayBuffer();
@@ -861,19 +902,9 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
       }
 
       const model = gltf.scene;
-      let matchedCount = 0;
       let totalMeshes = 0;
       
-      const clean = (s: string) => {
-        if (!s) return '';
-        return s.toLowerCase()
-          .replace(/_bone$/, '')        // Hamate_bone -> Hamate
-          .replace(/_bone_\d+$/, '')    // Hamate_bone_1 -> Hamate
-          .replace(/cle$/, 'cule')       // Clavicle -> Clavicule
-          .replace(/[\s\._-]/g, '')     // Enlever tout séparateur
-          .replace(/\d+$/, '')          // Enlever les nombres finaux
-          .trim();
-      };
+
         
       const unmatchedNames: string[] = [];
       model.traverse((obj: THREE.Object3D) => {
@@ -889,24 +920,49 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
           if (i.three_js_name && clean(i.three_js_name) === targetName) return true;
           if (typeof i.name === 'string') return clean(i.name) === targetName;
           if (i.name && typeof i.name === 'object') {
-             // On check fr puis en pour le matching mesh
              const n = i.name as any;
              if (n.fr && clean(n.fr) === targetName) return true;
              if (n.en && clean(n.en) === targetName) return true;
           }
           return false;
         });
+
+        // Fallback: Recherche par mots-clés (Keyword Matching) assouplie
+        if (!info) {
+          const targetK = getK(obj.name);
+          if (targetK.length > 0) {
+            info = data.find(i => {
+              const namesToTest = [
+                i.three_js_name,
+                typeof i.name === 'string' ? i.name : (i.name as any)?.fr,
+                (i.name as any)?.en
+              ].filter(Boolean);
+              
+              return namesToTest.some(candidate => {
+                const candK = getK(candidate!);
+                const matches = targetK.filter(tk => candK.some(ck => ck.includes(tk) || tk.includes(ck)));
+                // Match si on trouve au moins n-1 mots-clés (plus tolérant pour les adjectifs)
+                return matches.length >= Math.max(1, targetK.length - 1);
+              });
+            });
+          }
+        }
         
         if (info) {
           m.userData.info = info;
-          matchedCount++;
+          m.visible = true;
         } else {
+          const l = obj.name.toLowerCase();
+          // On cache agressivement ce qui n'est pas matché et qui ressemble à de la déco Blender
+          if (l.includes('skeletal') || l.includes('system') || l.includes('text') || l.includes('plane') || l.includes('scene') || l.includes('logo') || l.includes('empty') || l.includes('camera')) {
+            m.visible = false;
+          } else {
+            m.visible = true; 
+          }
           unmatchedNames.push(obj.name);
         }
       });
-      console.log(`[Load] Matched: ${matchedCount}/${totalMeshes} meshes.`);
-      console.log(`[DEBUG] Noms GLTF non-reconnus (échantillon) :`, unmatchedNames.slice(0, 30));
-      console.log(`[DEBUG] Noms attendus en DB (échantillon) :`, data.slice(0, 20).map(i => i.three_js_name || i.name));
+      anatomyDataRef.current = data;
 
 
       const box = new THREE.Box3().setFromObject(model);
@@ -979,6 +1035,12 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     if (hits.length) {
       const obj = hits[0].object as ExtendedMesh;
       if (obj.visible) {
+        const name = (getLoc(obj.userData.info?.name) || obj.name || '').toLowerCase();
+        if (name.includes('skeletal system') || name.includes('scene') || name.includes('root') || name === 'object_0') {
+          labelRef.current.style.display = 'none';
+          document.body.style.cursor = 'default';
+          return;
+        }
         labelRef.current.style.display = 'block';
         const s = labelRef.current.querySelector('span');
         if (s) s.textContent = getLoc(obj.userData.info?.name) || obj.name;
@@ -999,6 +1061,25 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     if (hits.length) {
       const obj = hits[0].object as ExtendedMesh;
       let info = obj.userData.info;
+
+      // Nouveaux logs demandés par l'utilisateur
+      const modelName = obj.name;
+      const dbMatch = info ? (getLoc(info.name) || info.three_js_name) : 'Aucun match';
+      console.log(`[AnatomyClick] Model: "${modelName}" | DB Match: "${dbMatch}"`);
+      
+      if (!info) {
+        const targetK = getK(modelName);
+        console.log(`[DebugMatch] Target: "${modelName}" -> Keywords: ${targetK.join(', ')}`);
+        const sim = anatomyDataRef.current.filter(i => {
+           const names = [i.three_js_name, typeof i.name === 'string' ? i.name : (i.name as any)?.fr, (i.name as any)?.en].filter(Boolean);
+           return names.some(cand => {
+             const candK = getK(cand!);
+             const matches = targetK.filter(tk => candK.some(ck => ck.includes(tk) || tk.includes(ck)));
+             return matches.length >= Math.max(1, targetK.length - 1);
+           });
+        }).map(i => getLoc(i.name)).slice(0, 3);
+        if (sim.length > 0) console.log(`   Similitudes trouvées en base : ${sim.join(', ')}`);
+      }
       if (obj.visible) {
         if (selRef.current === obj) return;
         
@@ -1055,21 +1136,35 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     if (!showLabelsRef.current) return;
     
     let visibleMeshes: ExtendedMesh[] = [];
-    eachMesh(m => { if (m.visible && (m.userData.info || m === selRef.current)) visibleMeshes.push(m); });
+    eachMesh(m => {
+      if (!m.visible) return;
+      if (!(m.userData.info || m === selRef.current)) return;
+      // Exclure les labels pour les objets racine ("Skeletal System", etc.)
+      const info = m.userData.info;
+      const n = (getLoc(info?.name) || m.name || '').toLowerCase();
+      
+      if (n.includes('skeletal system') || 
+          n.includes('système squelettique') || 
+          n.includes('squelette humain') || 
+          n.includes('scene') ||
+          n.includes('root') ||
+          (info && info.id === 1)) return;
+      visibleMeshes.push(m);
+    });
 
     // Regrouper par ID anatomique pour éviter les doublons d'étiquettes
     // Cela permet d'afficher plus de parties différentes sans surcharger l'écran
-    const uniqueMap = new Map<number | string, ExtendedMesh>();
+    // Regrouper par NOM pour éviter les doublons d'étiquettes visuels
+    const uniqueMap = new Map<string, ExtendedMesh>();
     visibleMeshes.forEach(m => {
-      const key = m.userData.info?.id || m.uuid;
-      // On garde la première mesh trouvée pour cet ID, ou celle sélectionnée
-      if (!uniqueMap.has(key) || m === selRef.current) {
-        uniqueMap.set(key, m);
+      const name = getLoc(m.userData.info?.name) || m.name;
+      // On garde la première mesh trouvée pour ce NOM, ou celle sélectionnée
+      if (!uniqueMap.has(name) || m === selRef.current) {
+        uniqueMap.set(name, m);
       }
     });
 
-    const targetMeshes = Array.from(uniqueMap.values()).slice(0, 150);
-    console.log(`[rebuildLabels] Parts: ${uniqueMap.size}, Meshes: ${visibleMeshes.length}, Showing: ${targetMeshes.length}`);
+    const targetMeshes = Array.from(uniqueMap.values()).slice(0, 100);
 
     if (targetMeshes.length > 0) {
       const frag = document.createDocumentFragment();
@@ -1092,7 +1187,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
         labelText.onclick = (ev) => {
           ev.stopPropagation();
           ev.preventDefault();
-          console.log('[Label Click]', m.userData.info?.name);
+          /* Label click log removed */
           
           if (selRef.current === m) return;
           // Reset previous selection
@@ -1159,23 +1254,34 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
       }
     });
 
-    // Séparation Gauche / Droite équilibrée pour éviter l'encombrement d'un seul côté
-    const sortedByX = [...visibleData].sort((a, b) => a.posX - b.posX);
-    const mid = Math.ceil(sortedByX.length / 2);
-    const leftSide = sortedByX.slice(0, mid).sort((a, b) => a.y - b.y);
-    const rightSide = sortedByX.slice(mid).sort((a, b) => a.y - b.y);
+    // Séparation Gauche / Droite selon la position réelle de l'organe à l'écran
+    const leftSide = visibleData.filter(d => d.posX <= 0).sort((a, b) => a.y - b.y);
+    const rightSide = visibleData.filter(d => d.posX > 0).sort((a, b) => a.y - b.y);
 
     const arrange = (list: any[], edgeX: number, isRight: boolean) => {
       const total = list.length;
       if (total === 0) return;
       
-      // Zone de sécurité verticale (évite le D-Pad en bas à droite et les bords)
-      const marginTop = 60;
-      const marginBottom = isRight ? 220 : 60; 
+      const isMobile = window.innerWidth < 768;
+      const marginTop = isMobile ? 40 : 80;
+      const marginBottom = isRight ? (isMobile ? 140 : 220) : (isMobile ? 40 : 80); 
       const availableHeight = Math.max(h - marginTop - marginBottom, 100);
-      const step = availableHeight / (total + 1);
+      
+      // Calculer le step, mais imposer un minimum pour éviter les chevauchements
+      const minStep = isMobile ? 22 : 28;
+      let step = availableHeight / (total + 1);
+      
+      // Si trop de labels, on en masque certains pour garder la lisibilité
+      let displayList = list;
+      if (step < minStep) {
+        step = minStep;
+        const maxPossible = Math.floor(availableHeight / minStep);
+        displayList = list.slice(0, maxPossible);
+        // Cacher les autres
+        list.slice(maxPossible).forEach(d => d.pin.style.display = 'none');
+      }
 
-      list.forEach((d, i) => {
+      displayList.forEach((d, i) => {
         const targetY = marginTop + step * (i + 1);
         const targetX = edgeX;
         
@@ -1192,16 +1298,23 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
           
           txt.style.left = offX + 'px';
           txt.style.top = offY + 'px';
-          txt.style.transform = `translate(${isRight ? '0%' : '-100%'}, -50%)`;
           
-          line.setAttribute('x2', String(offX));
+          // Aligner les textes pour qu'ils s'étendent vers l'intérieur (évite les coupures aux bords)
+          txt.style.transform = `translate(${isRight ? '-100%' : '0%'}, -50%)`;
+          
+          // Ajuster la ligne pour qu'elle s'arrête au bord du texte le plus proche du modèle
+          const tw = txt.offsetWidth;
+          const lineEndX = isRight ? (offX - tw - 4) : (offX + tw + 4);
+          
+          line.setAttribute('x2', String(lineEndX));
           line.setAttribute('y2', String(offY));
         }
       });
     };
 
-    arrange(leftSide, 150, false); // 150px du bord gauche
-    arrange(rightSide, w - 150, true); // 150px du bord droit
+    const hEdge = window.innerWidth < 768 ? 10 : 60;
+    arrange(leftSide, hEdge, false); // Bord gauche
+    arrange(rightSide, w - hEdge, true); // Bord droit
   }
 
   useEffect(() => {

@@ -321,6 +321,27 @@
   animation: vlo-shim 1.5s infinite;
 }
 
+@media (max-width: 768px) {
+  .dpad-controls {
+    bottom: 12px;
+    right: 12px;
+    grid-template-columns: repeat(3, 32px);
+    grid-template-rows: repeat(3, 32px);
+    gap: 2px;
+  }
+  .zoom-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+    border-radius: 6px;
+  }
+  
+  .label-text {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+}
+
 @keyframes vlo-shim {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(100%); }
