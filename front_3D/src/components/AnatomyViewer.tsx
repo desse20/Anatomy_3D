@@ -160,6 +160,32 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     if (name) descRef.current.innerHTML = `<strong>${name}</strong><br><br>${text.replace(/\n/g, '<br>')}`;
     else descRef.current.innerHTML = text;
   }
+  
+  const syncHierarchy = (id: number | string) => {
+    const targetId = String(id);
+    document.querySelectorAll('.item-row').forEach(el => el.classList.remove('selected-item'));
+    for (const row of Array.from(document.querySelectorAll<HTMLElement>('.item-row'))) {
+      if (row.dataset.id === targetId) {
+        row.classList.add('selected-item');
+        
+        let parent = row.parentElement;
+        while (parent && !parent.classList.contains('hierarchy-panel')) {
+          if (parent.tagName === 'UL' && parent.classList.contains('nested')) {
+            parent.classList.add('active');
+            const li = parent.parentElement;
+            if (li && li.tagName === 'LI') {
+              const caret = li.querySelector('.caret');
+              if (caret) caret.classList.add('caret-down');
+            }
+          }
+          parent = parent.parentElement;
+        }
+        
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        break;
+      }
+    }
+  };
 
   const loadDescriptionLazily = (item: AnatomyItem | null | undefined, itemName: string) => {
     if (!item) {
@@ -452,7 +478,6 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     
     const targetUuid = selected.uuid;
     sceneRef.current?.traverse(obj => {
-      // On ne touche pas à la scène elle-même ou aux lumières/caméras de base
       if (obj instanceof THREE.Scene || obj instanceof THREE.Light || obj instanceof THREE.Camera) return;
 
       const isTarget = obj.uuid === targetUuid;
@@ -464,8 +489,6 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
           obj.material.transparent = false; obj.material.opacity = 1; obj.material.depthWrite = true; obj.material.needsUpdate = true;
         }
       } else {
-        // Pour les objets qui sont dans le modèle (pas les lumières externes)
-        // On cache tout ce qui n'est pas le root, une lumière ou une caméra
         obj.visible = false;
         if (obj instanceof THREE.Mesh && obj.material instanceof THREE.MeshStandardMaterial) {
           obj.material.transparent = true; obj.material.opacity = 0; obj.material.depthWrite = false; obj.material.needsUpdate = true;
@@ -1096,13 +1119,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
         
         if (info) {
           // Sync hierarchy selection
-          for (const row of Array.from(document.querySelectorAll<HTMLElement>('.item-row'))) {
-            if (row.dataset.id === String(info.id)) { 
-              row.classList.add('selected-item'); 
-              row.scrollIntoView({ behavior: 'smooth', block: 'center' }); 
-              break;
-            }
-          }
+          syncHierarchy(info.id);
 
           const itemName = getLoc(info.name);
           loadDescriptionLazily(info, itemName);
@@ -1136,40 +1153,104 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     
     if (!showLabelsRef.current) return;
     
-    let visibleMeshes: ExtendedMesh[] = [];
-    eachMesh(m => {
-      if (!m.visible) return;
-      if (!(m.userData.info || m === selRef.current)) return;
-      // Exclure les labels pour les objets racine ("Skeletal System", etc.)
-      const info = m.userData.info;
-      const n = (getLoc(info?.name) || m.name || '').toLowerCase();
-      
-      if (n.includes('skeletal system') || 
-          n.includes('système squelettique') || 
-          n.includes('squelette humain') || 
-          n.includes('scene') ||
-          n.includes('root') ||
-          (info && info.id === 1)) return;
-      visibleMeshes.push(m);
-    });
+    const visibleMeshes: ExtendedMesh[] = [];
+    eachMesh(m => { if (m.visible && m.userData.info) visibleMeshes.push(m); });
 
-    // Regrouper par ID anatomique pour éviter les doublons d'étiquettes
-    // Cela permet d'afficher plus de parties différentes sans surcharger l'écran
-    // Regrouper par NOM pour éviter les doublons d'étiquettes visuels
-    const uniqueMap = new Map<string, ExtendedMesh>();
+    if (visibleMeshes.length === 0) return;
+
+    // 1. Construire le parentMap
+    const parentMap = new Map<number, number>();
+    anatomyDataRef.current.forEach(item => { if (item.parent_id) parentMap.set(item.id, item.parent_id); });
+
+    const getAncestors = (id: number) => {
+      const path = [id];
+      let curr = parentMap.get(id);
+      while (curr) { path.push(curr); curr = parentMap.get(curr); }
+      return path.reverse(); // [1, ..., parent, id]
+    };
+
+    // 2. Trouver l'ancêtre commun le plus proche (LCA) de tous les objets visibles
+    // On exclut l'ID 1 du calcul pour éviter que le titre reste bloqué sur "Squelette humain"
+    // si un petit morceau du buste ou une mesh de fond est encore visible.
+    const relevantIds = visibleMeshes.map(m => m.userData.info.id).filter(id => id !== 1);
+    
+    let currentRootId = 1;
+    if (relevantIds.length > 0) {
+      let commonPath: number[] = getAncestors(relevantIds[0]);
+      for (let i = 1; i < relevantIds.length; i++) {
+        const path = getAncestors(relevantIds[i]);
+        let j = 0;
+        while (j < commonPath.length && j < path.length && commonPath[j] === path[j]) { j++; }
+        commonPath = commonPath.slice(0, j);
+      }
+      currentRootId = commonPath[commonPath.length - 1] || 1;
+    }
+
+    // Afficher le titre du contexte (le parent commun actuel)
+    const rootItem = anatomyDataRef.current.find(it => it.id === currentRootId);
+    if (rootItem) {
+      const titleWrapper = document.createElement('div');
+      titleWrapper.className = 'anatomy-root-title-wrapper';
+      
+      const titleEl = document.createElement('div');
+      titleEl.className = 'anatomy-root-title';
+      titleEl.innerHTML = `<span>${t('Vue :', 'View:')} </span>${getLoc(rootItem.name)}`;
+      
+      titleWrapper.appendChild(titleEl);
+      labelsOverlayRef.current.appendChild(titleWrapper);
+    }
+
+    // 3. Identifier les cibles : les enfants directs du LCA qui sont visibles dans une branche
+    const targetMeshes: { mesh: ExtendedMesh; labelName: string }[] = [];
+    const processedGroups = new Set<number>();
+
+    // Liste d'exclusion pour les noms
+    const isExcluded = (name: string) => {
+      const n = name.toLowerCase();
+      return n.includes('skeletal system') || n.includes('système squelettique') || n.includes('squelette humain') || n.includes('root') || n.includes('scene');
+    };
+
     visibleMeshes.forEach(m => {
-      const name = getLoc(m.userData.info?.name) || m.name;
-      // On garde la première mesh trouvée pour ce NOM, ou celle sélectionnée
-      if (!uniqueMap.has(name) || m === selRef.current) {
-        uniqueMap.set(name, m);
+      const info = m.userData.info;
+      if (info.id === 1) return; // Jamais d'étiquette pour la racine globale
+
+      let p = info.id;
+      let topUnderRoot = p;
+
+      while (p && p !== currentRootId) {
+        const parentId = parentMap.get(p);
+        if (parentId === currentRootId) {
+          topUnderRoot = p;
+          break;
+        }
+        p = parentId || 0;
+      }
+
+      if (topUnderRoot && topUnderRoot !== currentRootId && !processedGroups.has(topUnderRoot)) {
+        const groupItem = anatomyDataRef.current.find(it => it.id === topUnderRoot);
+        const name = groupItem ? getLoc(groupItem.name) : (getLoc(m.userData.info?.name) || m.name);
+        
+        if (!isExcluded(name)) {
+          // On clone m pour l'affichage mais on change son nom pour le label
+          targetMeshes.push({ mesh: m, labelName: name });
+          processedGroups.add(topUnderRoot);
+        }
       }
     });
 
-    const targetMeshes = Array.from(uniqueMap.values()).slice(0, 100);
+    // S'assurer que l'élément sélectionné a son étiquette si visible (et pas la racine ou le groupe déjà affiché)
+    if (selRef.current && selRef.current.visible && selRef.current.userData.info && selRef.current.userData.info.id !== currentRootId) {
+        const selId = selRef.current.userData.info.id;
+        if (!processedGroups.has(selId)) {
+            targetMeshes.push({ mesh: selRef.current, labelName: getLoc(selRef.current.userData.info.name) });
+        }
+    }
 
     if (targetMeshes.length > 0) {
       const frag = document.createDocumentFragment();
-      targetMeshes.forEach((m) => {
+      // On limite à 15 étiquettes max
+      targetMeshes.slice(0, 15).forEach((item) => {
+        const m = item.mesh;
         const el = document.createElement('div');
         el.className = 'anatomy-label-pin';
         el.dataset.uuid = m.uuid;
@@ -1181,10 +1262,9 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
             <circle cx="0" cy="0" r="3" fill="#fbbf24" />
           </svg>
         `;
-        // Create clickable label text with DIRECT onclick handler
         const labelText = document.createElement('div');
         labelText.className = 'label-text';
-        labelText.textContent = getLoc(m.userData.info?.name) || m.name;
+        labelText.textContent = item.labelName;
         labelText.onclick = (ev) => {
           ev.stopPropagation();
           ev.preventDefault();
@@ -1201,18 +1281,8 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
           const itemName = getLoc(m.userData.info?.name) || m.name;
           loadDescriptionLazily(m.userData.info, itemName);
 
-          
           // Sync hierarchy selection
-          document.querySelectorAll('.item-row').forEach(r => r.classList.remove('selected-item'));
-          const boneName = getLoc(m.userData.info?.name) || m.name;
-          for (const row of Array.from(document.querySelectorAll<HTMLElement>('.item-row'))) {
-            const s = row.querySelector('span:last-child');
-            if (s && s.textContent === boneName) { 
-              row.classList.add('selected-item'); 
-              row.scrollIntoView({ behavior: 'smooth', block: 'center' }); 
-              break;
-            }
-          }
+          if (m.userData.info?.id) syncHierarchy(m.userData.info.id);
         };
         el.appendChild(labelText);
         frag.appendChild(el);
@@ -1339,18 +1409,8 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
           const itemName = getLoc(mesh.userData.info?.name) || mesh.name;
           loadDescriptionLazily(mesh.userData.info, itemName);
 
-          
           // Sync hierarchy selection
-          document.querySelectorAll('.item-row').forEach(el => el.classList.remove('selected-item'));
-          const boneName = getLoc(mesh.userData.info?.name) || mesh.name;
-          for (const row of Array.from(document.querySelectorAll<HTMLElement>('.item-row'))) {
-            const s = row.querySelector('span:last-child');
-            if (s && s.textContent === boneName) { 
-              row.classList.add('selected-item'); 
-              row.scrollIntoView({ behavior: 'smooth', block: 'center' }); 
-              break;
-            }
-          }
+          if (mesh.userData.info?.id) syncHierarchy(mesh.userData.info.id);
         }
       }
     };
@@ -1487,6 +1547,43 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
         <div ref={hierarchyRef} id="hierarchy-root" />
       </div>
       <div ref={containerRef} id="canvas-container">
+        <style>{`
+          .anatomy-root-title-wrapper {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            pointer-events: none;
+            z-index: 1000;
+          }
+          .anatomy-root-title {
+            background: #000;
+            border: 1px solid #fbbf24;
+            color: #fbbf24;
+            padding: 6px 20px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            letter-spacing: 0.5px;
+          }
+          @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+          .anatomy-root-title span {
+            color: #fff;
+            opacity: 0.6;
+            font-weight: 500;
+            font-size: 12px;
+          }
+        `}</style>
         <div ref={labelsOverlayRef} className="labels-overlay" />
         <div className="dpad-controls">
           <button className="zoom-btn dpad-up"    onClick={() => zoom(0.3)}          title="Zoom avant">+</button>

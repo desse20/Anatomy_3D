@@ -77,8 +77,12 @@ class RealisticMockSeeder extends Seeder
                 // Calcul réaliste des dates de révision (Spaced Repetition)
                 // Niveau 1 : révision très fréquente (dans 1-2 jours)
                 // Niveau 5 : révision rare (dans 30-60 jours)
-                $lastReview = $this->faker->dateTimeBetween('-1 month', 'now');
+                // Plus l'utilisateur a d'items, plus on étale la plage pour éviter
+                // que toutes les prochaines révisions ne tombent en même temps.
+                $spreadDays = max(30, min(90, (int) floor(count($selectedIds) / 3)));
+                $lastReview = $this->faker->dateTimeBetween("-{$spreadDays} days", 'now');
                 $daysUntilNext = match($masteryLevel) {
+                    0 => $this->faker->numberBetween(1, 2),
                     1 => $this->faker->numberBetween(1, 3),
                     2 => $this->faker->numberBetween(3, 7),
                     3 => $this->faker->numberBetween(7, 14),
