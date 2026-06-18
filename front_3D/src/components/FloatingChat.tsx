@@ -58,6 +58,7 @@ const FloatingChat: React.FC<FloatingChatProps> = ({ isOpen: propIsOpen, onToggl
     const [isLoading, setIsLoading] = useState(false);
     const [input, setInput] = useState('');
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const pollIntervals = useRef<Set<ReturnType<typeof setInterval>>>(new Set());
 
     // Auto-resize textarea
     useEffect(() => {
@@ -85,6 +86,14 @@ const FloatingChat: React.FC<FloatingChatProps> = ({ isOpen: propIsOpen, onToggl
     const [isSearching, setIsSearching] = useState(false);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    // Cleanup polling intervals on unmount
+    useEffect(() => {
+        return () => {
+            pollIntervals.current.forEach(clearInterval);
+            pollIntervals.current.clear();
+        };
+    }, []);
 
     // Sync sessions from backend on open
     useEffect(() => {
@@ -130,6 +139,7 @@ const FloatingChat: React.FC<FloatingChatProps> = ({ isOpen: propIsOpen, onToggl
                 
                 if (res.status === 'done') {
                     clearInterval(poll);
+                    pollIntervals.current.delete(poll);
                     const aiMessage: Message = { role: 'ai', content: res.response };
                     setSessions(prev => prev.map(s => 
                         s.id === sessionId ? { ...s, pendingJobId: undefined, messages: [...s.messages, aiMessage] } : s
@@ -140,10 +150,12 @@ const FloatingChat: React.FC<FloatingChatProps> = ({ isOpen: propIsOpen, onToggl
                     }
                 } else if (res.status === 'error' || attempts > 100) {
                     clearInterval(poll);
+                    pollIntervals.current.delete(poll);
                     setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, pendingJobId: undefined } : s));
                     if (sessionId === currentSessionId) setIsLoading(false);
                 }
             }, 3000);
+            pollIntervals.current.add(poll);
         } catch (e) {
             setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, pendingJobId: undefined } : s));
             if (sessionId === currentSessionId) setIsLoading(false);

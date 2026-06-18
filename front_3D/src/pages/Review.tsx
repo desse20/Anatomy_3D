@@ -84,6 +84,8 @@ const Review: React.FC = () => {
     const [isMaximized, setIsMaximized] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const pollIntervals = useRef<Set<ReturnType<typeof setInterval>>>(new Set());
+    const navigatingFromCode = useRef(false);
 
     // ── Sync localStorage ↔ backend ────────────────────────────────────────
     // Au montage, on récupère les conversations existantes en BDD et on purge
@@ -121,36 +123,40 @@ const Review: React.FC = () => {
         stored.forEach(s => {
             if (s.pendingJobId) resumeJob(s.pendingJobId, s.id);
         });
+
+        return () => {
+            pollIntervals.current.forEach(clearInterval);
+            pollIntervals.current.clear();
+        };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Sync currentSessionId with URL
+    // Effect 1: Quand l'utilisateur change de session (clic, nouveau message),
+    // on met à jour l'URL et on pose un flag pour qu'Effect 2 ignore ce changement.
     useEffect(() => {
         if (currentSessionId) {
             const session = sessions.find(s => s.id === currentSessionId);
-            const idToUse = session?.conversationId || session?.id;
-            if (idToUse && idToUse !== urlId) {
-                navigate(`/chat/${idToUse}`, { replace: true });
-            }
-        } else if (urlId) {
-            // Find session by local id or conversationId
-            const found = sessions.find(s => s.id === urlId || s.conversationId === urlId);
-            if (found) {
-                setCurrentSessionId(found.id);
+            if (session && session.id !== urlId) {
+                navigatingFromCode.current = true;
+                navigate(`/chat/${session.id}`, { replace: true });
             }
         }
-    }, [currentSessionId, sessions, navigate, urlId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentSessionId, navigate]);
 
-    // Handle back/forward navigation or initial load from URL
+    // Effect 2: Quand l'URL change de l'extérieur (back/forward, saisie directe),
+    // on active la session correspondante. On ignore les changements qu'on a nous-mêmes déclenchés.
     useEffect(() => {
+        if (navigatingFromCode.current) {
+            navigatingFromCode.current = false;
+            return;
+        }
         if (urlId) {
             const found = sessions.find(s => s.id === urlId || s.conversationId === urlId);
             if (found && found.id !== currentSessionId) {
                 setCurrentSessionId(found.id);
             }
         } else if (currentSessionId) {
-            // Si on est sur /chat mais qu'on a une session active, on pourrait vouloir la garder?
-            // Mais pour l'instant on suit l'URL : /chat => pas de session.
             setCurrentSessionId(null);
         }
     }, [urlId, sessions]);
@@ -165,6 +171,7 @@ const Review: React.FC = () => {
                 
                 if (res.status === 'done') {
                     clearInterval(poll);
+                    pollIntervals.current.delete(poll);
                     const aiMessage: Message = { role: 'ai', content: res.response };
                     setSessions(prev => prev.map(s => 
                         s.id === sessionId ? { ...s, pendingJobId: undefined, messages: [...s.messages, aiMessage] } : s
@@ -175,10 +182,12 @@ const Review: React.FC = () => {
                     }
                 } else if (res.status === 'error' || attempts > 100) {
                     clearInterval(poll);
+                    pollIntervals.current.delete(poll);
                     setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, pendingJobId: undefined } : s));
                     if (sessionId === currentSessionId) setIsChatting(false);
                 }
             }, 3000);
+            pollIntervals.current.add(poll);
         } catch (e) {
             setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, pendingJobId: undefined } : s));
             if (sessionId === currentSessionId) setIsChatting(false);

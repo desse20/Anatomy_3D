@@ -79,7 +79,7 @@ class AiController extends Controller
         // 2. Stocker les données temporaires pour la commande
         Cache::put("ai_job_payload:{$jobId}", [
             'userId'         => (string) $studentId,
-            'conversationId' => (string) $conversationId,
+            'conversationId' => (string) $conversation->id,
             'userInput'      => $userInput,
             'enrichedPrompt' => $enrichedPrompt,
             'systemPrompt'   => $systemPrompt,
@@ -123,7 +123,7 @@ class AiController extends Controller
         try {
             $binary = config('services.ollama.binary', '/usr/local/bin/ollama');
             $process = new \Symfony\Component\Process\Process([$binary, 'list']);
-            $process.run();
+            $process->run();
             if (!$process->isSuccessful()) return response()->json(['models' => []]);
             $lines = explode("\n", trim($process->getOutput()));
             array_shift($lines);
