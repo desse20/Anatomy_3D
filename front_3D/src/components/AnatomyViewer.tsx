@@ -1172,7 +1172,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
     // 2. Trouver l'ancêtre commun le plus proche (LCA) de tous les objets visibles
     // On exclut l'ID 1 du calcul pour éviter que le titre reste bloqué sur "Squelette humain"
     // si un petit morceau du buste ou une mesh de fond est encore visible.
-    const relevantIds = visibleMeshes.map(m => m.userData.info.id).filter(id => id !== 1);
+    const relevantIds = visibleMeshes.filter(m => m.userData.info).map(m => m.userData.info!.id).filter(id => id !== 1);
     
     let currentRootId = 1;
     if (relevantIds.length > 0) {
@@ -1212,7 +1212,7 @@ const AnatomyViewer: React.FC<Props> = ({ assetId, modelPath: initialModelPath, 
 
     visibleMeshes.forEach(m => {
       const info = m.userData.info;
-      if (info.id === 1) return; // Jamais d'étiquette pour la racine globale
+      if (!info || info.id === 1) return; // Jamais d'étiquette pour la racine globale
 
       let p = info.id;
       let topUnderRoot = p;

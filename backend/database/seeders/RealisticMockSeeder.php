@@ -71,24 +71,24 @@ class RealisticMockSeeder extends Seeder
             $batch = [];
             foreach ($selectedIds as $objId) {
                 $masteryLevel = $weightedLevels[array_rand($weightedLevels)];
-                $successCount = $masteryLevel * $this->faker->numberBetween(2, 8);
-                $failureCount = max(0, $this->faker->numberBetween(0, 6) - ($masteryLevel - 1));
+                $successCount = $masteryLevel;
+                $failureCount = $this->faker->numberBetween(0, max(0, 3 - (int) floor($masteryLevel / 2)));
 
                 // Calcul réaliste des dates de révision (Spaced Repetition)
                 // Niveau 1 : révision très fréquente (dans 1-2 jours)
                 // Niveau 5 : révision rare (dans 30-60 jours)
                 // Plus l'utilisateur a d'items, plus on étale la plage pour éviter
                 // que toutes les prochaines révisions ne tombent en même temps.
-                $spreadDays = max(30, min(90, (int) floor(count($selectedIds) / 3)));
+                $spreadDays = max(90, min(365, (int) floor(count($selectedIds) / 2)));
                 $lastReview = $this->faker->dateTimeBetween("-{$spreadDays} days", 'now');
                 $daysUntilNext = match($masteryLevel) {
-                    0 => $this->faker->numberBetween(1, 2),
-                    1 => $this->faker->numberBetween(1, 3),
-                    2 => $this->faker->numberBetween(3, 7),
-                    3 => $this->faker->numberBetween(7, 14),
-                    4 => $this->faker->numberBetween(14, 30),
-                    5 => $this->faker->numberBetween(30, 90),
-                    default => 1
+                    0 => $this->faker->numberBetween(5, 6),
+                    1 => $this->faker->numberBetween(9, 11),
+                    2 => $this->faker->numberBetween(13, 15),
+                    3 => $this->faker->numberBetween(17, 18),
+                    4 => $this->faker->numberBetween(19, 20),
+                    5 => 20,
+                    default => 5
                 };
                 
                 $nextReview = (clone $lastReview)->modify("+$daysUntilNext days");
@@ -392,27 +392,31 @@ class RealisticMockSeeder extends Seeder
         if (!empty($anatomyIds)) {
             $totalObjects = count($anatomyIds);
 
-            // --- Étudiants (500 – 1200 objets) ---
+            // --- Étudiants (15 – 25 objets, max 20 tentatives par objet) ---
             $this->command->info('Génération de la maîtrise pour les étudiants...');
             $studentIds = User::where('role', 'student')->pluck('id')->toArray();
             
-            $minStudent = min(500, $totalObjects);
-            $maxStudent = min(1200, $totalObjects);
+            $minStudent = min(15, $totalObjects);
+            $maxStudent = min(25, $totalObjects);
             $this->seedMasteryForUsers($studentIds, $anatomyIds, $minStudent/$totalObjects, $maxStudent/$totalObjects, $weightedLevels);
 
-            // --- Enseignants (80 – 90%) ---
+            // --- Enseignants (15 – 25 objets) ---
             $this->command->info('Génération de la maîtrise pour les enseignants...');
             $teacherIds = User::where('role', 'teacher')->pluck('id')->toArray();
-            $this->seedMasteryForUsers($teacherIds, $anatomyIds, 0.80, 0.90, $weightedLevels);
+            $minTeacher = min(15, $totalObjects);
+            $maxTeacher = min(25, $totalObjects);
+            $this->seedMasteryForUsers($teacherIds, $anatomyIds, $minTeacher/$totalObjects, $maxTeacher/$totalObjects, $weightedLevels);
 
-            // --- Admins (2 – 5%) ---
+            // --- Admins (15 – 25 objets) ---
             $this->command->info('Génération de la maîtrise pour les administrateurs...');
             $adminIds = User::where('role', 'admin')->pluck('id')->toArray();
+            $minAdmin = min(15, $totalObjects);
+            $maxAdmin = min(25, $totalObjects);
             $this->seedMasteryForUsers(
                 $adminIds,
                 $anatomyIds,
-                0.02,
-                0.05,
+                $minAdmin/$totalObjects,
+                $maxAdmin/$totalObjects,
                 $weightedLevels
             );
             $this->command->info(count($adminIds) . ' administrateur(s) traité(s).');
