@@ -166,21 +166,29 @@ const Review: React.FC = () => {
         try {
             let attempts = 0;
             const poll = setInterval(async () => {
-                attempts++;
-                const res = await aiService.pollStatus(jobId);
-                
-                if (res.status === 'done') {
-                    clearInterval(poll);
-                    pollIntervals.current.delete(poll);
-                    const aiMessage: Message = { role: 'ai', content: res.response };
-                    setSessions(prev => prev.map(s => 
-                        s.id === sessionId ? { ...s, pendingJobId: undefined, messages: [...s.messages, aiMessage] } : s
-                    ));
-                    if (sessionId === currentSessionId) {
-                        setIsChatting(false);
-                        showSuccessToast();
+                try {
+                    attempts++;
+                    const res = await aiService.pollStatus(jobId);
+                    
+                    if (res.status === 'done') {
+                        clearInterval(poll);
+                        pollIntervals.current.delete(poll);
+                        const aiMessage: Message = { role: 'ai', content: res.response };
+                        setSessions(prev => prev.map(s => 
+                            s.id === sessionId ? { ...s, pendingJobId: undefined, messages: [...s.messages, aiMessage] } : s
+                        ));
+                        if (sessionId === currentSessionId) {
+                            setIsChatting(false);
+                            showSuccessToast();
+                        }
+                    } else if (res.status === 'error' || attempts > 100) {
+                        clearInterval(poll);
+                        pollIntervals.current.delete(poll);
+                        setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, pendingJobId: undefined } : s));
+                        if (sessionId === currentSessionId) setIsChatting(false);
                     }
-                } else if (res.status === 'error' || attempts > 100) {
+                } catch (e) {
+                    console.error("Polling error in Review:", e);
                     clearInterval(poll);
                     pollIntervals.current.delete(poll);
                     setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, pendingJobId: undefined } : s));

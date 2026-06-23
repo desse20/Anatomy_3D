@@ -68,7 +68,7 @@ class AiController extends Controller
             $historyList = count($history) > 0 ? implode('|', array_slice(array_reverse($history), 0, 5)) : 'None';
             $enrichedPrompt = "ANATOMY CONTEXT:\n$context\nAVOID REPEATING: $historyList\n\n$userInput";
             $systemPrompt   = __('messages.ai.system_prompt_quiz');
-            $maxTokens = 600;
+            $maxTokens = 2000;
         }
 
         $jobId = (string) Str::uuid();

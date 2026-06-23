@@ -100,6 +100,15 @@ const Quiz: React.FC = () => {
     const [masterQuestions, setMasterQuestions] = useState<Question[]>([]);
     const [topicLoading, setTopicLoading] = useState(false);
     
+    const [isLoading, setIsLoading] = useState(false);
+    const [pendingJobId, setPendingJobId] = useState<string | null>(localStorage.getItem('pending_quiz_job'));
+    const [questions, setQuestions] = useState<Question[]>([]);
+    const [currentIdx, setCurrentIdx] = useState(0);
+    const [selectedOpts, setSelectedOpts] = useState<number[]>([]);
+    const [textAnswer, setTextAnswer] = useState('');
+    const [error, setError] = useState<string | null>(null);
+    const [results, setResults] = useState({ correct: 0, total: 0 });
+
     // Nouveaux états pour la sélection manuelle
     const [isManualMode, setIsManualMode] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -142,26 +151,34 @@ const Quiz: React.FC = () => {
         try {
             let attempts = 0;
             const poll = setInterval(async () => {
-                attempts++;
-                const res = await aiService.pollStatus(jobId);
-                if (res.status === 'done') {
-                    clearInterval(poll);
-                    const parsed = parseAndSetQuestionsSingle(res.response, quizType, 0);
-                    if (parsed) {
-                        setQuestions(parsed);
-                        setMasterQuestions(parsed);
+                try {
+                    attempts++;
+                    const res = await aiService.pollStatus(jobId);
+                    if (res.status === 'done') {
+                        clearInterval(poll);
+                        const parsed = parseAndSetQuestionsSingle(res.response, quizType, 0);
+                        if (parsed) {
+                            setQuestions(parsed);
+                            setMasterQuestions(parsed);
+                            setIsLoading(false);
+                            setPendingJobId(null);
+                            localStorage.removeItem('pending_quiz_job');
+                        } else {
+                            throw new Error("Format invalide");
+                        }
+                    } else if (res.status === 'error' || attempts > 100) {
+                        clearInterval(poll);
+                        setError(language === 'fr' ? "Échec de la génération. Veuillez réessayer." : "Generation failed. Please try again.");
                         setIsLoading(false);
                         setPendingJobId(null);
                         localStorage.removeItem('pending_quiz_job');
-                    } else {
-                        throw new Error("Format invalide");
                     }
-                } else if (res.status === 'error' || attempts > 100) {
+                } catch (e) {
+                    console.error("Polling error:", e);
+                    // Network error or server down
                     clearInterval(poll);
-                    setError("Relancez le quiz.");
+                    setError(language === 'fr' ? "Erreur de connexion au serveur IA." : "AI server connection error.");
                     setIsLoading(false);
-                    setPendingJobId(null);
-                    localStorage.removeItem('pending_quiz_job');
                 }
             }, 3000);
         } catch (e) {
@@ -188,14 +205,7 @@ const Quiz: React.FC = () => {
         }
     }, [searchQuery]);
 
-    const [isLoading, setIsLoading] = useState(false);
-    const [pendingJobId, setPendingJobId] = useState<string | null>(localStorage.getItem('pending_quiz_job'));
-    const [questions, setQuestions] = useState<Question[]>([]);
-    const [currentIdx, setCurrentIdx] = useState(0);
-    const [selectedOpts, setSelectedOpts] = useState<number[]>([]);
-    const [textAnswer, setTextAnswer] = useState('');
-    const [error, setError] = useState<string | null>(null);
-    const [results, setResults] = useState({ correct: 0, total: 0 });
+
 
     const buildPrompt = (system: string | null, type: string | null, count: number) => {
         const lang   = language === 'fr' ? 'French' : 'English';
@@ -207,7 +217,7 @@ const Quiz: React.FC = () => {
         else format = 'STRICT OPEN QUESTION: NO options array. NO numeric index. correctAnswer MUST BE A STRING (the name of the structure). [{text, correctAnswer:string, explanation}]';
 
         const scope = system
-            ? `FOCUS EXCLUSIVELY on the DIRECT ANATOMICAL SUB-STRUCTURES of "${system}". Each question must test knowledge about ONE specific sub-structure (not about "${system}" itself).`
+            ? `FOCUS on the anatomical features, functions or direct sub-structures of "${system}". If no sub-structures exist, test knowledge about "${system}" itself (its morphology, relations, etc.).`
             : 'Cover diverse anatomy topics.';
 
         return `CRITICAL: OUTPUT MUST BE A VALID JSON ARRAY ONLY. NO COMMENTS. NO EXPLANATIONS OUTSIDE JSON.
@@ -216,7 +226,7 @@ const Quiz: React.FC = () => {
                 Format: ${format}.
                 Count: ${count}.
                 JSON Schema: [{"text": "...", "options": ["..."], "correctAnswer": 0, "explanation": "..."}]
-                RESPONSE MUST START WITH [ AND END WITH ].`;
+                RESPONSE MUST BE ONLY THE JSON ARRAY.`;
     };
 
     // Lancement depuis Review.tsx (avec système ciblé)
@@ -295,6 +305,7 @@ const Quiz: React.FC = () => {
     const parseAndSetQuestionsSingle = (response: string, type: string | null, startIndex: number): Question[] | null => {
         const cleanStr = (s: string) => {
             let c = s
+                .replace(/<thought>[\s\S]*?<\/thought>/gi, '') // Remove DeepSeek thought blocks
                 .replace(/\/\/.*/g, '')
                 .replace(/\/\*[\s\S]*?\*\//g, '')
                 .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
@@ -720,6 +731,18 @@ const Quiz: React.FC = () => {
                                                 : 'Analyzing anatomical structures and building clinical cases.')
                                         }
                                     </p>
+                                    <button 
+                                        className="qz-retry-btn" 
+                                        style={{ marginTop: '24px', opacity: 0.8 }}
+                                        onClick={() => {
+                                            setIsLoading(false);
+                                            setPendingJobId(null);
+                                            localStorage.removeItem('pending_quiz_job');
+                                            reset();
+                                        }}
+                                    >
+                                        {language === 'fr' ? 'Annuler la génération' : 'Cancel generation'}
+                                    </button>
                                 </div>
                             ) : error ? (
                                 <div className="qz-center-state">
